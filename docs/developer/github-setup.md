@@ -7,8 +7,9 @@ What the workflows need of `Mondarth/fvtt-package-catalogue`, in the order it wa
 - Push `main` and `dev` first, so that there are branches for the rulesets: one empty commit on both is enough. The
   project then arrives through a pull request into `dev`.
 - The default branch is `dev`. The first push makes it `main`: change it under Settings → General.
-- Leave **Automatically delete head branches** off. The release workflow merges `main` back into `dev` through a pull
-  request when it cannot fast-forward, and deleting that pull request's head would delete `main`.
+- Turn on **Automatically delete head branches**, as EMMA and pdt have it. It never deletes `dev` or `main`, the
+  heads of the release pull request and of the one that brings `dev` up to date: `dev` is the default branch, and both
+  rulesets forbid deleting their branch, which stops GitHub's automatic deletion too.
 - A ruleset for each of `dev` and `main`:
   - changes only through pull requests, merged with **merge commits only** (semantic-release reads every commit);
   - no deletion, no force pushes;
