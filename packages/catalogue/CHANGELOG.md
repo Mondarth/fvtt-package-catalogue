@@ -1,3 +1,11 @@
+## [@mondarth/fvtt-package-catalogue-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.1.0...@mondarth/fvtt-package-catalogue-v0.2.0) (2026-10-24)
+
+### Features
+
+* **catalogue:** crawl again the packages that changed ([d07bc8e](https://github.com/Mondarth/fvtt-package-catalogue/commit/d07bc8e44feb9164655146b9e44e16b40b706003))
+* **catalogue:** crawl the queue and keep core builds with the worker ([bbad719](https://github.com/Mondarth/fvtt-package-catalogue/commit/bbad7198fb471028a5826223d714c3baa9d7409f))
+* **catalogue:** serve the universe of a set of packages ([aa630cf](https://github.com/Mondarth/fvtt-package-catalogue/commit/aa630cf230b065f00325802cd1895ff86d88b102))
+
 ## [@mondarth/fvtt-package-catalogue-v0.1.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.0.0...@mondarth/fvtt-package-catalogue-v0.1.0) (2026-10-24)
 
 ### Features
