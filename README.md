@@ -2,6 +2,7 @@
 
 [![Dev CI](https://github.com/Mondarth/fvtt-package-catalogue/actions/workflows/dev.yml/badge.svg?branch=dev)](https://github.com/Mondarth/fvtt-package-catalogue/actions/workflows/dev.yml)
 [![E2E](https://github.com/Mondarth/fvtt-package-catalogue/actions/workflows/e2e.yml/badge.svg?branch=dev)](https://github.com/Mondarth/fvtt-package-catalogue/actions/workflows/e2e.yml)
+[![Docs](https://img.shields.io/badge/docs-mondarth.github.io-blue)](https://mondarth.github.io/fvtt-package-catalogue/)
 [![codecov](https://codecov.io/gh/Mondarth/fvtt-package-catalogue/branch/dev/graph/badge.svg)](https://codecov.io/gh/Mondarth/fvtt-package-catalogue)
 [![License: MIT](https://img.shields.io/github/license/Mondarth/fvtt-package-catalogue)](LICENSE)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
@@ -28,7 +29,7 @@ the proxy as the faster source; where it has no answer, the clients fall back to
 | `packages/contract`  | [`@mondarth/fvtt-package-catalogue-contract`](packages/contract): the API's zod schemas, on npm     |
 | `packages/catalogue` | The SvelteKit application: the API, the website, and the worker that keeps the database up to date  |
 | `deploy/`            | Docker Compose for production, beside a [SWAG](https://docs.linuxserver.io/general/swag/) container |
-| `docs/`              | The documentation (Sphinx, built in Docker)                                                         |
+| `docs/`              | The [documentation](https://mondarth.github.io/fvtt-package-catalogue/) (Sphinx, built in Docker)   |
 
 ## Using the API
 
@@ -36,14 +37,14 @@ the proxy as the faster source; where it has no answer, the clients fall back to
 curl -H "X-API-Key: $KEY" https://catalogue.example.com/api/v1/packages/module/midi-qol/releases
 ```
 
-See [the API](docs/user/api.md) for the endpoints, keys and errors, and [deploying it](docs/user/deployment.md) to run
+See [the API](https://mondarth.github.io/fvtt-package-catalogue/user/api.html) for the endpoints, keys and errors, and [deploying it](https://mondarth.github.io/fvtt-package-catalogue/user/deployment.html) to run
 your own.
 
 ## Languages
 
 The website is in English and Spanish. **The Spanish translation is a machine translation, made with AI for testing,
 and has not been reviewed by a Spanish speaker**; every page in Spanish says so. Reviews by Spanish speakers are welcome
-(see [Languages](docs/developer/i18n.md)). The API's messages are in English only.
+(see [Languages](https://mondarth.github.io/fvtt-package-catalogue/developer/i18n.html)). The API's messages are in English only.
 
 ## Contributing
 
