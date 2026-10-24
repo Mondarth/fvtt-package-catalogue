@@ -3,7 +3,7 @@
 #
 # Everything the processes use is bundled into build/, so the image holds no node_modules.
 
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -18,7 +18,7 @@ COPY packages/catalogue packages/catalogue
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build API_KEYS=build-only \
     pnpm --filter @mondarth/fvtt-package-catalogue build
 
-FROM node:24-alpine
+FROM node:25-alpine
 ENV NODE_ENV=production \
     PORT=3000 \
     MIGRATIONS_DIR=/app/drizzle
