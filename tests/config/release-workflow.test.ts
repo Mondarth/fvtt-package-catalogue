@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 
@@ -69,5 +69,15 @@ describe('e2e workflow', () => {
   it("runs every one of Playwright's projects", () => {
     const projects = [...config.matchAll(/name: '([\w-]+)'/g)].map(match => match[1]);
     expect(e2e.jobs.e2e?.strategy?.matrix?.project).toEqual(projects);
+  });
+});
+
+describe("the API's end-to-end tests", () => {
+  const dir = 'packages/catalogue/tests/e2e/api';
+
+  // Regression: they used the website's fixtures, whose console guard launches a browser, and failed in CI, where the
+  // api project installs none.
+  it.each(readdirSync(dir).filter(file => file.endsWith('.spec.ts')))('%s needs no browser', file => {
+    expect(readFileSync(`${dir}/${file}`, 'utf8')).not.toMatch(/from '\.\.\/fixtures\.js'/);
   });
 });

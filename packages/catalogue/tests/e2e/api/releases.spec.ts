@@ -1,6 +1,6 @@
 import { ErrorResponse, ReleasesResponse, releasesPath } from '@mondarth/fvtt-package-catalogue-contract';
 
-import { expect, test } from '../fixtures.js';
+import { expect, test } from '@playwright/test';
 import { SEEDED, SEEDED_AT, SEEDED_RELEASES } from '../seed.js';
 
 test("gives a package's releases as they were saved", async ({ request }) => {

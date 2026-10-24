@@ -1,8 +1,11 @@
 import { test as base, expect } from '@playwright/test';
 
 /**
- * The tests' `test`. Every page fails its test on a console error or an uncaught exception, except those a test
- * expects (`allowedConsoleErrors`): a page can look right while throwing.
+ * The website's tests' `test`. Every page fails its test on a console error or an uncaught exception, except those a
+ * test expects (`allowedConsoleErrors`): a page can look right while throwing.
+ *
+ * For pages only: its guard needs a page, so it launches a browser for every test. The API's tests use Playwright's
+ * own `test`, and run where no browser is installed.
  */
 export const test = base.extend<{ allowedConsoleErrors: RegExp[]; consoleErrors: string[] }>({
   allowedConsoleErrors: [[], { option: true }],

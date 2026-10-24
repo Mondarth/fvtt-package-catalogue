@@ -1,6 +1,6 @@
 import { HealthResponse, StatusResponse } from '@mondarth/fvtt-package-catalogue-contract';
 
-import { expect, test } from '../fixtures.js';
+import { expect, test } from '@playwright/test';
 import { SEEDED_AT, SEEDED_RELEASES } from '../seed.js';
 
 test('the server says it is up, without a key', async ({ playwright, baseURL }) => {

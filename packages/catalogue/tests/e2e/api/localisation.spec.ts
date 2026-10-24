@@ -1,5 +1,5 @@
 import { E2E_API_KEY } from '../environment.js';
-import { expect, test } from '../fixtures.js';
+import { expect, test } from '@playwright/test';
 
 // Only the website is localised: the API answers the same whatever language the client prefers, and has no paths
 // under a locale.

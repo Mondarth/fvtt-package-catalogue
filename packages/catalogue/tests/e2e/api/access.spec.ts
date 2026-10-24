@@ -1,6 +1,6 @@
 import { ErrorResponse } from '@mondarth/fvtt-package-catalogue-contract';
 
-import { expect, test } from '../fixtures.js';
+import { expect, test } from '@playwright/test';
 
 test.describe('without a valid key', () => {
   for (const [label, headers] of [
