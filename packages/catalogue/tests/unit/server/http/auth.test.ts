@@ -9,8 +9,12 @@ describe('keyMatcher', () => {
     expect(isKey(key)).toBe(true);
   });
 
-  it.each([null, '', 'curren', 'current ', 'CURRENT'])('refuses %j', key => {
+  it.each([null, '', 'curren', 'current ', 'CURRENT', 'previouss', 'currént'])('refuses %j', key => {
     expect(isKey(key)).toBe(false);
+  });
+
+  it('accepts a key of any length among keys of others', () => {
+    expect(keyMatcher(['a', 'a much longer key', 'ключ'])('ключ')).toBe(true);
   });
 
   it('refuses everything when no key is accepted', () => {
