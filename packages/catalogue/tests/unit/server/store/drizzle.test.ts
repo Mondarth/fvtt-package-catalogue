@@ -276,3 +276,29 @@ describe('drizzleStore, for the worker', () => {
     expect(await store.lastSuccess('core')).toEqual(later);
   });
 });
+
+describe('drizzleStore, for refreshing', () => {
+  const DND5E = { type: 'system', id: 'dnd5e' } as const;
+
+  it('gives every package it holds, with its sync time and listing details', async () => {
+    await store.saveReleases(MIDI, [], { source: 'crawl', at });
+    await store.saveReleases(DND5E, [], { source: 'crawl', at: later });
+    expect(await store.heldPackages()).toEqual([
+      { ref: MIDI, syncedAt: at, listingUpdatedAt: null, title: null, premium: false },
+      { ref: DND5E, syncedAt: later, listingUpdatedAt: null, title: null, premium: false },
+    ]);
+  });
+
+  it("saves the index's details of the packages it holds, and of no others", async () => {
+    const day = new Date('2026-10-01T00:00:00.000Z');
+    await store.saveReleases(MIDI, [], { source: 'crawl', at });
+    await store.saveListings([
+      { ref: MIDI, listingUpdatedAt: day, title: 'Midi QOL', premium: true },
+      { ref: DND5E, listingUpdatedAt: day, title: 'D&D Fifth Edition', premium: false },
+    ]);
+    await store.saveListings([]);
+    expect(await store.heldPackages()).toEqual([
+      { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true },
+    ]);
+  });
+});

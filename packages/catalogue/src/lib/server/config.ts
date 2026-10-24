@@ -44,6 +44,10 @@ export const WorkerConfig = z.object({
   CRAWL_MAX_REQUESTS: Count.default(5000),
   /** How long the worker waits when there is nothing to crawl. */
   CRAWL_POLL_SECONDS: Count.default(5),
+  /** How often the worker checks the packages held for changes on Foundry VTT's index. */
+  REFRESH_MINUTES: Count.default(60),
+  /** How long a package the index does not list waits to be crawled again. */
+  REFRESH_STALE_DAYS: Count.default(7),
   /** Foundry VTT's package index; another only to test against. */
   FOUNDRY_INDEX_URL: z.url().default(FOUNDRY_PACKAGE_INDEX),
   /** Foundry VTT's release notes, which list its builds; another only to test against. */

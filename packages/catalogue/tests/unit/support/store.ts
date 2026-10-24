@@ -24,5 +24,7 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     startRun: vi.fn<CatalogueStore['startRun']>().mockResolvedValue(1),
     finishRun: vi.fn<CatalogueStore['finishRun']>().mockResolvedValue(undefined),
     lastSuccess: vi.fn<CatalogueStore['lastSuccess']>().mockResolvedValue(null),
+    heldPackages: vi.fn<CatalogueStore['heldPackages']>().mockResolvedValue([]),
+    saveListings: vi.fn<CatalogueStore['saveListings']>().mockResolvedValue(undefined),
   };
 }

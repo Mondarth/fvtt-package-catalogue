@@ -7,6 +7,7 @@ import { mockStore } from '../support/store.js';
 
 import type { CoreRelease, PackageRef, Release } from '@mondarth/fvtt-package-catalogue-contract';
 import type { ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
+import type { IndexEntry } from '../../../src/lib/server/refresh.js';
 import type { QueuedCrawl } from '../../../src/lib/server/store/types.js';
 
 const NOW = new Date('2026-10-24T12:00:00.000Z');
@@ -46,9 +47,11 @@ const queued = (overrides: Partial<QueuedCrawl> = {}): QueuedCrawl => ({
 function setUp({
   releases = () => Promise.resolve<SourceResult<Release[]>>({ ok: true, value: [release()] }),
   core = () => Promise.resolve<SourceResult<CoreRelease[]>>({ ok: true, value: CORE }),
+  index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [] }),
 }: {
   releases?: () => Promise<SourceResult<Release[]>>;
   core?: () => Promise<SourceResult<CoreRelease[]>>;
+  index?: () => Promise<SourceResult<IndexEntry[]>>;
 } = {}) {
   const store = mockStore();
   const log = memoryLogger();
@@ -59,6 +62,7 @@ function setUp({
     http: () => httpClient({ fetch: vi.fn<typeof fetch>() }),
     sources: () => [sourceOf(releases)],
     coreReleases: core,
+    index,
     now: () => NOW,
     sleep: ms => {
       sleeps.push(ms);
@@ -169,6 +173,54 @@ describe("the worker, keeping Foundry VTT's builds", () => {
   });
 });
 
+describe('the worker, refreshing the packages held', () => {
+  const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
+  const changed: IndexEntry = { ref: MIDI, lastUpdated: day('2026-10-22'), title: 'Midi QOL', premium: false };
+
+  it("queues what Foundry VTT's index says changed, and keeps its details, before crawling", async () => {
+    const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [changed] }) });
+    store.heldPackages.mockResolvedValue([
+      { ref: MIDI, syncedAt: day('2026-10-20'), listingUpdatedAt: day('2026-10-01'), title: null, premium: false },
+    ]);
+    const order: string[] = [];
+    store.requestCrawl.mockImplementation(() => {
+      order.push('queued');
+      return Promise.resolve();
+    });
+    store.nextCrawl.mockImplementation(() => {
+      order.push('crawled');
+      return Promise.resolve(undefined);
+    });
+    await worker.drain();
+    expect(store.saveListings).toHaveBeenCalledWith([
+      { ref: MIDI, listingUpdatedAt: day('2026-10-22'), title: 'Midi QOL', premium: false },
+    ]);
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: MIDI, reason: 'refresh' }]);
+    expect(order).toEqual(['queued', 'crawled']);
+  });
+
+  it('does not check again within an hour', async () => {
+    const { store, worker } = setUp();
+    store.lastSuccess.mockImplementation(job =>
+      Promise.resolve(job === 'refresh' ? new Date(NOW.getTime() - 30 * 60 * 1000) : null),
+    );
+    await worker.drain();
+    expect(store.heldPackages).not.toHaveBeenCalled();
+  });
+
+  it('goes on to crawl when the index cannot be read', async () => {
+    const { store, log, worker } = setUp({
+      index: () => Promise.resolve({ ok: false, gap: { source: 'foundry-index', url: 'https://i', reason: 'http' } }),
+    });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    expect(await worker.drain()).toEqual({ crawled: 1 });
+    expect(store.heldPackages).not.toHaveBeenCalled();
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: 'The packages held were not checked for changes' }),
+    );
+  });
+});
+
 describe('the worker, running', () => {
   it('waits when there is nothing to do, and stops when told', async () => {
     const { store, worker, sleeps } = setUp();
@@ -213,6 +265,7 @@ describe('the worker, by default', () => {
       http: () => httpClient({ fetch: vi.fn<typeof fetch>() }),
       sources: () => [],
       coreReleases: () => Promise.resolve({ ok: true, value: [] }),
+      index: () => Promise.resolve({ ok: true, value: [] }),
     });
     // Stopped already, the default sleep returns at once rather than after five seconds.
     await worker.run(stop.signal);

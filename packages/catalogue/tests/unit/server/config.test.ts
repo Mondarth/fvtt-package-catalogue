@@ -42,6 +42,8 @@ describe('readConfig', () => {
       MIGRATIONS_DIR: 'drizzle',
       CRAWL_MAX_REQUESTS: 5000,
       CRAWL_POLL_SECONDS: 5,
+      REFRESH_MINUTES: 60,
+      REFRESH_STALE_DAYS: 7,
       FOUNDRY_INDEX_URL: 'https://r2.foundryvtt.com/package-api-public/index-latest.json',
       FOUNDRY_RELEASES_URL: 'https://foundryvtt.com/releases/',
     });
@@ -69,6 +71,8 @@ describe('readConfig', () => {
   it('refuses a budget that is not a whole number above none', () => {
     expect(() => readConfig({ DATABASE_URL, CRAWL_MAX_REQUESTS: '0' })).toThrow(/CRAWL_MAX_REQUESTS/);
     expect(() => readConfig({ DATABASE_URL, CRAWL_POLL_SECONDS: 'soon' })).toThrow(/CRAWL_POLL_SECONDS/);
+    expect(() => readConfig({ DATABASE_URL, REFRESH_MINUTES: '-1' })).toThrow(/REFRESH_MINUTES/);
+    expect(() => readConfig({ DATABASE_URL, REFRESH_STALE_DAYS: '1.5' })).toThrow(/REFRESH_STALE_DAYS/);
   });
 
   it('names every variable that is wrong', () => {

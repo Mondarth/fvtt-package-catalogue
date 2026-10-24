@@ -2,7 +2,8 @@
  * The worker: the catalogue's process for work outside requests.
  *
  *   node build/worker/main.js migrate   applies the database migrations, then exits
- *   node build/worker/main.js run       crawls the queue and keeps Foundry VTT's builds up to date, until stopped
+ *   node build/worker/main.js run       crawls the queue, refreshes what changed and keeps Foundry VTT's builds up to
+ *                                       date, until stopped
  *   node build/worker/main.js drain     does what is due now, then exits
  */
 import {
@@ -18,6 +19,7 @@ import {
 import { readConfig } from '#lib/server/config.js';
 import { connect } from '#lib/server/db/connect.js';
 import { createLogger } from '#lib/server/log.js';
+import { fetchIndex } from '#lib/server/refresh.js';
 import { drizzleStore } from '#lib/server/store/drizzle.js';
 
 import { createWorker } from './worker.js';
@@ -49,7 +51,10 @@ function workerOver(connection: ReturnType<typeof connect>) {
       manifestUrlSource(http),
     ],
     coreReleases: http => foundryCoreReleases(http, { url: config.FOUNDRY_RELEASES_URL }),
+    index: http => fetchIndex(http, config.FOUNDRY_INDEX_URL),
     pollMs: config.CRAWL_POLL_SECONDS * 1000,
+    refreshEveryMs: config.REFRESH_MINUTES * 60 * 1000,
+    staleMs: config.REFRESH_STALE_DAYS * 24 * 60 * 60 * 1000,
   });
 }
 
