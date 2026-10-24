@@ -14,7 +14,7 @@ export default async function globalSetup(): Promise<void> {
   const connection = connect(E2E_ENV.DATABASE_URL);
   try {
     await connection.db.execute(
-      'truncate packages, raw_manifests, core_releases, source_gaps, crawl_requests restart identity cascade',
+      'truncate packages, raw_manifests, core_releases, source_gaps, crawl_requests, sync_runs restart identity cascade',
     );
     const store = drizzleStore(connection.db);
     await store.saveReleases(SEEDED, SEEDED_RELEASES, { source: 'e2e', at: SEEDED_AT });

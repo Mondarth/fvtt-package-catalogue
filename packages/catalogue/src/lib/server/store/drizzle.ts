@@ -2,9 +2,9 @@
  * The store, in PostgreSQL through Drizzle.
  */
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { and, asc, count, eq, inArray, max, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, lte, max, or, sql } from 'drizzle-orm';
 
-import { coreReleases, crawlRequests, packages, relationships, releases, sourceGaps } from '../db/schema.js';
+import { coreReleases, crawlRequests, packages, relationships, releases, sourceGaps, syncRuns } from '../db/schema.js';
 
 import type {
   Compatibility,
@@ -79,6 +79,19 @@ function releaseOf(ref: PackageRef, row: ReleaseRow, related: readonly Relations
     ...(row.loadFailed && { loadFailed: true }),
   };
 }
+
+/** A gap as a row, for a package or for the package of its own. */
+const gapRow = (gap: SourceGap) => ({
+  source: gap.source,
+  url: gap.url,
+  reason: gap.reason,
+  status: gap.status ?? null,
+  packageKey: gap.package ?? null,
+  version: gap.version ?? null,
+});
+
+/** The worker crawls what was asked for first, then what closures need, then refreshes. */
+const CRAWL_PRIORITY = sql`case ${crawlRequests.reason} when 'request' then 0 when 'closure' then 1 else 2 end`;
 
 function gapOf(row: GapRow): SourceGap {
   return {
@@ -243,16 +256,7 @@ export function drizzleStore(db: Database): CatalogueStore {
 
     async recordGaps(gaps) {
       if (gaps.length === 0) return;
-      await db.insert(sourceGaps).values(
-        gaps.map(gap => ({
-          source: gap.source,
-          url: gap.url,
-          reason: gap.reason,
-          status: gap.status ?? null,
-          packageKey: gap.package ?? null,
-          version: gap.version ?? null,
-        })),
-      );
+      await db.insert(sourceGaps).values(gaps.map(gapRow));
     },
 
     async requestCrawl(requests) {
@@ -267,6 +271,91 @@ export function drizzleStore(db: Database): CatalogueStore {
             reason: sql`case when excluded.reason = 'request' then excluded.reason else ${crawlRequests.reason} end`,
           },
         });
+    },
+
+    async nextCrawl(now) {
+      const [row] = await db
+        .select()
+        .from(crawlRequests)
+        .where(lte(crawlRequests.notBefore, now))
+        .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
+        .limit(1);
+      return (
+        row && {
+          id: row.id,
+          package: { type: row.type, id: row.packageId },
+          reason: row.reason,
+          attempts: row.attempts,
+        }
+      );
+    },
+
+    async finishCrawl(id) {
+      await db.delete(crawlRequests).where(eq(crawlRequests.id, id));
+    },
+
+    async deferCrawl(id, until) {
+      await db
+        .update(crawlRequests)
+        .set({ attempts: sql`${crawlRequests.attempts} + 1`, notBefore: until })
+        .where(eq(crawlRequests.id, id));
+    },
+
+    async replaceGaps(key, gaps) {
+      await db.transaction(async tx => {
+        await tx.delete(sourceGaps).where(eq(sourceGaps.packageKey, key));
+        if (gaps.length > 0) await tx.insert(sourceGaps).values(gaps.map(gap => ({ ...gapRow(gap), packageKey: key })));
+      });
+    },
+
+    async declaredManifests(ref) {
+      const rows = await db
+        // Not null: the query leaves out relationships that declare no manifest.
+        .selectDistinct({ manifest: sql<string>`${relationships.manifest}` })
+        .from(relationships)
+        .where(
+          and(
+            eq(relationships.targetType, ref.type),
+            eq(relationships.targetId, ref.id),
+            isNotNull(relationships.manifest),
+          ),
+        )
+        .orderBy(asc(relationships.manifest));
+      return rows.map(row => row.manifest);
+    },
+
+    async unknownOf(refs) {
+      if (refs.length === 0) return [];
+      const held = await db
+        .select({ type: packages.type, packageId: packages.packageId })
+        .from(packages)
+        .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
+      const known = new Set(held.map(row => packageKey({ type: row.type, id: row.packageId })));
+      return refs.filter(ref => !known.has(packageKey(ref)));
+    },
+
+    async startRun(job, at) {
+      const [row] = await db.insert(syncRuns).values({ job, startedAt: at }).returning({ id: syncRuns.id });
+      /* v8 ignore next -- an insert always returns its row */
+      if (row === undefined) throw new Error(`The run of ${job} was not recorded`);
+      return row.id;
+    },
+
+    async finishRun(id, { at, outcome, requests, error }) {
+      await db
+        .update(syncRuns)
+        .set({ finishedAt: at, outcome, requests, error: error ?? null })
+        .where(eq(syncRuns.id, id));
+    },
+
+    async lastSuccess(job) {
+      const [row] = await db
+        .select({ finishedAt: syncRuns.finishedAt })
+        .from(syncRuns)
+        .where(and(eq(syncRuns.job, job), eq(syncRuns.outcome, 'ok')))
+        .orderBy(desc(syncRuns.finishedAt))
+        .limit(1);
+      return row?.finishedAt ?? null;
     },
   };
 }

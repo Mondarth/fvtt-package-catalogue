@@ -49,6 +49,43 @@ export interface CatalogueStore {
    * asked for.
    */
   requestCrawl(requests: readonly CrawlRequest[]): Promise<void>;
+  /**
+   * The next package the worker may crawl at this time: asked for before needed, needed before due a refresh, oldest
+   * first within each. Undefined if none is due.
+   */
+  nextCrawl(now: Date): Promise<QueuedCrawl | undefined>;
+  /** Takes a crawled package off the queue. */
+  finishCrawl(id: number): Promise<void>;
+  /** Leaves a package on the queue after a failed crawl, counting the failure, not to be tried before `until`. */
+  deferCrawl(id: number, until: Date): Promise<void>;
+  /** Replaces what sources could not fetch or read for a package, by its key, with the gaps of its latest crawl. */
+  replaceGaps(key: string, gaps: readonly SourceGap[]): Promise<void>;
+  /** The manifest URLs that held releases' relationships give for a package, which a crawl may find it by. */
+  declaredManifests(ref: PackageRef): Promise<string[]>;
+  /** Which of these packages the catalogue does not know, in the order given. */
+  unknownOf(refs: readonly PackageRef[]): Promise<PackageRef[]>;
+  /** Records that a run of a worker job started, and returns its id. */
+  startRun(job: string, at: Date): Promise<number>;
+  /** Records how a run of a worker job ended. */
+  finishRun(id: number, end: RunEnd): Promise<void>;
+  /** When a run of a job last ended well; null if none ever did. */
+  lastSuccess(job: string): Promise<Date | null>;
+}
+
+/** A package on the worker's queue. */
+export interface QueuedCrawl extends CrawlRequest {
+  readonly id: number;
+  /** How many crawls of it have failed. */
+  readonly attempts: number;
+}
+
+/** How a run of a worker job ended. */
+export interface RunEnd {
+  readonly at: Date;
+  readonly outcome: 'ok' | 'failed';
+  /** How many HTTP requests it made. */
+  readonly requests: number;
+  readonly error?: string;
 }
 
 /** A package for the worker to fetch, and why. */
@@ -60,7 +97,7 @@ export interface CrawlRequest {
 
 /** Where saved releases came from, and when. */
 export interface SaveOptions {
-  /** The source the releases were found by, such as `foundry-index`. */
+  /** What saved the releases: the worker's `crawl`, or a test's seed. */
   readonly source: string;
   /** When they were fetched: the package's new `asOf`. */
   readonly at: Date;

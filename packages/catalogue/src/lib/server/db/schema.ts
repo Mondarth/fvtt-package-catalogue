@@ -78,7 +78,7 @@ export const releases = pgTable(
     detail: releaseDetail().notNull(),
     unlisted: boolean().notNull().default(false),
     loadFailed: boolean().notNull().default(false),
-    /** The source the release was found by, such as `foundry-index`. */
+    /** What saved the release: the worker's `crawl`, or a test's seed. */
     source: text().notNull(),
     /** The manifest it was loaded from, if it was. */
     manifestHash: text().references(() => rawManifests.hash),
@@ -146,8 +146,12 @@ export const crawlRequests = pgTable(
     packageId: text().notNull(),
     reason: crawlReason().notNull(),
     requestedAt: createdAt,
+    /** How many times the worker has failed to crawl it. */
+    attempts: integer().notNull().default(0),
+    /** When the worker may next try it: later after each failure. */
+    notBefore: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  table => [unique().on(table.type, table.packageId)],
+  table => [unique().on(table.type, table.packageId), index().on(table.notBefore)],
 );
 
 /** One run of a worker job. */

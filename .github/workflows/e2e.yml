@@ -1,6 +1,7 @@
 name: E2E
 
-# The built server against PostgreSQL, in Playwright: the API once, the website in Chromium, Firefox and WebKit.
+# The built server and worker against PostgreSQL, in Playwright: the API once, then the worker against a stub of the
+# web, and the website in Chromium, Firefox and WebKit.
 # Runs on every pull request and every push to `dev`, and by hand. The release workflow calls it for pushes to `main`.
 on:
   push:
@@ -28,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [api, chromium, firefox, webkit]
+        project: [api, worker, chromium, firefox, webkit]
     defaults:
       run:
         working-directory: packages/catalogue
@@ -44,7 +45,7 @@ jobs:
           API_KEYS: build-only
 
       - name: Cache Playwright browsers
-        if: matrix.project != 'api'
+        if: matrix.project != 'api' && matrix.project != 'worker'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
@@ -53,7 +54,7 @@ jobs:
       # The install's apt downloads can stall on a slow Ubuntu mirror for longer than the job's timeout, when it
       # usually takes seconds. A stalled install is stopped after five minutes and tried once more.
       - name: Install the browser
-        if: matrix.project != 'api'
+        if: matrix.project != 'api' && matrix.project != 'worker'
         timeout-minutes: 12
         run: |
           for attempt in 1 2; do

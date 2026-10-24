@@ -11,7 +11,7 @@ PostgreSQL 18, through [Drizzle ORM](https://orm.drizzle.team). The schema is in
 | `raw_manifests`  | Manifests as fetched, by hash, so releases can be normalised again without fetching      |
 | `core_releases`  | Foundry VTT's builds                                                                     |
 | `source_gaps`    | What a source could not fetch or read                                                    |
-| `crawl_requests` | Packages waiting for the worker: asked for, or needed by a closure                       |
+| `crawl_requests` | Packages waiting for the worker, asked for or needed by a closure, and their retries     |
 | `sync_runs`      | Each run of a worker job                                                                 |
 
 ## Changing the schema

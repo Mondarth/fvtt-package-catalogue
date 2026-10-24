@@ -1,6 +1,6 @@
 import { defaultServerConditions, defineConfig } from 'vite';
 
-import { SOURCE } from './vite.config.js';
+import { DEFINE, SOURCE } from './vite.config.js';
 
 /**
  * Builds the worker, the process that migrates the database and keeps it up to date, into build/worker. It shares the
@@ -15,5 +15,6 @@ export default defineConfig({
     target: 'node24',
     sourcemap: true,
   },
+  define: DEFINE,
   ssr: { noExternal: true, resolve: { conditions: [SOURCE, ...defaultServerConditions] } },
 });
