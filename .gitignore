@@ -18,8 +18,10 @@ packages/*/tests/e2e/.auth/
 # Documentation
 docs/_build/
 
-# Release artefacts built by semantic-release
-releases/
+# Release artefacts built by semantic-release, at the root or a package's root. Anchored: a route may be named
+# releases (src/routes/…/releases/).
+/releases/
+/packages/*/releases/
 
 # Logs
 *.log
