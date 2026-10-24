@@ -3,6 +3,7 @@
  * Drizzle, so that the database can change behind it and tests can stand in for it.
  */
 import type { CoreRelease, PackageRef, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
+import type { HeldPackage, Listing } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
 export interface CatalogueStatus {
@@ -70,6 +71,10 @@ export interface CatalogueStore {
   finishRun(id: number, end: RunEnd): Promise<void>;
   /** When a run of a job last ended well; null if none ever did. */
   lastSuccess(job: string): Promise<Date | null>;
+  /** Every package the catalogue holds, with when it was synced and its listing details. */
+  heldPackages(): Promise<HeldPackage[]>;
+  /** Saves Foundry VTT's index's details of packages held; a package not held is left out. */
+  saveListings(listings: readonly Listing[]): Promise<void>;
 }
 
 /** A package on the worker's queue. */

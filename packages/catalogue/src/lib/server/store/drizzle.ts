@@ -357,5 +357,32 @@ export function drizzleStore(db: Database): CatalogueStore {
         .limit(1);
       return row?.finishedAt ?? null;
     },
+
+    async heldPackages() {
+      const rows = await db
+        .select({
+          type: packages.type,
+          packageId: packages.packageId,
+          syncedAt: packages.syncedAt,
+          listingUpdatedAt: packages.listingUpdatedAt,
+          title: packages.title,
+          premium: packages.premium,
+        })
+        .from(packages)
+        .orderBy(asc(packages.id));
+      return rows.map(({ type, packageId, ...rest }) => ({ ref: { type, id: packageId }, ...rest }));
+    },
+
+    async saveListings(listings) {
+      if (listings.length === 0) return;
+      await db.transaction(async tx => {
+        for (const { ref, listingUpdatedAt, title, premium } of listings) {
+          await tx
+            .update(packages)
+            .set({ listingUpdatedAt, title, premium })
+            .where(and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)));
+        }
+      });
+    },
   };
 }

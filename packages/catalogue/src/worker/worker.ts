@@ -5,14 +5,17 @@
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { crawlPackage } from '#lib/server/crawl.js';
+import { planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '#lib/server/log.js';
+import type { IndexEntry } from '#lib/server/refresh.js';
 import type { CatalogueStore, QueuedCrawl } from '#lib/server/store/types.js';
 
 const MINUTE = 60 * 1000;
-const DAY = 24 * 60 * MINUTE;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 /** What the worker works with. */
 export interface WorkerOptions {
@@ -24,6 +27,8 @@ export interface WorkerOptions {
   readonly sources: (http: HttpClient) => ReleaseSource[];
   /** Foundry VTT's builds, fetched through a job's client. */
   readonly coreReleases: (http: HttpClient) => Promise<SourceResult<CoreRelease[]>>;
+  /** Foundry VTT's index, fetched through a job's client. */
+  readonly index: (http: HttpClient) => Promise<SourceResult<IndexEntry[]>>;
   /** The time now; the clock by default. */
   readonly now?: () => Date;
   /** Waits, or stops waiting when the signal aborts; {@link sleep} by default. */
@@ -32,13 +37,20 @@ export interface WorkerOptions {
   readonly pollMs?: number;
   /** How often Foundry VTT's builds are fetched; daily by default. */
   readonly coreEveryMs?: number;
+  /** How often the packages held are checked for changes; hourly by default. */
+  readonly refreshEveryMs?: number;
+  /** How long a package Foundry VTT's index does not list waits to be crawled again; a week by default. */
+  readonly staleMs?: number;
 }
 
 /** The worker. */
 export interface Worker {
   /** Works until the signal aborts, finishing the job in hand. */
   run(signal: AbortSignal): Promise<void>;
-  /** Fetches Foundry VTT's builds if they are due, then crawls what is on the queue and due, and returns. */
+  /**
+   * Fetches Foundry VTT's builds and checks the packages held for changes, if those are due, then crawls what is on
+   * the queue and due, and returns.
+   */
   drain(): Promise<{ crawled: number }>;
 }
 
@@ -90,40 +102,73 @@ export function createWorker({
   http,
   sources,
   coreReleases,
+  index,
   now = () => new Date(),
   sleep: wait = sleep,
   pollMs = 5000,
   coreEveryMs = DAY,
+  refreshEveryMs = HOUR,
+  staleMs = 7 * DAY,
 }: WorkerOptions): Worker {
-  /** Runs a job with a client of its own, recording the run; whatever it throws is rethrown once recorded. */
-  async function job(name: string, fields: Record<string, unknown>, work: (client: HttpClient) => Promise<void>) {
+  /**
+   * Runs a job with a client of its own, recording the run; whatever it throws is rethrown once recorded. What the work
+   * returns is logged with the job.
+   */
+  async function job(
+    name: string,
+    fields: Record<string, unknown>,
+    work: (client: HttpClient) => Promise<Record<string, unknown> | undefined>,
+  ) {
     const client = http();
     const id = await store.startRun(name, now());
     try {
-      await work(client);
+      const done = await work(client);
       await store.finishRun(id, { at: now(), outcome: 'ok', requests: client.requests() });
-      log.info('The job is done', { job: name, ...fields, requests: client.requests() });
+      log.info('The job is done', { job: name, ...fields, ...done, requests: client.requests() });
     } catch (error) {
       await store.finishRun(id, { at: now(), outcome: 'failed', requests: client.requests(), error: messageOf(error) });
       throw error;
     }
   }
 
-  /** Fetches Foundry VTT's builds, unless they were fetched recently. */
-  async function syncCore(): Promise<void> {
-    const last = await store.lastSuccess('core');
-    if (last !== null && now().getTime() - last.getTime() < coreEveryMs) return;
+  /**
+   * Runs a job unless it last ended well within `everyMs`. A failure is logged, not thrown: what the job keeps up to
+   * date is still good, and the next pass tries again.
+   */
+  async function periodic(
+    name: string,
+    everyMs: number,
+    failed: string,
+    work: (client: HttpClient) => Promise<Record<string, unknown> | undefined>,
+  ): Promise<void> {
+    const last = await store.lastSuccess(name);
+    if (last !== null && now().getTime() - last.getTime() < everyMs) return;
     try {
-      await job('core', {}, async client => {
-        const found = await coreReleases(client);
-        if (!found.ok) throw new Error(`Foundry VTT's builds could not be read: ${found.gap.reason} ${found.gap.url}`);
-        await store.saveCoreReleases(found.value);
-      });
+      await job(name, {}, work);
     } catch (error) {
-      // Builds held are still good; the next run tries again.
-      log.warn("Foundry VTT's builds were not brought up to date", { error });
+      log.warn(failed, { error });
     }
   }
+
+  /** Fetches Foundry VTT's builds. */
+  const syncCore = () =>
+    periodic('core', coreEveryMs, "Foundry VTT's builds were not brought up to date", async client => {
+      const found = await coreReleases(client);
+      if (!found.ok) throw new Error(`Foundry VTT's builds could not be read: ${found.gap.reason} ${found.gap.url}`);
+      await store.saveCoreReleases(found.value);
+      return { builds: found.value.length };
+    });
+
+  /** Queues the packages held that changed, or that are old enough, to be crawled again. */
+  const refresh = () =>
+    periodic('refresh', refreshEveryMs, 'The packages held were not checked for changes', async client => {
+      const found = await index(client);
+      if (!found.ok) throw new Error(`Foundry VTT's index could not be read: ${found.gap.reason} ${found.gap.url}`);
+      const plan = planRefresh(await store.heldPackages(), found.value, { now: now(), staleMs });
+      await store.saveListings(plan.listings);
+      await store.requestCrawl(plan.refresh.map(ref => ({ package: ref, reason: 'refresh' })));
+      return { refreshed: plan.refresh.length, listings: plan.listings.length };
+    });
 
   /** Crawls one package from the queue, deferring it if the crawl fails. */
   async function crawl(item: QueuedCrawl): Promise<void> {
@@ -149,6 +194,7 @@ export function createWorker({
         const unknown = await store.unknownOf(found.named);
         await store.requestCrawl(unknown.map(other => ({ package: other, reason: 'closure' })));
         await store.finishCrawl(item.id);
+        return { releases: found.releases.length, gaps: found.gaps.length, queued: unknown.length };
       });
     } catch (error) {
       const until = new Date(now().getTime() + backoff(item.attempts));
@@ -167,11 +213,12 @@ export function createWorker({
 
   return {
     async run(signal) {
-      log.info('The worker started', { pollMs, coreEveryMs });
+      log.info('The worker started', { pollMs, coreEveryMs, refreshEveryMs, staleMs });
       while (!signal.aborted) {
         let worked = false;
         try {
           await syncCore();
+          await refresh();
           worked = await crawlNext();
         } catch (error) {
           // The database, most likely: wait, and try again.
@@ -184,6 +231,7 @@ export function createWorker({
 
     async drain() {
       await syncCore();
+      await refresh();
       let crawled = 0;
       while (await crawlNext()) crawled++;
       return { crawled };

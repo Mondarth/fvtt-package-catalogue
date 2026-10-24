@@ -72,6 +72,10 @@ own manifest. It saves even a package no source knows, so that it is not asked f
 kept as the package's gaps, which the universe gives. A crawl that fails is tried again after a minute, then after
 twice as long each time, to a day at most. Foundry VTT's builds are fetched from its release notes once a day.
 
+Every hour (`REFRESH_MINUTES`), the worker reads Foundry VTT's index and crawls again each package it holds that the
+index says has changed. A package the index does not list is crawled again a week (`REFRESH_STALE_DAYS`) after it was
+last synced. A refresh fetches only new versions' manifests: what it loaded before, it keeps.
+
 Each crawl may make at most `CRAWL_MAX_REQUESTS` requests (5000 by default). Stopping the container lets it finish the
 package in hand, for up to a minute.
 
