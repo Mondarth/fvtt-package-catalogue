@@ -1,0 +1,12 @@
+{
+  "extends": "$app/tsconfig",
+  "compilerOptions": {
+    "types": ["$app/types", "node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "customConditions": ["@mondarth/fvtt-package-catalogue/source"]
+  },
+  "include": ["src", "tests", "*.config.ts", "project.inlang/*.ts"]
+}

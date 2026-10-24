@@ -1,0 +1,19 @@
+# A throwaway PostgreSQL for the end-to-end tests (`pnpm e2e:db`). Its data lives in memory and goes with it.
+name: fvtt-package-catalogue-e2e
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: catalogue
+      POSTGRES_PASSWORD: catalogue
+      POSTGRES_DB: catalogue_e2e
+    ports:
+      - '127.0.0.1:${E2E_DB_PORT:-55433}:5432'
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U catalogue -d catalogue_e2e']
+      interval: 1s
+      timeout: 3s
+      retries: 60

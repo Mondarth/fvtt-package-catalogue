@@ -1,0 +1,82 @@
+import { describe, expect, it } from 'vitest';
+
+import { GET as releases } from '../../../src/routes/api/v1/packages/[type=packageType]/[id]/releases/+server.js';
+import { GET as status } from '../../../src/routes/api/v1/status/+server.js';
+import { GET as health } from '../../../src/routes/healthz/+server.js';
+import { invoke } from '../support/event.js';
+import { mockStore } from '../support/store.js';
+
+import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
+
+const release: Release = {
+  package: { type: 'module', id: 'midi-qol' },
+  version: '13.0.4',
+  compatibility: {},
+  relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+  protected: false,
+  origin: 'https://example.com/module.json',
+  detail: 'listed',
+};
+
+describe('GET /api/v1/packages/:type/:id/releases', () => {
+  const get = (id: string, store = mockStore()) =>
+    invoke(releases, { params: { type: 'module', id }, locals: { store } });
+
+  it("gives a package's releases, as of when they were fetched", async () => {
+    const store = mockStore();
+    store.releasesOf.mockResolvedValue({ releases: [release], asOf: new Date('2026-10-24T09:00:00Z') });
+    const response = await get('midi-qol', store);
+    expect(store.releasesOf).toHaveBeenCalledWith({ type: 'module', id: 'midi-qol' });
+    expect(await response.json()).toEqual({
+      package: { type: 'module', id: 'midi-qol' },
+      releases: [release],
+      asOf: '2026-10-24T09:00:00.000Z',
+    });
+  });
+
+  it('gives releases never brought up to date as of no time', async () => {
+    const store = mockStore();
+    store.releasesOf.mockResolvedValue({ releases: [], asOf: null });
+    expect(await (await get('midi-qol', store)).json()).toMatchObject({ asOf: null });
+  });
+
+  it('answers not-found for a package it does not know', async () => {
+    const response = await get('nobody');
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: 'not-found', requestId: 'request-1' } });
+  });
+
+  it('answers bad-request for an id no package can have, without asking the store', async () => {
+    const store = mockStore();
+    const response = await get('a/b', store);
+    expect(response.status).toBe(400);
+    expect(store.releasesOf).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/v1/status', () => {
+  it('gives what the catalogue holds, and its version', async () => {
+    const store = mockStore();
+    store.status.mockResolvedValue({ packages: 3, releases: 40, asOf: new Date('2026-10-24T09:00:00Z') });
+    const response = await invoke(status, { locals: { store } });
+    expect(await response.json()).toEqual({
+      apiVersion: 'v1',
+      version: '0.0.0',
+      packages: 3,
+      releases: 40,
+      asOf: '2026-10-24T09:00:00.000Z',
+    });
+  });
+
+  it('gives no time when nothing was ever brought up to date', async () => {
+    expect(await (await invoke(status)).json()).toMatchObject({ asOf: null });
+  });
+});
+
+describe('GET /healthz', () => {
+  it('says the server is up, never cached', async () => {
+    const response = await invoke(health);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(await response.json()).toEqual({ status: 'ok' });
+  });
+});
