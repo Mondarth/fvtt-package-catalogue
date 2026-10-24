@@ -1,4 +1,4 @@
-import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
+import type { CoreRelease, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 
 /** A package the database is seeded with. */
 export const SEEDED = { type: 'module', id: 'e2e-module' } as const;
@@ -30,5 +30,23 @@ export const SEEDED_RELEASES: Release[] = [
     protected: false,
     origin: 'https://r2.foundryvtt.com/package-api-public/e2e-module.json',
     detail: 'listed',
+  },
+];
+
+/** Foundry VTT's builds the database is seeded with, oldest first. */
+export const SEEDED_CORE: CoreRelease[] = [
+  { version: '13.351', generation: 13, channel: 'stable' },
+  { version: '14.368', generation: 14, channel: 'stable' },
+];
+
+/** What a source could not fetch for the seeded package. */
+export const SEEDED_GAPS: SourceGap[] = [
+  {
+    source: 'manifest',
+    url: 'https://r2.foundryvtt.com/package-api-public/e2e-module.json',
+    reason: 'http',
+    status: 404,
+    package: 'module:e2e-module',
+    version: '1.1.0',
   },
 ];

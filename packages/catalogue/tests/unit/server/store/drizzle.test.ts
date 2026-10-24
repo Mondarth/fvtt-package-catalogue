@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { releases } from '../../../../src/lib/server/db/schema.js';
+import { crawlRequests, releases } from '../../../../src/lib/server/db/schema.js';
 import { drizzleStore } from '../../../../src/lib/server/store/drizzle.js';
 import { testDatabase } from '../../support/pglite.js';
 
-import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
+import type { CoreRelease, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 import type { Database } from '../../../../src/lib/server/db/database.js';
 import type { CatalogueStore } from '../../../../src/lib/server/store/types.js';
 
@@ -123,3 +123,83 @@ describe('drizzleStore', () => {
     expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null });
   });
 });
+
+describe('drizzleStore, for universes', () => {
+  const DND5E = { type: 'system', id: 'dnd5e' } as const;
+  const dnd5eRelease: Release = { ...listed, package: DND5E, version: '5.1.0' };
+
+  it('gives the releases of each package it knows, in the order asked, leaving out the others', async () => {
+    await store.saveReleases(MIDI, [loaded, listed], { source: 'foundry-index', at });
+    await store.saveReleases(DND5E, [dnd5eRelease], { source: 'foundry-index', at: later });
+    const found = await store.releasesOfEach([DND5E, { type: 'module', id: 'nobody' }, MIDI]);
+    expect([...found.keys()]).toEqual(['system:dnd5e', 'module:midi-qol']);
+    expect(found.get('module:midi-qol')).toEqual({ releases: [loaded, listed], asOf: at });
+    expect(found.get('system:dnd5e')).toEqual({ releases: [dnd5eRelease], asOf: later });
+  });
+
+  it('gives nothing for no packages', async () => {
+    expect((await store.releasesOfEach([])).size).toBe(0);
+  });
+
+  it("gives Foundry VTT's builds oldest first, by build number rather than text", async () => {
+    const core: CoreRelease[] = [
+      { version: '14.368', generation: 14, channel: 'stable' },
+      { version: '13.351', generation: 13, channel: 'stable' },
+      { version: '14.37', generation: 14, channel: 'testing' },
+    ];
+    await store.saveCoreReleases(core);
+    expect(await store.coreReleases()).toEqual([core[1], core[2], core[0]]);
+  });
+
+  it('replaces a build it holds', async () => {
+    await store.saveCoreReleases([{ version: '14.368', generation: 14, channel: 'testing' }]);
+    await store.saveCoreReleases([{ version: '14.368', generation: 14, channel: 'stable' }]);
+    await store.saveCoreReleases([]);
+    expect(await store.coreReleases()).toEqual([{ version: '14.368', generation: 14, channel: 'stable' }]);
+  });
+
+  it('gives the gaps of the packages asked for, as recorded', async () => {
+    const gaps: SourceGap[] = [
+      {
+        source: 'manifest',
+        url: 'https://example.com/a.json',
+        reason: 'http',
+        status: 404,
+        package: 'module:midi-qol',
+        version: '13.0.5',
+      },
+      { source: 'github', url: 'https://api.github.com/x', reason: 'budget', package: 'module:dae' },
+      { source: 'foundry-index', url: 'https://example.com/index', reason: 'network' },
+    ];
+    await store.recordGaps(gaps);
+    await store.recordGaps([]);
+    expect(await store.gapsOf(['module:midi-qol', 'module:dae'])).toEqual([gaps[0], gaps[1]]);
+    expect(await store.gapsOf([])).toEqual([]);
+  });
+
+  it('queues each package once, as asked for if it ever was', async () => {
+    await store.requestCrawl([
+      { package: MIDI, reason: 'request' },
+      { package: DND5E, reason: 'closure' },
+    ]);
+    await store.requestCrawl([{ package: MIDI, reason: 'closure' }]);
+    await store.requestCrawl([]);
+    expect(await queue()).toEqual([
+      { type: 'module', packageId: 'midi-qol', reason: 'request' },
+      { type: 'system', packageId: 'dnd5e', reason: 'closure' },
+    ]);
+    await store.requestCrawl([{ package: DND5E, reason: 'request' }]);
+    expect(await queue()).toEqual([
+      { type: 'module', packageId: 'midi-qol', reason: 'request' },
+      { type: 'system', packageId: 'dnd5e', reason: 'request' },
+    ]);
+  });
+});
+
+/** The crawl queue, oldest first. */
+function queue() {
+  return db
+    .select({ type: crawlRequests.type, packageId: crawlRequests.packageId, reason: crawlRequests.reason })
+    .from(crawlRequests)
+    .orderBy(crawlRequests.id);
+}

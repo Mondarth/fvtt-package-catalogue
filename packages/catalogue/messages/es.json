@@ -6,6 +6,7 @@
   "endpoints_heading": "Endpoints",
   "endpoints_none": "Todavía no hay endpoints.",
   "endpoint_releases_summary": "Todas las versiones publicadas de un paquete.",
+  "endpoint_universe_summary": "Un conjunto de paquetes y todo lo que necesitan.",
   "endpoint_status_summary": "Lo que contiene el catálogo.",
   "language_label": "Idioma",
   "machine_translation_notice": "Esta página se ha traducido automáticamente y la traducción no ha sido revisada. Si algo no está claro, la versión en inglés es la de referencia.",
