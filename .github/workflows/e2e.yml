@@ -50,9 +50,19 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # The install's apt downloads can stall on a slow Ubuntu mirror for longer than the job's timeout, when it
+      # usually takes seconds. A stalled install is stopped after five minutes and tried once more.
       - name: Install the browser
         if: matrix.project != 'api'
-        run: pnpm exec playwright install --with-deps ${{ matrix.project }}
+        timeout-minutes: 12
+        run: |
+          for attempt in 1 2; do
+            timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ matrix.project }} && exit 0
+            echo "::warning::Installing ${{ matrix.project }} failed or took over five minutes (attempt $attempt)"
+            # An apt run stopped part-way can leave dpkg needing to finish configuring.
+            sudo dpkg --configure -a
+          done
+          exit 1
 
       - name: Start PostgreSQL
         run: pnpm e2e:db
