@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.1.0...@mondarth/fvtt-package-catalogue-contract-v0.2.0) (2026-10-24)
+
+### Features
+
+* **contract:** add the universe request and response ([852da2a](https://github.com/Mondarth/fvtt-package-catalogue/commit/852da2ab02471f0f879dd0f329e7908c9eca51b7))
+
+### Bug Fixes
+
+* **contract:** let a universe start from up to 1000 packages ([cca24c0](https://github.com/Mondarth/fvtt-package-catalogue/commit/cca24c0e6fc01e1da810d9745a55e932752ef2af))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.1.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.0.0...@mondarth/fvtt-package-catalogue-contract-v0.1.0) (2026-10-24)
 
 ### Features
