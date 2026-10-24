@@ -35,8 +35,12 @@ export function releasesPath({ type, id }: PackageRef): string {
 /** The path of the universe: a set of packages and everything they need. */
 export const UNIVERSE_PATH = `${API_BASE}/universe`;
 
-/** The most packages a {@link UniverseRequest} may start from. */
-export const MAX_UNIVERSE_PACKAGES = 100;
+/**
+ * The most packages a {@link UniverseRequest} may start from: far more than the modules any world enables, which for a
+ * heavily modded world can be several hundred, while still refusing an absurd request before it is walked. What a
+ * universe costs depends on its closure, not on how many packages it starts from.
+ */
+export const MAX_UNIVERSE_PACKAGES = 1000;
 
 /** When the answer's data was last brought up to date, as an ISO 8601 time, or null if never. */
 const AsOf = z.iso.datetime().nullable();

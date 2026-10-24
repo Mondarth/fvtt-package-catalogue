@@ -37,7 +37,7 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
 : `{ "status": "ok" }` while the server is up. It needs no key and does not touch the database.
 
 `POST /api/v1/universe`
-: A set of packages and everything they need, in one answer. The body names up to 100 packages to start from, such as
+: A set of packages and everything they need, in one answer. The body names up to 1000 packages to start from, such as
   those a world has enabled:
 
   ```json
