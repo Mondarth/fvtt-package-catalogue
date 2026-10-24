@@ -1,6 +1,6 @@
 {
   "name": "@mondarth/fvtt-package-catalogue-contract",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The API contract of the Foundry VTT package catalogue: zod schemas and types of every request and response.",
   "author": "Ulenar of Mondarth",
   "license": "MIT",
