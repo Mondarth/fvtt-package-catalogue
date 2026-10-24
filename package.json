@@ -1,0 +1,76 @@
+{
+  "name": "fvtt-package-catalogue-workspace",
+  "private": true,
+  "description": "The Foundry VTT package catalogue: an API (and later a website) serving what Foundry VTT, game system and module manifests declare, for @mondarth/fvtt-resolver and EMMA.",
+  "author": "Ulenar of Mondarth",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mondarth/fvtt-package-catalogue.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": ">=12",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @mondarth/fvtt-package-catalogue dev",
+    "test": "pnpm test:repo && pnpm -r test",
+    "test:repo": "vitest run",
+    "test:coverage": "pnpm test:repo && pnpm -r test:coverage",
+    "test:e2e": "pnpm --filter @mondarth/fvtt-package-catalogue test:e2e",
+    "prepare": "husky",
+    "build:docs": "DOCS_UID=$(id -u) DOCS_GID=$(id -g) docker compose -f docs/compose.yaml run --rm --no-deps -T docs make html",
+    "devserve:docs": "DOCS_UID=$(id -u) DOCS_GID=$(id -g) docker compose -f docs/compose.yaml run --rm --service-ports docs make livehtml",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint-staged": "lint-staged",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "check": "pnpm -r check",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck",
+    "typecheck:fallback": "tsc6 --noEmit && pnpm -r typecheck:fallback",
+    "release": "pnpm --recursive --workspace-concurrency=1 exec semantic-release",
+    "release:dry-run": "pnpm --recursive --workspace-concurrency=1 exec semantic-release --dry-run --no-ci",
+    "commit": "cz"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@commitlint/types": "^21.2.3",
+    "@eslint/js": "^10.0.1",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
+    "@types/node": "^24.19.2",
+    "commitizen": "4.3.2",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
+    "cz-conventional-changelog": "3.3.0",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsdoc": "^65.4.0",
+    "eslint-plugin-svelte": "^3.23.1",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "jiti": "^2.7.0",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
+    "semantic-release": "^25.0.9",
+    "semantic-release-monorepo": "^8.0.2",
+    "svelte": "^5.57.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.72.0",
+    "typescript7": "npm:typescript@^7.0.2",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}

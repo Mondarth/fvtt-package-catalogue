@@ -1,0 +1,21 @@
+{
+  "packages/contract/**/*.ts": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'pnpm --filter @mondarth/fvtt-package-catalogue-contract typecheck'",
+    "pnpm --dir packages/contract exec vitest related --run --passWithNoTests"
+  ],
+  "packages/catalogue/**/*.{ts,svelte}": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'pnpm --filter @mondarth/fvtt-package-catalogue typecheck && pnpm --filter @mondarth/fvtt-package-catalogue check'",
+    "pnpm --dir packages/catalogue exec vitest related --run --passWithNoTests"
+  ],
+  "{*.ts,{tests,scripts}/**/*.ts}": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'tsc --noEmit'",
+    "vitest related --run --passWithNoTests"
+  ],
+  "*.{js,mjs,cjs,json,md,yml,yaml,css}": ["prettier --write"]
+}
