@@ -11,6 +11,10 @@
 
 Superseded runs of a pull request are cancelled.
 
+E2E installs each browser's system libraries with apt, from the runner's Ubuntu mirror, which now and then stalls. An
+install that takes over five minutes is stopped and tried once more, with a warning in the run's summary; if the second
+try fails too, re-run the failed job.
+
 ## Releasing
 
 Merge the pull request from `dev` into `main`. The release workflow then:

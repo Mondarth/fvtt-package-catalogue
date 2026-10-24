@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
  */
 
 interface Step {
+  name?: string;
   uses?: string;
+  'timeout-minutes'?: number;
   run?: string;
   with?: Record<string, string>;
 }
@@ -69,6 +71,16 @@ describe('e2e workflow', () => {
   it("runs every one of Playwright's projects", () => {
     const projects = [...config.matchAll(/name: '([\w-]+)'/g)].map(match => match[1]);
     expect(e2e.jobs.e2e?.strategy?.matrix?.project).toEqual(projects);
+  });
+
+  // Regression: the runner's Ubuntu mirror stalled the install's apt downloads for over ten minutes, twice in an hour,
+  // until the job's own timeout or a hand cancelled it. An install that stalls is stopped and tried once more.
+  it('gives up installing the browser after five minutes, and tries once more', () => {
+    const install = e2e.jobs.e2e?.steps?.find(step => step.name === 'Install the browser');
+    expect(install?.run).toMatch(/for attempt in 1 2\b/);
+    expect(install?.run).toMatch(/\btimeout\b.* 5m pnpm exec playwright install --with-deps/);
+    // A backstop above both attempts, should the loop itself hang.
+    expect(install?.['timeout-minutes']).toBe(12);
   });
 });
 
