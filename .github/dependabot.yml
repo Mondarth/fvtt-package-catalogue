@@ -13,6 +13,10 @@ updates:
       # type-check and then fail at run time. Moved by hand with the baseline.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # Version 10 needs conventional-changelog-writer 9, but semantic-release's notes generator still uses writer 8,
+      # so releases could not write their notes (tests/config/release-notes.test.ts). Lift this once it upgrades.
+      - dependency-name: conventional-changelog-conventionalcommits
+        update-types: ['version-update:semver-major']
     groups:
       svelte:
         patterns: ['svelte', 'svelte-check', '@sveltejs/*', '@testing-library/*', 'happy-dom']
@@ -46,6 +50,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: build(docker)
+    ignore:
+      # The image runs the Node.js the project supports (.nvmrc, engines, @types/node): an LTS line, moved by hand with
+      # them. Node.js 25 is not LTS, and ships without corepack, which the Dockerfile uses.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker-compose
     directories: ['/deploy', '/packages/catalogue', '/packages/catalogue/tests/e2e']
@@ -54,6 +63,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: build(docker)
+    ignore:
+      # A new major version of PostgreSQL cannot open an older one's data directory: a deployment's database needs
+      # pg_upgrade or a dump and restore. Moved by hand, with the upgrade documented.
+      - dependency-name: postgres
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directories: ['/', '/.github/actions/*']

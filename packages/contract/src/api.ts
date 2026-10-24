@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { PackageRef } from './package.js';
 import { Release } from './release.js';
+import { SourceGap, Universe } from './universe.js';
 
 /** The version of the API these schemas describe; part of every path. */
 export const API_VERSION = 'v1';
@@ -31,6 +32,16 @@ export function releasesPath({ type, id }: PackageRef): string {
   return `${API_BASE}/packages/${type}/${encodeURIComponent(id)}/releases`;
 }
 
+/** The path of the universe: a set of packages and everything they need. */
+export const UNIVERSE_PATH = `${API_BASE}/universe`;
+
+/**
+ * The most packages a {@link UniverseRequest} may start from: far more than the modules any world enables, which for a
+ * heavily modded world can be several hundred, while still refusing an absurd request before it is walked. What a
+ * universe costs depends on its closure, not on how many packages it starts from.
+ */
+export const MAX_UNIVERSE_PACKAGES = 1000;
+
 /** When the answer's data was last brought up to date, as an ISO 8601 time, or null if never. */
 const AsOf = z.iso.datetime().nullable();
 
@@ -41,6 +52,30 @@ export const ReleasesResponse = z.object({
   asOf: AsOf,
 });
 export type ReleasesResponse = z.infer<typeof ReleasesResponse>;
+
+/** `POST /api/v1/universe`: the packages to start from, such as those a world has enabled. */
+export const UniverseRequest = z.object({
+  packages: z.array(PackageRef).min(1).max(MAX_UNIVERSE_PACKAGES),
+});
+export type UniverseRequest = z.infer<typeof UniverseRequest>;
+
+/**
+ * `POST /api/v1/universe`: the packages asked for and every package their releases require or run in, as far as the
+ * catalogue holds them, with Foundry VTT's builds.
+ */
+export const UniverseResponse = z.object({
+  universe: Universe,
+  /** What the catalogue's sources could not fetch or read for these packages. */
+  gaps: z.array(SourceGap),
+  /**
+   * Packages asked for or needed that the catalogue does not hold yet. They are queued for it to fetch; until then, a
+   * client finds them elsewhere, such as through EMMA's proxy.
+   */
+  pending: z.array(PackageRef),
+  /** The oldest time any of the packages held was brought up to date. */
+  asOf: AsOf,
+});
+export type UniverseResponse = z.infer<typeof UniverseResponse>;
 
 /** `GET /api/v1/status`: what the catalogue holds. */
 export const StatusResponse = z.object({

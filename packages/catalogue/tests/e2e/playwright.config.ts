@@ -3,8 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 import { E2E_API_KEY, E2E_ENV, E2E_PORT } from './environment.js';
 
 /**
- * End-to-end tests of the built server (`pnpm build`) against PostgreSQL (`pnpm e2e:db`). The API's tests make HTTP
- * requests, so they run once; the website's run in each browser.
+ * End-to-end tests of the built server and worker (`pnpm build`) against PostgreSQL (`pnpm e2e:db`). The API's tests
+ * make HTTP requests, so they run once; the website's run in each browser. The worker's run after the API's, as what it
+ * crawls changes what they expect.
  */
 export default defineConfig({
   testDir: '.',
@@ -32,6 +33,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'api', testMatch: 'api/**/*.spec.ts', use: { extraHTTPHeaders: { 'X-API-Key': E2E_API_KEY } } },
+    {
+      name: 'worker',
+      testMatch: 'worker/**/*.spec.ts',
+      dependencies: ['api'],
+      use: { extraHTTPHeaders: { 'X-API-Key': E2E_API_KEY } },
+    },
     { name: 'chromium', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Safari'] } },

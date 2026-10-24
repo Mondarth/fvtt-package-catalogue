@@ -1,6 +1,7 @@
 name: E2E
 
-# The built server against PostgreSQL, in Playwright: the API once, the website in Chromium, Firefox and WebKit.
+# The built server and worker against PostgreSQL, in Playwright: the API once, then the worker against a stub of the
+# web, and the website in Chromium, Firefox and WebKit.
 # Runs on every pull request and every push to `dev`, and by hand. The release workflow calls it for pushes to `main`.
 on:
   push:
@@ -28,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [api, chromium, firefox, webkit]
+        project: [api, worker, chromium, firefox, webkit]
     defaults:
       run:
         working-directory: packages/catalogue
@@ -44,15 +45,33 @@ jobs:
           API_KEYS: build-only
 
       - name: Cache Playwright browsers
-        if: matrix.project != 'api'
+        if: matrix.project != 'api' && matrix.project != 'worker'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # The install's apt downloads can stall on a slow Ubuntu mirror for longer than the job's timeout, when it
+      # usually takes seconds. A stalled install is stopped after five minutes and tried once more.
       - name: Install the browser
-        if: matrix.project != 'api'
-        run: pnpm exec playwright install --with-deps ${{ matrix.project }}
+        if: matrix.project != 'api' && matrix.project != 'worker'
+        timeout-minutes: 12
+        run: |
+          for attempt in 1 2; do
+            timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ matrix.project }} && exit 0
+            echo "::warning::Installing ${{ matrix.project }} failed or took over five minutes (attempt $attempt)"
+            # sudo runs apt-get in a session of its own, which timeout cannot reach: stop it, and wait for it, and any
+            # dpkg it started, to let go of dpkg's locks.
+            sudo pkill -TERM -x apt-get || true
+            for _ in $(seq 30); do
+              pgrep -x 'apt-get|dpkg' > /dev/null || break
+              sleep 1
+            done
+            # An apt run stopped part-way can leave dpkg needing to finish configuring. Neither may end the step,
+            # which bash -e would do: the next attempt is what matters.
+            sudo dpkg --configure -a || true
+          done
+          exit 1
 
       - name: Start PostgreSQL
         run: pnpm e2e:db

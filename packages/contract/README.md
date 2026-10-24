@@ -15,6 +15,19 @@ const response = await fetch(new URL(releasesPath({ type: 'module', id: 'midi-qo
 const { releases } = ReleasesResponse.parse(await response.json());
 ```
 
+A universe, for the resolver, is posted:
+
+```ts
+import { API_KEY_HEADER, UNIVERSE_PATH, UniverseResponse } from '@mondarth/fvtt-package-catalogue-contract';
+
+const response = await fetch(new URL(UNIVERSE_PATH, base), {
+  method: 'POST',
+  headers: { [API_KEY_HEADER]: key, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ packages: [{ type: 'module', id: 'midi-qol' }] }),
+});
+const { universe, pending } = UniverseResponse.parse(await response.json());
+```
+
 ## Licence
 
 MIT

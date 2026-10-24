@@ -17,7 +17,11 @@ export {
   ErrorCode,
   ErrorResponse,
   HealthResponse,
+  MAX_UNIVERSE_PACKAGES,
   ReleasesResponse,
   StatusResponse,
+  UNIVERSE_PATH,
+  UniverseRequest,
+  UniverseResponse,
   releasesPath,
 } from './api.js';

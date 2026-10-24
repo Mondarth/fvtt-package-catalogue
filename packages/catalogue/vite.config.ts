@@ -12,6 +12,9 @@ export const SOURCE = '@mondarth/fvtt-package-catalogue/source';
 
 const { version } = JSON.parse(readFileSync(new URL('package.json', import.meta.url), 'utf8')) as { version: string };
 
+/** What the server and the worker are built with: the catalogue's version, which the release sets in package.json. */
+export const DEFINE = { __CATALOGUE_VERSION__: JSON.stringify(version) };
+
 export default defineConfig({
   plugins: [
     sveltekit({
@@ -31,7 +34,7 @@ export default defineConfig({
   resolve: { conditions: [SOURCE, ...defaultClientConditions] },
   ssr: { resolve: { conditions: [SOURCE, ...defaultServerConditions] } },
   // The release sets the version in package.json before it builds (release.config.js).
-  define: { __CATALOGUE_VERSION__: JSON.stringify(version) },
+  define: DEFINE,
   test: {
     expect: { requireAssertions: true },
     coverage: {

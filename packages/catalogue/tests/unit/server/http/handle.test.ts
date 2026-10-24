@@ -63,6 +63,10 @@ describe('createHandle', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
+  it('lets other origins post, as the universe is asked for', () => {
+    expect(CORS_HEADERS['Access-Control-Allow-Methods']?.split(', ')).toEqual(['GET', 'POST', 'OPTIONS']);
+  });
+
   it.each([
     ['no key', {}],
     ['an empty key', { 'X-API-Key': '' }],

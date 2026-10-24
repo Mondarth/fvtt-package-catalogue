@@ -36,7 +36,43 @@ describe('LogLevel', () => {
 
 describe('readConfig', () => {
   it("reads the worker's configuration, with defaults", () => {
-    expect(readConfig({ DATABASE_URL })).toEqual({ DATABASE_URL, LOG_LEVEL: 'info', MIGRATIONS_DIR: 'drizzle' });
+    expect(readConfig({ DATABASE_URL })).toEqual({
+      DATABASE_URL,
+      LOG_LEVEL: 'info',
+      MIGRATIONS_DIR: 'drizzle',
+      CRAWL_MAX_REQUESTS: 5000,
+      CRAWL_POLL_SECONDS: 5,
+      REFRESH_MINUTES: 60,
+      REFRESH_STALE_DAYS: 7,
+      FOUNDRY_INDEX_URL: 'https://r2.foundryvtt.com/package-api-public/index-latest.json',
+      FOUNDRY_RELEASES_URL: 'https://foundryvtt.com/releases/',
+    });
+  });
+
+  it('reads the tokens and the limits given', () => {
+    expect(
+      readConfig({
+        DATABASE_URL,
+        GITHUB_TOKEN: 'gh',
+        GITLAB_TOKEN: 'gl',
+        CRAWL_MAX_REQUESTS: '200',
+        CRAWL_POLL_SECONDS: '30',
+      }),
+    ).toMatchObject({ GITHUB_TOKEN: 'gh', GITLAB_TOKEN: 'gl', CRAWL_MAX_REQUESTS: 200, CRAWL_POLL_SECONDS: 30 });
+  });
+
+  // Compose passes a variable left unset in .env as empty.
+  it('takes an empty token as none', () => {
+    const config = readConfig({ DATABASE_URL, GITHUB_TOKEN: '', GITLAB_TOKEN: '' });
+    expect(config.GITHUB_TOKEN).toBeUndefined();
+    expect(config.GITLAB_TOKEN).toBeUndefined();
+  });
+
+  it('refuses a budget that is not a whole number above none', () => {
+    expect(() => readConfig({ DATABASE_URL, CRAWL_MAX_REQUESTS: '0' })).toThrow(/CRAWL_MAX_REQUESTS/);
+    expect(() => readConfig({ DATABASE_URL, CRAWL_POLL_SECONDS: 'soon' })).toThrow(/CRAWL_POLL_SECONDS/);
+    expect(() => readConfig({ DATABASE_URL, REFRESH_MINUTES: '-1' })).toThrow(/REFRESH_MINUTES/);
+    expect(() => readConfig({ DATABASE_URL, REFRESH_STALE_DAYS: '1.5' })).toThrow(/REFRESH_STALE_DAYS/);
   });
 
   it('names every variable that is wrong', () => {
