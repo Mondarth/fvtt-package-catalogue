@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 interface Step {
   name?: string;
+  if?: string;
   uses?: string;
   'timeout-minutes'?: number;
   run?: string;
@@ -84,12 +85,17 @@ describe('e2e workflow', () => {
   });
 });
 
-describe("the API's end-to-end tests", () => {
-  const dir = 'packages/catalogue/tests/e2e/api';
+describe.each(['api', 'worker'])("the %s project's end-to-end tests", project => {
+  const dir = `packages/catalogue/tests/e2e/${project}`;
 
   // Regression: they used the website's fixtures, whose console guard launches a browser, and failed in CI, where the
-  // api project installs none.
+  // api project installs none; nor does the worker's.
   it.each(readdirSync(dir).filter(file => file.endsWith('.spec.ts')))('%s needs no browser', file => {
     expect(readFileSync(`${dir}/${file}`, 'utf8')).not.toMatch(/from '\.\.\/fixtures\.js'/);
+  });
+
+  it('installs no browser in CI', () => {
+    const install = read('e2e.yml').jobs.e2e?.steps?.find(step => step.name === 'Install the browser');
+    expect(install?.if).toContain(`matrix.project != '${project}'`);
   });
 });

@@ -15,8 +15,8 @@ Spanish speaker**; the website says so on every page in Spanish. See {doc}`devel
 :::
 
 :::{note}
-**Early development.** The API serves what is in its database; the worker that fills it is being built. Before 1.0.0,
-anything may change.
+**Early development.** The API serves what is in its database, which the worker fills as packages are asked for.
+Before 1.0.0, anything may change.
 :::
 
 ```{toctree}
