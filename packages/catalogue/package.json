@@ -1,0 +1,63 @@
+{
+  "name": "@mondarth/fvtt-package-catalogue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Foundry VTT package catalogue: its API and website (SvelteKit), and the worker that keeps its database up to date.",
+  "author": "Ulenar of Mondarth",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync && pnpm i18n:compile",
+    "i18n:compile": "paraglide-js compile --project ./project.inlang --silent",
+    "dev": "vite dev",
+    "build": "pnpm --filter @mondarth/fvtt-package-catalogue-contract build && vite build && vite build --config vite.worker.config.ts",
+    "preview": "vite preview",
+    "start": "node build/index.js",
+    "migrate": "node build/worker/main.js migrate",
+    "check": "svelte-kit sync && pnpm i18n:compile && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "typecheck": "svelte-kit sync && pnpm i18n:compile && tsc --noEmit",
+    "typecheck:fallback": "svelte-kit sync && pnpm i18n:compile && tsc6 --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "e2e:db": "docker compose -f tests/e2e/compose.yaml up --detach --wait",
+    "e2e:db:stop": "docker compose -f tests/e2e/compose.yaml down",
+    "db:start": "docker compose -f compose.dev.yaml up --detach --wait",
+    "db:stop": "docker compose -f compose.dev.yaml down",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@inlang/paraglide-js": "^2.29.1",
+    "@mondarth/fvtt-package-catalogue-contract": "workspace:*",
+    "@playwright/test": "^1.64.1",
+    "@sveltejs/adapter-node": "^6.0.0",
+    "@sveltejs/kit": "^3.1.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/svelte": "^5.4.2",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
+    "happy-dom": "^21.0.4",
+    "postgres": "^3.4.9",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript7": "npm:typescript@^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "zod": "^4.6.7"
+  }
+}

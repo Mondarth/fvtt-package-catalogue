@@ -1,0 +1,210 @@
+name: Release
+
+# Pushes to `main` (normally a merge from `dev`) are released:
+#
+#   1. Dev CI and the E2E tests run in full. Nothing is released unless both pass.
+#   2. semantic-release runs for each package (`pnpm release`): it works out the package's version
+#      from the commits that change it, tags it `<package name>-v<version>`, writes its changelog
+#      and creates its GitHub release. The contract is published to npm through trusted publishing
+#      (OIDC, no token).
+#   3. If the catalogue was released, its container image is built from the release's tag and
+#      pushed to the GitHub Container Registry.
+#   4. If anything was released, `dev` is brought up to date with the release commits.
+#   5. The documentation is published to GitHub Pages.
+#
+# It can also be started by hand on `main` (Actions > Release > Run workflow), for example to
+# publish Pages again after a stalled deployment: a manual run releases only if there is
+# something to release and otherwise just republishes the documentation.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: '0'
+
+jobs:
+  ci:
+    name: CI
+    # A manual run can be started on any branch; only main is released and published.
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/dev.yml
+    secrets: inherit
+
+  e2e:
+    name: E2E
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/e2e.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  release:
+    name: Semantic release
+    needs: [ci, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      # npm trusted publishing: pnpm publish exchanges the workflow's OIDC token with npm.
+      id-token: write
+    outputs:
+      contract-tag: ${{ steps.release.outputs.contract-tag }}
+      catalogue-tag: ${{ steps.release.outputs.catalogue-tag }}
+    steps:
+      # The release App is on the rulesets' bypass list, so its token may push to the
+      # protected branches. Each token expires within an hour.
+      - name: Get a release token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Commit as the release App
+        id: identity
+        run: |
+          name='${{ steps.app-token.outputs.app-slug }}[bot]'
+          id=$(gh api "/users/${name}" --jq .id)
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${name}@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # semantic-release pushes with the App token (below).
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Release
+        id: release
+        run: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GIT_AUTHOR_NAME: ${{ steps.identity.outputs.name }}
+          GIT_AUTHOR_EMAIL: ${{ steps.identity.outputs.email }}
+          GIT_COMMITTER_NAME: ${{ steps.identity.outputs.name }}
+          GIT_COMMITTER_EMAIL: ${{ steps.identity.outputs.email }}
+
+  image:
+    name: Publish the container image
+    needs: release
+    if: needs.release.outputs.catalogue-tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.catalogue-tag }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to the GitHub Container Registry
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The full version, its major.minor and major lines, and latest. The tag is
+      # `@mondarth/fvtt-package-catalogue-v<version>`.
+      - name: Work out the tags
+        id: tags
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="${TAG##*-v}"
+          major="${version%%.*}"
+          minor="${version%.*}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'list<<EOF'
+            echo "${image}:${version}"
+            echo "${image}:${minor}"
+            echo "${image}:${major}"
+            echo "${image}:latest"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ needs.release.outputs.catalogue-tag }}
+      - name: Build and push the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.tags.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=image
+
+  sync-dev:
+    name: Bring dev up to date
+    needs: release
+    if: needs.release.outputs.contract-tag != '' || needs.release.outputs.catalogue-tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      # The release App is on the rulesets' bypass list, so its token may push to the
+      # protected branches. Each token expires within an hour.
+      - name: Get a release token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      # Fast-forwards dev onto the release commits. If dev has moved on, or the push is refused,
+      # opens a pull request from main to dev instead (unless one is already open).
+      - name: Merge main into dev
+        run: |
+          git fetch origin dev
+          if git merge-base --is-ancestor origin/dev HEAD && git push origin HEAD:dev; then
+            exit 0
+          fi
+          if gh pr list --base dev --head main --state open --json number --jq '.[0]' | grep -q .; then
+            echo "A pull request from main to dev is already open."
+            exit 0
+          fi
+          gh pr create --base dev --head main \
+            --title "chore(release): merge the release back into dev" \
+            --body "Brings the release commits (versions, changelogs) from main back into dev."
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  pages:
+    name: Publish to GitHub Pages
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.catalogue-tag || github.sha }}
+      # Built here rather than by docs.yml, so the documentation carries the release's version.
+      - uses: ./.github/actions/build-docs
+      - uses: actions/configure-pages@v6
+      # One artifact per attempt: a re-run of this job otherwise finds two named github-pages.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: github-pages-${{ github.run_attempt }}
+          path: docs/_build/html
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

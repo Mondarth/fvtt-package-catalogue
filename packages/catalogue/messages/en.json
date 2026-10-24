@@ -1,0 +1,15 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "site_title": "Foundry VTT Package Catalogue",
+  "site_description": "What Foundry VTT packages declare, for tools that work out what to install.",
+  "home_lede": "What Foundry VTT, its game systems and its modules declare in their manifests, gathered from Foundry VTT's package listing, GitHub and GitLab, for tools that work out which versions can be installed together.",
+  "endpoints_heading": "Endpoints",
+  "endpoints_none": "No endpoints yet.",
+  "endpoint_releases_summary": "Every release of a package.",
+  "endpoint_status_summary": "What the catalogue holds.",
+  "language_label": "Language",
+  "machine_translation_notice": "This page was translated by machine and the translation has not been reviewed. If something is unclear, the English version is authoritative.",
+  "error_not_found": "There is no page here.",
+  "error_other": "Something went wrong on our side. Please try again later.",
+  "error_heading": "Error {status}"
+}

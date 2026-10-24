@@ -1,0 +1,16 @@
+name: Feature request
+description: Something the catalogue could do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you need?
+      description: What are you trying to do, and what stops you now? Which client (EMMA, pdt, your own) would use it?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: The endpoint, data or behaviour you have in mind, if any.
