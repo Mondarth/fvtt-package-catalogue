@@ -26,10 +26,22 @@ describe('commitlint configuration', () => {
     expect(subjectImperative?.({ subject: null })[0]).toBe(true);
   });
 
-  it('ignores Dependabot version bumps', () => {
-    expect(isIgnored('build(deps-dev): bump vitest from 4.0.0 to 4.1.0 in the vitest group')).toBe(true);
-    expect(isIgnored('build(deps): add a new dependency')).toBe(false);
+  it.each([
+    'build(deps-dev): bump vitest from 4.0.0 to 4.1.0 in the vitest group',
+    // Regression: Dependabot capitalises "Bump", which the rule did not match, so its messages failed subject-case.
+    'build(docs): Bump sphinx from 9.1.0 to 9.2.0 in /docs',
+    'build(deps-dev): Bump conventional-changelog-conventionalcommits from 9.3.1 to 10.4.1 in the release group',
+    'ci(workflows): Bump actions/checkout from 6 to 7',
+  ])('ignores the Dependabot version bump %j', message => {
+    expect(isIgnored(message)).toBe(true);
   });
+
+  it.each(['build(deps): add a new dependency', 'fix(api): bump the version', 'build(deps): bumped vitest'])(
+    'lints %j',
+    message => {
+      expect(isIgnored(message)).toBe(false);
+    },
+  );
 
   it('requires a kebab-case scope and limits the header to 72 characters', () => {
     expect(config.rules?.['scope-empty']).toEqual([2, 'never']);

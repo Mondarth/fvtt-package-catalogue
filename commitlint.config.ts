@@ -29,8 +29,11 @@ const subjectImperative: Rule = ({ subject }) => {
   ];
 };
 
-/** Dependabot writes long "bump x from y to z" messages; their format is not ours to police. */
-const isDependabot = (message: string): boolean => /^(?:build|ci)\([\w-]+\): bump /.test(message);
+/**
+ * Dependabot writes long "Bump x from y to z" messages, capitalised; their format is not ours to police. The prefix is
+ * the one .github/dependabot.yml gives it.
+ */
+const isDependabot = (message: string): boolean => /^(?:build|ci)\([\w-]+\): [Bb]ump /.test(message);
 
 const config: UserConfig = {
   extends: ['@commitlint/config-conventional'],
