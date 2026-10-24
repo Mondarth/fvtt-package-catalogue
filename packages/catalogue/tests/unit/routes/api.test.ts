@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import manifest from '../../../package.json';
+
 import { GET as releases } from '../../../src/routes/api/v1/packages/[type=packageType]/[id]/releases/+server.js';
 import { GET as status } from '../../../src/routes/api/v1/status/+server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
@@ -61,7 +63,8 @@ describe('GET /api/v1/status', () => {
     const response = await invoke(status, { locals: { store } });
     expect(await response.json()).toEqual({
       apiVersion: 'v1',
-      version: '0.0.0',
+      // The build's version, from package.json, which every release changes: never a copy of it.
+      version: manifest.version,
       packages: 3,
       releases: 40,
       asOf: '2026-10-24T09:00:00.000Z',
