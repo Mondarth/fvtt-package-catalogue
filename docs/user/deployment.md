@@ -1,7 +1,8 @@
 # Deploying it
 
-The catalogue runs as containers: its server, a PostgreSQL database, and a one-shot migration that brings the database's
-schema up to date before the server starts. `deploy/compose.yaml` runs all three beside an existing
+The catalogue runs as containers: its server, the worker that fills its database, a PostgreSQL database, and a one-shot
+migration that brings the database's schema up to date before the server and the worker start. `deploy/compose.yaml`
+runs all four beside an existing
 [SWAG](https://docs.linuxserver.io/general/swag/) container, which serves the catalogue over HTTPS.
 
 ```{mermaid}
@@ -15,14 +16,21 @@ flowchart LR
     subgraph database ["database network (internal)"]
       app
       migrate["migrate (one-shot)"]
+      worker
       db[(PostgreSQL)]
     end
     app --> db
     migrate --> db
+    worker --> db
+    subgraph egress ["egress network"]
+      worker
+    end
+    worker -- HTTPS --> web["Foundry VTT, GitHub, GitLab"]
 ```
 
-Only the server joins SWAG's network. The database is on a network of its own, marked `internal`, so it cannot be
-reached from SWAG's network and has no way out. Nothing is published on the host.
+Only the server joins SWAG's network, and only the worker joins `egress`, the network with a way out, to fetch
+packages. The database is on a network of its own, marked `internal`, so it cannot be reached from SWAG's network and
+has no way out. Nothing is published on the host.
 
 ## Setting up
 
@@ -42,14 +50,32 @@ reached from SWAG's network and has no way out. Nothing is published on the host
    `CATALOGUE_TAG`
    : The release to run: a version (`0.1.0`), its line (`0.1`, `0`) or `latest`.
 
+   `GITHUB_TOKEN`, `GITLAB_TOKEN` (optional)
+   : Raise the worker's limit on GitHub's API from 60 requests an hour to 5000; a token needs no scopes. Without one,
+     packages listed by Foundry VTT still crawl in full, as their manifests are not fetched through the API.
+
 3. Copy `deploy/swag/fvtt-package-catalogue.subdomain.conf.sample` to SWAG's
    `/config/nginx/proxy-confs/fvtt-package-catalogue.subdomain.conf`, set its `server_name`, and restart SWAG.
 4. Start it: `docker compose up -d`. The server starts once `migrate` has exited successfully:
 
    ```shell
-   docker compose ps -a                # migrate: exited (0); app, db: running (healthy)
+   docker compose ps -a                # migrate: exited (0); app, db: running (healthy); worker: running
    docker compose logs migrate         # "The database is up to date"
+   docker compose logs worker          # "The worker started", then each job
    ```
+
+## The worker
+
+The worker crawls every package a client asks for that the catalogue does not hold, and what its releases require or
+run in, as far down as they go: every version that Foundry VTT's index, GitHub and GitLab list, each loaded from its
+own manifest. It saves even a package no source knows, so that it is not asked for again; what could not be fetched is
+kept as the package's gaps, which the universe gives. A crawl that fails is tried again after a minute, then after
+twice as long each time, to a day at most. Foundry VTT's builds are fetched from its release notes once a day.
+
+Each crawl may make at most `CRAWL_MAX_REQUESTS` requests (5000 by default). Stopping the container lets it finish the
+package in hand, for up to a minute.
+
+To work through the queue once, by hand, and exit: `docker compose run --rm worker node build/worker/main.js drain`.
 
 ## Upgrading
 
@@ -64,5 +90,6 @@ what the database does not have yet.
 
 ## Logs
 
-Both processes log one JSON object per line to standard output: `docker compose logs app`. Each request is logged
+Every process logs one JSON object per line to standard output: `docker compose logs app`, or `worker`; the worker
+logs each job it does, with how many requests it made. Each request is logged
 once, with its `requestId`, which error responses carry too.

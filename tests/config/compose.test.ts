@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 interface Service {
   image?: string;
+  command?: string[];
+  restart?: string;
   networks?: string[] | Record<string, { aliases?: string[] } | null>;
   ports?: string[];
   depends_on?: Record<string, { condition: string }>;
@@ -43,11 +45,26 @@ it('every compose file has a project name of its own', () => {
 
 describe('the production deployment', () => {
   const compose = read('deploy/compose.yaml');
-  const { app, db, migrate } = compose.services;
+  const { app, db, migrate, worker } = compose.services;
 
   it('runs the released image', () => {
     expect(app?.image).toBe('ghcr.io/mondarth/fvtt-package-catalogue:${CATALOGUE_TAG:-latest}');
     expect(migrate?.image).toBe(app?.image);
+    expect(worker?.image).toBe(app?.image);
+  });
+
+  it('runs the worker for good, once the migration has succeeded', () => {
+    expect(worker?.command).toEqual(['node', 'build/worker/main.js', 'run']);
+    expect(worker?.restart).toBe('unless-stopped');
+    expect(worker?.depends_on).toEqual({ migrate: { condition: 'service_completed_successfully' } });
+  });
+
+  // The worker fetches from Foundry VTT, GitHub and GitLab; nothing else needs a way out.
+  it('gives only the worker a way out, beside the database', () => {
+    expect(networksOf(worker).toSorted()).toEqual(['database', 'egress']);
+    expect(compose.networks?.egress?.internal).toBeUndefined();
+    const others = Object.entries(compose.services).filter(([name]) => name !== 'worker');
+    expect(others.filter(([, service]) => networksOf(service).includes('egress'))).toEqual([]);
   });
 
   it("puts only the server on SWAG's network, reachable by its alias", () => {

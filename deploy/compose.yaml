@@ -1,10 +1,11 @@
-# The catalogue in production: the server, its database, and the one-shot migration that runs before the server starts,
-# beside an existing SWAG (linuxserver/swag) container that serves it over HTTPS.
+# The catalogue in production: the server, the worker that fills its database, the database, and the one-shot migration
+# that runs before both start, beside an existing SWAG (linuxserver/swag) container that serves it over HTTPS.
 #
 #   cp .env.example .env    # then set POSTGRES_PASSWORD and API_KEYS
 #   docker compose up -d
 #
-# Only the server joins SWAG's network; the database is on a network of its own with no way out. See
+# Only the server joins SWAG's network, and only the worker the network with a way out, to fetch from Foundry VTT,
+# GitHub and GitLab; the database is on a network of its own with no way out. See
 # swag/fvtt-package-catalogue.subdomain.conf.sample for SWAG's side, and the deployment guide in the documentation.
 name: fvtt-package-catalogue
 
@@ -73,9 +74,28 @@ services:
     # Not published on the host: SWAG reaches it on its network.
     expose: ['3000']
 
+  # Crawls the packages clients ask for, and what they need, and keeps Foundry VTT's builds up to date. A SIGTERM lets
+  # it finish the package in hand.
+  worker:
+    image: *image
+    <<: *hardening
+    restart: unless-stopped
+    command: ['node', 'build/worker/main.js', 'run']
+    environment:
+      DATABASE_URL: *database-url
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [database, egress]
+    stop_grace_period: 60s
+
 networks:
   database:
     internal: true
+  egress:
   swag:
     external: true
     name: ${SWAG_NETWORK:-swag_default}
