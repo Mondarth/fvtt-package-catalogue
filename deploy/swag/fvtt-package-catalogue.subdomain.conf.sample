@@ -1,0 +1,26 @@
+## SWAG proxy configuration for the Foundry VTT package catalogue.
+##
+## Copy to SWAG's /config/nginx/proxy-confs/fvtt-package-catalogue.subdomain.conf, set server_name to your subdomain,
+## and restart SWAG. The catalogue's server must be on SWAG's network (deploy/compose.yaml, SWAG_NETWORK), where it
+## answers as fvtt-package-catalogue on port 3000.
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    server_name catalogue.*;
+
+    include /config/nginx/ssl.conf;
+
+    # The API takes no request bodies.
+    client_max_body_size 1m;
+
+    location / {
+        include /config/nginx/proxy.conf;
+        include /config/nginx/resolver.conf;
+        set $upstream_app fvtt-package-catalogue;
+        set $upstream_port 3000;
+        set $upstream_proto http;
+        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+    }
+}
