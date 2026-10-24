@@ -60,8 +60,16 @@ jobs:
           for attempt in 1 2; do
             timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ matrix.project }} && exit 0
             echo "::warning::Installing ${{ matrix.project }} failed or took over five minutes (attempt $attempt)"
-            # An apt run stopped part-way can leave dpkg needing to finish configuring.
-            sudo dpkg --configure -a
+            # sudo runs apt-get in a session of its own, which timeout cannot reach: stop it, and wait for it, and any
+            # dpkg it started, to let go of dpkg's locks.
+            sudo pkill -TERM -x apt-get || true
+            for _ in $(seq 30); do
+              pgrep -x 'apt-get|dpkg' > /dev/null || break
+              sleep 1
+            done
+            # An apt run stopped part-way can leave dpkg needing to finish configuring. Neither may end the step,
+            # which bash -e would do: the next attempt is what matters.
+            sudo dpkg --configure -a || true
           done
           exit 1
 
