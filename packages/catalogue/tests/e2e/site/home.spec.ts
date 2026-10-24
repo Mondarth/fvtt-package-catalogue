@@ -9,8 +9,9 @@ test('the home page introduces the catalogue and lists its endpoints, in English
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('heading', { level: 1, name: en.site_title })).toBeVisible();
   const endpoints = page.getByRole('region', { name: en.endpoints_heading }).getByRole('listitem');
-  await expect(endpoints).toHaveCount(2);
+  await expect(endpoints).toHaveCount(3);
   await expect(endpoints.first()).toContainText('/api/v1/packages/{type}/{id}/releases');
+  await expect(endpoints.nth(1)).toContainText('POST');
   await expect(page.getByRole('note')).toHaveCount(0);
 });
 

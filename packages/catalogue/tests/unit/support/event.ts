@@ -8,6 +8,7 @@ export interface FakeEventOptions<P> {
   readonly url?: string;
   readonly method?: string;
   readonly headers?: Record<string, string>;
+  readonly body?: string;
   readonly locals?: Partial<App.Locals>;
 }
 
@@ -21,12 +22,13 @@ export function fakeEvent<E extends RequestEvent = RequestEvent>({
   url = 'http://catalogue.test/',
   method = 'GET',
   headers = {},
+  body,
   locals = {},
 }: FakeEventOptions<E['params']> = {}): E {
   const event = {
     params: params ?? {},
     url: new URL(url),
-    request: new Request(url, { method, headers }),
+    request: new Request(url, { method, headers, ...(body !== undefined && { body }) }),
     locals: { requestId: 'request-1', store: mockStore(), log: memoryLogger(), ...locals },
   };
   return event as unknown as E;

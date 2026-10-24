@@ -6,6 +6,7 @@
   "endpoints_heading": "Endpoints",
   "endpoints_none": "No endpoints yet.",
   "endpoint_releases_summary": "Every release of a package.",
+  "endpoint_universe_summary": "A set of packages and everything they need.",
   "endpoint_status_summary": "What the catalogue holds.",
   "language_label": "Language",
   "machine_translation_notice": "This page was translated by machine and the translation has not been reviewed. If something is unclear, the English version is authoritative.",

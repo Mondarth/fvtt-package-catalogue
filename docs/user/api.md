@@ -21,7 +21,7 @@ A client may name itself in `X-Catalogue-Client`, such as `EMMA/0.6.0`. It is lo
 ## CORS
 
 Any origin may call the API, since Foundry VTT runs wherever its users host it. The server answers the preflight
-(`OPTIONS`) without a key, allowing `GET` with the `X-API-Key`, `X-Catalogue-Client` and `Content-Type` headers.
+(`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `X-Catalogue-Client` and `Content-Type` headers.
 
 ## Endpoints
 
@@ -36,10 +36,24 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
 `GET /healthz`
 : `{ "status": "ok" }` while the server is up. It needs no key and does not touch the database.
 
-```{todo}
-`POST /api/v1/universe`: a set of packages and everything they need, in one answer. A package the catalogue does not
-know is queued for the worker to fetch.
-```
+`POST /api/v1/universe`
+: A set of packages and everything they need, in one answer. The body names up to 1000 packages to start from, such as
+  those a world has enabled:
+
+  ```json
+  { "packages": [{ "type": "module", "id": "midi-qol" }] }
+  ```
+
+  The answer is `{ universe, gaps, pending, asOf }`:
+
+  - `universe`: `{ core, releases }`, what `@mondarth/fvtt-resolver` reads as a `Universe`. `releases` holds every
+    release of the packages asked for, and of every package any of those releases requires or runs in, all the way
+    down. What releases conflict with or recommend is not followed, nor are worlds, as the resolver does not follow them
+    either. `core` is every build of Foundry VTT the catalogue knows, oldest first.
+  - `gaps`: what the catalogue's sources could not fetch or read for these packages.
+  - `pending`: packages asked for or needed that the catalogue does not hold yet. Each is queued for the worker to
+    fetch; until then, a client finds them elsewhere, such as through EMMA's proxy, and asks again later.
+  - `asOf`: the oldest time any package held was brought up to date, or `null` if none is held.
 
 ## Errors
 

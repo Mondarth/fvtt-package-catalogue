@@ -1,15 +1,23 @@
 /**
  * The store, in PostgreSQL through Drizzle.
  */
-import { and, asc, count, eq, inArray, max, sql } from 'drizzle-orm';
+import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
+import { and, asc, count, eq, inArray, max, or, sql } from 'drizzle-orm';
 
-import { packages, relationships, releases } from '../db/schema.js';
+import { coreReleases, crawlRequests, packages, relationships, releases, sourceGaps } from '../db/schema.js';
 
-import type { Compatibility, PackageRef, Relationship, Release } from '@mondarth/fvtt-package-catalogue-contract';
+import type {
+  Compatibility,
+  PackageRef,
+  Relationship,
+  Release,
+  SourceGap,
+} from '@mondarth/fvtt-package-catalogue-contract';
 import type { Database } from '../db/database.js';
-import type { CatalogueStore } from './types.js';
+import type { CatalogueStore, PackageReleases } from './types.js';
 
 type ReleaseRow = typeof releases.$inferSelect;
+type GapRow = typeof sourceGaps.$inferSelect;
 type RelationshipRow = typeof relationships.$inferSelect;
 type Kind = RelationshipRow['kind'];
 
@@ -72,6 +80,17 @@ function releaseOf(ref: PackageRef, row: ReleaseRow, related: readonly Relations
   };
 }
 
+function gapOf(row: GapRow): SourceGap {
+  return {
+    source: row.source,
+    url: row.url,
+    reason: row.reason,
+    ...(row.status !== null && { status: row.status }),
+    ...(row.packageKey !== null && { package: row.packageKey }),
+    ...(row.version !== null && { version: row.version }),
+  };
+}
+
 /**
  * The store over a Drizzle database.
  *
@@ -79,6 +98,45 @@ function releaseOf(ref: PackageRef, row: ReleaseRow, related: readonly Relations
  * @returns The store
  */
 export function drizzleStore(db: Database): CatalogueStore {
+  async function releasesOfEach(refs: readonly PackageRef[]): Promise<Map<string, PackageReleases>> {
+    const found = new Map<string, PackageReleases>();
+    if (refs.length === 0) return found;
+    const held = await db
+      .select({ id: packages.id, type: packages.type, packageId: packages.packageId, syncedAt: packages.syncedAt })
+      .from(packages)
+      .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
+    const ids = held.map(row => row.id);
+    const rows =
+      ids.length === 0
+        ? []
+        : await db.select().from(releases).where(inArray(releases.packageRef, ids)).orderBy(asc(releases.id));
+    const related =
+      rows.length === 0
+        ? []
+        : await db
+            .select()
+            .from(relationships)
+            .where(
+              inArray(
+                relationships.releaseRef,
+                rows.map(row => row.id),
+              ),
+            );
+    const byKey = new Map(held.map(row => [packageKey({ type: row.type, id: row.packageId }), row]));
+    const rowsOf = Map.groupBy(rows, row => row.packageRef);
+    const relatedTo = Map.groupBy(related, relationship => relationship.releaseRef);
+    for (const ref of refs) {
+      const key = packageKey(ref);
+      const pkg = byKey.get(key);
+      if (pkg === undefined || found.has(key)) continue;
+      found.set(key, {
+        releases: (rowsOf.get(pkg.id) ?? []).map(row => releaseOf(ref, row, relatedTo.get(row.id) ?? [])),
+        asOf: pkg.syncedAt,
+      });
+    }
+    return found;
+  }
+
   return {
     async ping() {
       await db.execute(sql`select 1`);
@@ -93,35 +151,10 @@ export function drizzleStore(db: Database): CatalogueStore {
     },
 
     async releasesOf(ref) {
-      const [found] = await db
-        .select({ id: packages.id, syncedAt: packages.syncedAt })
-        .from(packages)
-        .where(and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)));
-      if (found === undefined) return undefined;
-      const rows = await db.select().from(releases).where(eq(releases.packageRef, found.id)).orderBy(asc(releases.id));
-      const related =
-        rows.length === 0
-          ? []
-          : await db
-              .select()
-              .from(relationships)
-              .where(
-                inArray(
-                  relationships.releaseRef,
-                  rows.map(row => row.id),
-                ),
-              );
-      return {
-        releases: rows.map(row =>
-          releaseOf(
-            ref,
-            row,
-            related.filter(relationship => relationship.releaseRef === row.id),
-          ),
-        ),
-        asOf: found.syncedAt,
-      };
+      return (await releasesOfEach([ref])).get(packageKey(ref));
     },
+
+    releasesOfEach,
 
     async saveReleases(ref, given, { source, at }) {
       const stranger = given.find(release => release.package.type !== ref.type || release.package.id !== ref.id);
@@ -178,6 +211,62 @@ export function drizzleStore(db: Database): CatalogueStore {
           if (related.length > 0) await tx.insert(relationships).values(related);
         }
       });
+    },
+
+    async coreReleases() {
+      return db
+        .select({ version: coreReleases.version, generation: coreReleases.generation, channel: coreReleases.channel })
+        .from(coreReleases)
+        .orderBy(asc(coreReleases.generation), asc(sql`split_part(${coreReleases.version}, '.', 2)::integer`));
+    },
+
+    async saveCoreReleases(core) {
+      if (core.length === 0) return;
+      await db
+        .insert(coreReleases)
+        .values([...core])
+        .onConflictDoUpdate({
+          target: coreReleases.version,
+          set: { generation: sql`excluded.generation`, channel: sql`excluded.channel` },
+        });
+    },
+
+    async gapsOf(keys) {
+      if (keys.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(sourceGaps)
+        .where(inArray(sourceGaps.packageKey, [...keys]))
+        .orderBy(asc(sourceGaps.id));
+      return rows.map(gapOf);
+    },
+
+    async recordGaps(gaps) {
+      if (gaps.length === 0) return;
+      await db.insert(sourceGaps).values(
+        gaps.map(gap => ({
+          source: gap.source,
+          url: gap.url,
+          reason: gap.reason,
+          status: gap.status ?? null,
+          packageKey: gap.package ?? null,
+          version: gap.version ?? null,
+        })),
+      );
+    },
+
+    async requestCrawl(requests) {
+      if (requests.length === 0) return;
+      await db
+        .insert(crawlRequests)
+        .values(requests.map(({ package: ref, reason }) => ({ type: ref.type, packageId: ref.id, reason })))
+        .onConflictDoUpdate({
+          target: [crawlRequests.type, crawlRequests.packageId],
+          // Once asked for, a package stays asked for: the worker fetches those first.
+          set: {
+            reason: sql`case when excluded.reason = 'request' then excluded.reason else ${crawlRequests.reason} end`,
+          },
+        });
     },
   };
 }
