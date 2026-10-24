@@ -1,0 +1,59 @@
+{
+  "name": "@mondarth/fvtt-package-catalogue-contract",
+  "version": "0.0.0",
+  "description": "The API contract of the Foundry VTT package catalogue: zod schemas and types of every request and response.",
+  "author": "Ulenar of Mondarth",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "foundryvtt",
+    "foundry-vtt",
+    "zod",
+    "api-contract"
+  ],
+  "homepage": "https://github.com/Mondarth/fvtt-package-catalogue/tree/main/packages/contract#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mondarth/fvtt-package-catalogue.git",
+    "directory": "packages/contract"
+  },
+  "bugs": {
+    "url": "https://github.com/Mondarth/fvtt-package-catalogue/issues"
+  },
+  "exports": {
+    ".": {
+      "@mondarth/fvtt-package-catalogue/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run --typecheck",
+    "test:coverage": "vitest run --typecheck --coverage",
+    "typecheck": "tsc --noEmit",
+    "typecheck:fallback": "tsc6 --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@mondarth/fvtt-resolver": "^0.6.0",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript7": "npm:typescript@^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

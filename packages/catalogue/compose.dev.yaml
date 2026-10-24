@@ -1,0 +1,21 @@
+# PostgreSQL for development (`pnpm db:start`), on localhost:55432. See .env.example.
+name: fvtt-package-catalogue-dev
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: catalogue
+      POSTGRES_PASSWORD: catalogue
+      POSTGRES_DB: catalogue
+    ports:
+      - '127.0.0.1:${DB_PORT:-55432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U catalogue -d catalogue']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  pgdata:

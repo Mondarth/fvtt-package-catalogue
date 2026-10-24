@@ -1,0 +1,17 @@
+pnpm-lock.yaml
+dist/
+build/
+coverage/
+.svelte-kit/
+/releases/
+packages/*/drizzle/meta/
+packages/*/src/lib/paraglide/
+packages/*/project.inlang/*
+!packages/*/project.inlang/settings.json
+!packages/*/project.inlang/paraglide.config.ts
+packages/*/tests/e2e/playwright-report/
+packages/*/tests/e2e/test-results/
+docs/_build/
+CHANGELOG.md
+# Prettier does not understand MyST: it re-indents directive fences and definition lists.
+docs/**/*.md

@@ -1,0 +1,115 @@
+name: E2E
+
+# The built server against PostgreSQL, in Playwright: the API once, the website in Chromium, Firefox and WebKit.
+# Runs on every pull request and every push to `dev`, and by hand. The release workflow calls it for pushes to `main`.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: '0'
+
+jobs:
+  e2e:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [api, chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: packages/catalogue
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      # SvelteKit validates the environment when it analyses the build; the tests run the server with their own.
+      - name: Build
+        run: pnpm build
+        env:
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          API_KEYS: build-only
+
+      - name: Cache Playwright browsers
+        if: matrix.project != 'api'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install the browser
+        if: matrix.project != 'api'
+        run: pnpm exec playwright install --with-deps ${{ matrix.project }}
+
+      - name: Start PostgreSQL
+        run: pnpm e2e:db
+
+      - name: Run Playwright
+        run: pnpm test:e2e --project=${{ matrix.project }}
+
+      - name: PostgreSQL logs
+        if: ${{ failure() }}
+        run: docker compose -f tests/e2e/compose.yaml logs --no-color --tail 200
+
+      - name: Stop PostgreSQL
+        if: ${{ always() }}
+        run: pnpm e2e:db:stop
+
+      # The HTML report, plus traces, screenshots and videos of failed tests.
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            packages/catalogue/tests/e2e/playwright-report/
+            packages/catalogue/tests/e2e/test-results/
+          if-no-files-found: ignore
+
+  # A single check for the rulesets to require.
+  e2e-passed:
+    name: E2E passed
+    if: ${{ always() }}
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that every project passed
+        env:
+          RESULT: ${{ needs.e2e.result }}
+        run: '[ "$RESULT" = success ]'
+
+  comment:
+    name: Comment on the pull request
+    needs: e2e
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post the result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.e2e.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$RESULT" = "success" ]; then
+            body="✅ End-to-end tests passed: the API, and the website in Chromium, Firefox and WebKit."
+          else
+            body="❌ End-to-end tests finished with result: ${RESULT}."
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
+            --edit-last --create-if-none \
+            --body "${body} Playwright reports are attached to [the workflow run](${RUN_URL})."

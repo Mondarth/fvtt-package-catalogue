@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: The request
+      description: The method and path you called, and the client (EMMA, pdt, your own) and its version. Leave out your API key.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: response
+    attributes:
+      label: The response
+      description: The status and body. An error's `requestId` lets the logs be searched for it.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: Catalogue version
+      description: The `version` from `GET /api/v1/status`, if you know it.

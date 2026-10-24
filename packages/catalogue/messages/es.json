@@ -1,0 +1,15 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "site_title": "Catálogo de paquetes de Foundry VTT",
+  "site_description": "Lo que declaran los paquetes de Foundry VTT, para las herramientas que deciden qué instalar.",
+  "home_lede": "Lo que Foundry VTT, sus sistemas de juego y sus módulos declaran en sus manifiestos, recopilado del listado de paquetes de Foundry VTT, de GitHub y de GitLab, para las herramientas que determinan qué versiones pueden instalarse juntas.",
+  "endpoints_heading": "Endpoints",
+  "endpoints_none": "Todavía no hay endpoints.",
+  "endpoint_releases_summary": "Todas las versiones publicadas de un paquete.",
+  "endpoint_status_summary": "Lo que contiene el catálogo.",
+  "language_label": "Idioma",
+  "machine_translation_notice": "Esta página se ha traducido automáticamente y la traducción no ha sido revisada. Si algo no está claro, la versión en inglés es la de referencia.",
+  "error_not_found": "Aquí no hay ninguna página.",
+  "error_other": "Algo ha fallado por nuestra parte. Vuelve a intentarlo más tarde.",
+  "error_heading": "Error {status}"
+}
