@@ -1,0 +1,156 @@
+name: Dev CI
+
+# The full quality gate. Runs on every push to `dev` and on every pull request. The release
+# workflow calls it for pushes to `main`, so nothing is released without passing it.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+  workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+  workflow_dispatch:
+
+concurrency:
+  group: dev-ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: '0'
+
+jobs:
+  commits:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Lint the pull request's commit messages
+        run: >-
+          pnpm exec commitlint --verbose
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Typecheck (TypeScript 7)
+        run: pnpm typecheck
+      - name: Typecheck (TypeScript 6 fallback)
+        run: pnpm typecheck:fallback
+      - name: svelte-check
+        run: pnpm check
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: ESLint
+        run: pnpm lint
+      - name: Prettier
+        run: pnpm format:check
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Tests with the coverage gate
+        run: pnpm test:coverage
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: |
+          for package in contract catalogue; do
+            node scripts/coverage-summary.ts "packages/${package}/coverage/coverage-summary.json" "Unit coverage: ${package}" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload the contract's coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: packages/contract/coverage/lcov.info
+          flags: contract
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload the catalogue's coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: packages/catalogue/coverage/lcov.info
+          flags: catalogue
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Keep the coverage reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: packages/*/coverage
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      # SvelteKit validates the environment when it analyses the build; the server reads the real one when it starts.
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          API_KEYS: build-only
+      # What npm would receive, without publishing it.
+      - name: Pack the contract
+        run: pnpm --filter @mondarth/fvtt-package-catalogue-contract pack --dry-run
+      - name: Keep the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: build
+          path: |
+            packages/contract/dist
+            packages/catalogue/build
+          retention-days: 7
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Builds the image as the release does, without pushing it, so a broken Dockerfile is found before a release.
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          cache-from: type=gha,scope=image
+          cache-to: type=gha,scope=image,mode=max
+
+  docs:
+    name: Docs
+    uses: ./.github/workflows/docs.yml
+
+  # A single required check for branch protection.
+  ci-passed:
+    name: CI passed
+    if: ${{ always() }}
+    needs: [commits, typecheck, lint, unit, build, image, docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that every job passed (or was skipped)
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")'

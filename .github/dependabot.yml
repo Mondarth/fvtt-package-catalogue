@@ -1,0 +1,64 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build(deps)
+      prefix-development: build(deps-dev)
+    ignore:
+      # The types must match the oldest Node.js we support (engines, .nvmrc), or newer APIs
+      # type-check and then fail at run time. Moved by hand with the baseline.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+    groups:
+      svelte:
+        patterns: ['svelte', 'svelte-check', '@sveltejs/*', '@testing-library/*', 'happy-dom']
+      vite:
+        patterns: ['vite', 'vite-*', 'vitest', '@vitest/*']
+      typescript:
+        patterns: ['typescript', 'typescript7']
+      database:
+        patterns: ['drizzle-orm', 'drizzle-kit', 'postgres', '@electric-sql/pglite']
+      lint:
+        patterns: ['eslint', '@eslint/*', 'eslint-*', 'typescript-eslint', 'globals', 'prettier', 'prettier-*']
+      commit-tooling:
+        patterns: ['@commitlint/*', 'commitizen', 'cz-*', 'husky', 'lint-staged', 'jiti']
+      release:
+        patterns: ['semantic-release', 'semantic-release-*', '@semantic-release/*', 'conventional-changelog-*']
+
+  # Python requirements of the documentation build.
+  - package-ecosystem: pip
+    directory: /docs
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build(docs)
+
+  # Base images: the documentation build, the catalogue's image and its deployment.
+  - package-ecosystem: docker
+    directories: ['/docs', '/']
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build(docker)
+
+  - package-ecosystem: docker-compose
+    directories: ['/deploy', '/packages/catalogue', '/packages/catalogue/tests/e2e']
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build(docker)
+
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/*']
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci(workflows)
