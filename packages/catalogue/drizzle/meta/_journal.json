@@ -15,6 +15,13 @@
       "when": 1792860229254,
       "tag": "0001_crawl-retries",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793019551422,
+      "tag": "0002_recrawl-for-unlisted",
+      "breakpoints": true
     }
   ]
 }
