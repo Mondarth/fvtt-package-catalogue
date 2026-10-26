@@ -28,7 +28,9 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
 `GET /api/v1/packages/{type}/{id}/releases`
 : Every release of a package that the catalogue knows: `{ package, releases, asOf }`. Each release is what
   `@mondarth/fvtt-resolver` reads as a `Release`. `type` is `module`, `system` or `world`. `asOf` is when the
-  releases were last brought up to date.
+  releases were last brought up to date. A release newer than any Foundry VTT's package listing offers, such as one
+  published on GitLab first, is included with `"unlisted": true`: Foundry VTT's users cannot install it from the
+  listing, so the resolver chooses one only when no listed version fits, and a client should say what it is.
 
 `GET /api/v1/status`
 : What the catalogue holds: `{ apiVersion, version, packages, releases, asOf }`.

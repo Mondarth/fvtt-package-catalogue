@@ -1,5 +1,13 @@
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import * as schema from '../../../../src/lib/server/db/schema.js';
 import { crawlRequests, releases } from '../../../../src/lib/server/db/schema.js';
 import { drizzleStore } from '../../../../src/lib/server/store/drizzle.js';
 import { testDatabase } from '../../support/pglite.js';
@@ -300,5 +308,46 @@ describe('drizzleStore, for refreshing', () => {
     expect(await store.heldPackages()).toEqual([
       { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true },
     ]);
+  });
+});
+
+describe('the migration that keeps unlisted releases', () => {
+  it('queues every package held for one crawl, keeping why a queued one was asked for', async () => {
+    const MIGRATION = '0002_recrawl-for-unlisted';
+    // The migrations before it, applied to a catalogue holding packages, then it.
+    const source = new URL('../../../../drizzle', import.meta.url).pathname;
+    const before = mkdtempSync(join(tmpdir(), 'migrations-'));
+    try {
+      cpSync(source, before, { recursive: true });
+      const journal = JSON.parse(readFileSync(join(before, 'meta/_journal.json'), 'utf8')) as {
+        entries: { tag: string }[];
+      };
+      journal.entries = journal.entries.slice(
+        0,
+        journal.entries.findIndex(entry => entry.tag === MIGRATION),
+      );
+      writeFileSync(join(before, 'meta/_journal.json'), JSON.stringify(journal));
+
+      const client = new PGlite();
+      const old = drizzle({ client, schema, casing: 'snake_case' });
+      await migrate(old, { migrationsFolder: before });
+      const oldStore = drizzleStore(old);
+      await oldStore.saveReleases(MIDI, [], { source: 'crawl', at });
+      await oldStore.saveReleases({ type: 'system', id: 'dnd5e' }, [], { source: 'crawl', at });
+      await oldStore.requestCrawl([{ package: MIDI, reason: 'request' }]);
+
+      await migrate(old, { migrationsFolder: source });
+      const queued = await old
+        .select({ type: crawlRequests.type, packageId: crawlRequests.packageId, reason: crawlRequests.reason })
+        .from(crawlRequests)
+        .orderBy(crawlRequests.id);
+      expect(queued).toEqual([
+        { type: 'module', packageId: 'midi-qol', reason: 'request' },
+        { type: 'system', packageId: 'dnd5e', reason: 'refresh' },
+      ]);
+      await client.close();
+    } finally {
+      rmSync(before, { recursive: true, force: true });
+    }
   });
 });

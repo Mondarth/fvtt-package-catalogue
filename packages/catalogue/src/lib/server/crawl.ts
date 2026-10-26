@@ -48,15 +48,23 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     http: options.http,
     core: options.core,
     manifests: { [key]: options.manifests },
+    // A release newer than the listing offers, such as one its author publishes on GitLab first, is kept, marked
+    // unlisted: the resolver chooses one only when no listed version fits, and a client can say what it is.
+    unlisted: 'last',
   });
   const ofPackage = (release: { readonly package: PackageRef }) => packageKey(release.package) === key;
 
   const { releases: listed } = await set.universe([ref]);
   const held = new Map(options.held.filter(release => release.detail === 'loaded').map(r => [r.version, r]));
-  // A listing can change a release's core compatibility after it is released; its manifest cannot.
+  // A listing can change a release's core compatibility after it is released, and come to list it; its manifest
+  // cannot change. So a release held is kept, with what the listing says of it now.
   const reused = (release: (typeof listed)[number]) => {
     const kept = held.get(release.version);
-    return kept && { ...kept, ...(release.listing !== undefined && { listing: release.listing }) };
+    if (kept === undefined) return undefined;
+    const fresh: Release = { ...kept, ...(release.listing !== undefined && { listing: release.listing }) };
+    if (release.unlisted === true) fresh.unlisted = true;
+    else delete fresh.unlisted;
+    return fresh;
   };
   const toLoad = listed.filter(
     release => release.detail === 'listed' && release.loadFailed !== true && reused(release) === undefined,

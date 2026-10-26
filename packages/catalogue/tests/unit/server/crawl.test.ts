@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { crawlPackage } from '../../../src/lib/server/crawl.js';
 
 import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
-import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
+import type { HttpClient, ReleaseSource } from '@mondarth/fvtt-resolver/sources';
 
 const INDEX = 'https://index.test/index-latest.json';
 const MIDI = { type: 'module', id: 'midi-qol' } as const;
@@ -185,5 +185,75 @@ describe('crawlPackage', () => {
     expect(found.gaps).toEqual([
       { source: 'elsewhere', url: 'https://x.test', reason: 'network', package: 'module:midi-qol' },
     ]);
+  });
+});
+
+describe('crawlPackage, with releases newer than the listing offers', () => {
+  /** A source, such as GitLab's releases, that lists a version Foundry VTT's index does not offer yet. */
+  const ahead = (version: string): ReleaseSource => ({
+    name: 'gitlab',
+    releases: ref =>
+      Promise.resolve({
+        ok: true,
+        value:
+          ref.id !== MIDI.id
+            ? []
+            : [
+                {
+                  package: MIDI,
+                  version,
+                  compatibility: {},
+                  relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+                  manifest: manifestOf(version),
+                  protected: false,
+                  origin: 'https://gitlab.test/midi-qol/releases',
+                  detail: 'listed',
+                },
+              ],
+      }),
+  });
+  const everyManifest = (...versions: string[]) =>
+    Object.fromEntries(versions.map(version => [manifestOf(version), manifest(version)]));
+
+  it('keeps them, loaded and marked unlisted, for clients to choose only knowingly', async () => {
+    const { http } = web(everyManifest('13.0.4', '13.0.5', '13.1.0', '14.6.4'));
+    const found = await crawlPackage(MIDI, {
+      http,
+      sources: [foundryIndexSource(http, { indexUrl: INDEX }), ahead('14.6.4')],
+      core: [],
+      held: [],
+      manifests: [],
+    });
+    expect(found.releases.map(release => [release.version, release.detail, release.unlisted])).toEqual([
+      ['13.0.4', 'loaded', undefined],
+      ['13.0.5', 'loaded', undefined],
+      ['13.1.0', 'loaded', undefined],
+      ['14.6.4', 'loaded', true],
+    ]);
+  });
+
+  // A release held loaded is kept, not loaded again; whether it is listed is the listing's to say, now.
+  it('marks a release held as the listing now has it, listed or not', async () => {
+    const { http } = web(everyManifest('13.0.4', '13.0.5'));
+    const heldAs = (version: string, unlisted: boolean): Release => ({
+      package: MIDI,
+      version,
+      compatibility: { minimum: '13' },
+      relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+      protected: false,
+      origin: manifestOf(version),
+      detail: 'loaded',
+      ...(unlisted && { unlisted: true }),
+    });
+    const found = await crawlPackage(MIDI, {
+      http,
+      sources: [foundryIndexSource(http, { indexUrl: INDEX }), ahead('14.6.4')],
+      core: [],
+      // 13.1.0 was unlisted when it was crawled and is listed now; 14.6.4 is still ahead of the listing.
+      held: [heldAs('13.1.0', true), heldAs('14.6.4', false)],
+      manifests: [],
+    });
+    expect(found.releases.find(release => release.version === '13.1.0')).not.toHaveProperty('unlisted');
+    expect(found.releases.find(release => release.version === '14.6.4')).toMatchObject({ unlisted: true });
   });
 });
