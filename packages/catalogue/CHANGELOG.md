@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.2.0...@mondarth/fvtt-package-catalogue-v0.3.0) (2026-10-26)
+
+### Features
+
+* **catalogue:** keep releases newer than the listing, marked unlisted ([6e1e476](https://github.com/Mondarth/fvtt-package-catalogue/commit/6e1e476013e688780c09b5bb95dc0f655cd6bd79))
+
 ## [@mondarth/fvtt-package-catalogue-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.1.0...@mondarth/fvtt-package-catalogue-v0.2.0) (2026-10-24)
 
 ### Features

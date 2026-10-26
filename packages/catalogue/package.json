@@ -1,6 +1,6 @@
 {
   "name": "@mondarth/fvtt-package-catalogue",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "The Foundry VTT package catalogue: its API and website (SvelteKit), and the worker that keeps its database up to date.",
   "author": "Ulenar of Mondarth",
