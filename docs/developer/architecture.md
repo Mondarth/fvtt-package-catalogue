@@ -74,8 +74,10 @@ is recorded in `sync_runs`.
 
 - **Crawling** (`lib/server/crawl.ts`) takes the next package from `crawl_requests`: asked for before needed, needed
   before due a refresh. The resolver's `sourceSet` lists every release the sources know, then loads each from its own
-  manifest. A release already held as loaded is kept rather than loaded again, with the listing's compatibility as it
-  is now. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
+  manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
+  Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
+  when no listed version fits. A release already held as loaded is kept rather than loaded again, with what the
+  listing says of it now: its compatibility, and whether it is listed. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
   that does not is left out, as a gap from `contract`. The package's gaps are replaced, and what its releases require
   or run in that the catalogue does not know is queued as `closure`. A crawl that throws is deferred, with
   `attempts` counted and `not_before` doubling from a minute to a day.
