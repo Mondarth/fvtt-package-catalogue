@@ -16,6 +16,7 @@ const held = (overrides: Partial<HeldPackage> = {}): HeldPackage => ({
   listingUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
   title: 'Midi QOL',
   premium: false,
+  unavailable: null,
   ...overrides,
 });
 
@@ -24,6 +25,7 @@ const entry = (overrides: Partial<IndexEntry> = {}): IndexEntry => ({
   lastUpdated: new Date('2026-10-01T00:00:00.000Z'),
   title: 'Midi QOL',
   premium: false,
+  archived: false,
   ...overrides,
 });
 
@@ -37,10 +39,13 @@ describe('readIndex', () => {
         details: 'https://x/{id}.json',
         packages: [
           { id: 'midi-qol', type: 'module', title: 'Midi QOL', last_updated: '2026-10-01', premium: false, extra: 1 },
-          { id: 'pf2e', type: 'system', premium: true },
+          { id: 'pf2e', type: 'system', premium: true, status: 'archived' },
         ],
       }),
-    ).toEqual([entry(), { ref: { type: 'system', id: 'pf2e' }, lastUpdated: null, title: null, premium: true }]);
+    ).toEqual([
+      entry(),
+      { ref: { type: 'system', id: 'pf2e' }, lastUpdated: null, title: null, premium: true, archived: true },
+    ]);
   });
 
   it('gives no day for one that is not a day', () => {
@@ -95,6 +100,17 @@ describe('fetchIndex', () => {
 describe('planRefresh, for a package on the index', () => {
   it('leaves it be while the index says it has not changed', () => {
     expect(plan([held()], [entry()])).toEqual({ refresh: [], listings: [] });
+  });
+
+  it('crawls it again when the index archives it, or no longer does, though its day has not changed', () => {
+    expect(plan([held()], [entry({ archived: true })]).refresh).toEqual([MIDI]);
+    expect(plan([held({ unavailable: 'archived' })], [entry()]).refresh).toEqual([MIDI]);
+    expect(plan([held({ unavailable: 'archived' })], [entry({ archived: true })]).refresh).toEqual([]);
+  });
+
+  it('leaves a package gone be, whatever the index says of it', () => {
+    expect(plan([held({ unavailable: 'gone' })], [entry({ archived: true })]).refresh).toEqual([]);
+    expect(plan([held({ unavailable: 'gone' })], [entry()]).refresh).toEqual([]);
   });
 
   it('crawls it again when the index says it changed, and keeps the new day', () => {

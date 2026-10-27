@@ -27,7 +27,11 @@ describe('GET /api/v1/packages/:type/:id/releases', () => {
 
   it("gives a package's releases, as of when they were fetched", async () => {
     const store = mockStore();
-    store.releasesOf.mockResolvedValue({ releases: [release], asOf: new Date('2026-10-24T09:00:00Z') });
+    store.releasesOf.mockResolvedValue({
+      releases: [release],
+      asOf: new Date('2026-10-24T09:00:00Z'),
+      unavailable: null,
+    });
     const response = await get('midi-qol', store);
     expect(store.releasesOf).toHaveBeenCalledWith({ type: 'module', id: 'midi-qol' });
     expect(await response.json()).toEqual({
@@ -39,7 +43,7 @@ describe('GET /api/v1/packages/:type/:id/releases', () => {
 
   it('gives releases never brought up to date as of no time', async () => {
     const store = mockStore();
-    store.releasesOf.mockResolvedValue({ releases: [], asOf: null });
+    store.releasesOf.mockResolvedValue({ releases: [], asOf: null, unavailable: null });
     expect(await (await get('midi-qol', store)).json()).toMatchObject({ asOf: null });
   });
 
@@ -69,7 +73,9 @@ describe('POST /api/v1/universe', () => {
   it('gives the universe of the packages asked for, and what it does not hold yet', async () => {
     const store = mockStore();
     store.releasesOfEach.mockResolvedValue(
-      new Map([['module:midi-qol', { releases: [release], asOf: new Date('2026-10-24T09:00:00Z') }]]),
+      new Map([
+        ['module:midi-qol', { releases: [release], asOf: new Date('2026-10-24T09:00:00Z'), unavailable: null }],
+      ]),
     );
     const response = await post({ packages: [release.package, { type: 'module', id: 'nobody' }] }, store);
     expect(response.status).toBe(200);
@@ -77,6 +83,7 @@ describe('POST /api/v1/universe', () => {
       universe: { core: [], releases: [release] },
       gaps: [],
       pending: [{ type: 'module', id: 'nobody' }],
+      unavailable: [],
       asOf: '2026-10-24T09:00:00.000Z',
     });
   });

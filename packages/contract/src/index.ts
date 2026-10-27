@@ -21,6 +21,8 @@ export {
   ReleasesResponse,
   StatusResponse,
   UNIVERSE_PATH,
+  UnavailablePackage,
+  UnavailableReason,
   UniverseRequest,
   UniverseResponse,
   releasesPath,
