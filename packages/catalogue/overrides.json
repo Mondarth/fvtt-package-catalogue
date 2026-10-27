@@ -1,0 +1,10 @@
+{
+  "module:baileywiki-content": {
+    "reason": "From 1.0.21, Foundry VTT's listing gives every version the manifest URL of the newest; each version's own manifest is at v<version>/module.json.",
+    "manifest": "https://download.bailey.wiki/bcm/v{version}/module.json"
+  },
+  "module:multi-token-edit": {
+    "reason": "The GitHub release 99.test is a test build, whose manifest gives version 3.2.2-test.",
+    "ignoreVersions": ["99.test"]
+  }
+}

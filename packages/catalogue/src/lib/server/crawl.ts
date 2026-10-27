@@ -5,8 +5,11 @@
 import { Release, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 import { sourceSet } from '@mondarth/fvtt-resolver/sources';
 
+import { ignores, overridden } from './overrides.js';
+
 import type { CoreRelease, PackageRef, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource } from '@mondarth/fvtt-resolver/sources';
+import type { PackageOverride } from './overrides.js';
 
 /** What a crawl works with. */
 export interface CrawlOptions {
@@ -19,6 +22,8 @@ export interface CrawlOptions {
   readonly held: readonly Release[];
   /** Manifest URLs declared for the package, by the relationships of releases that need it. */
   readonly manifests: readonly string[];
+  /** What the catalogue is told of the package, where its sources mislead: see `overrides.ts`. */
+  readonly override?: PackageOverride | undefined;
 }
 
 /** What a crawl found. */
@@ -54,14 +59,21 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
   });
   const ofPackage = (release: { readonly package: PackageRef }) => packageKey(release.package) === key;
 
-  const { releases: listed } = await set.universe([ref]);
+  const { override } = options;
+  // Versions the override says are not releases are left out; the rest are loaded from its manifest, if it gives one.
+  const listed = (await set.universe([ref])).releases
+    .filter(release => !ignores(override, release.version))
+    .map(release => overridden(override, release));
   const held = new Map(options.held.filter(release => release.detail === 'loaded').map(r => [r.version, r]));
   // A listing can change a release's core compatibility after it is released, and come to list it; its manifest
   // cannot change. So a release held is kept, with what the listing says of it now.
   const reused = (release: (typeof listed)[number]) => {
     const kept = held.get(release.version);
     if (kept === undefined) return undefined;
-    const fresh: Release = { ...kept, ...(release.listing !== undefined && { listing: release.listing }) };
+    const fresh: Release = overridden(override, {
+      ...kept,
+      ...(release.listing !== undefined && { listing: release.listing }),
+    });
     if (release.unlisted === true) fresh.unlisted = true;
     else delete fresh.unlisted;
     return fresh;
@@ -76,7 +88,7 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     // A gap of no package, such as the index being unreachable, is this package's; loading lists the packages its
     // releases name, whose gaps are theirs, for their own crawls.
     .map(gap => ({ ...gap, package: gap.package ?? key }))
-    .filter(gap => gap.package === key);
+    .filter(gap => gap.package === key && (gap.version === undefined || !ignores(override, gap.version)));
   const releases: Release[] = [];
   for (const release of listed) {
     const found =

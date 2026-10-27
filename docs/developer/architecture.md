@@ -81,6 +81,11 @@ is recorded in `sync_runs`.
   that does not is left out, as a gap from `contract`. The package's gaps are replaced, and what its releases require
   or run in that the catalogue does not know is queued as `closure`. A crawl that throws is deferred, with
   `attempts` counted and `not_before` doubling from a minute to a day.
+- **Package overrides** (`lib/server/overrides.ts`) are read from `PACKAGE_OVERRIDES_FILE` when the worker starts,
+  through a strict schema, so that a mistake stops it rather than being ignored. `crawlPackage` is given the package's
+  override: it leaves out the versions it ignores, with their gaps, and sets `manifest` (for a release still to load)
+  and `versionManifest` (for every release) from its manifest template before loading. Once, when it starts, the
+  worker queues as `refresh` each package it holds that has an override.
 - **Core builds** come from Foundry VTT's release notes, once a day; builds held stay when they cannot be read.
 
 - **Refreshing** (`lib/server/refresh.ts`), hourly, before the crawl, so that what it queues is crawled in the same
