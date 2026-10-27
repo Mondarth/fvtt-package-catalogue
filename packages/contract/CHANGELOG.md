@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.2.0...@mondarth/fvtt-package-catalogue-contract-v0.3.0) (2026-10-27)
+
+### Features
+
+* **contract:** name the packages a universe cannot offer, and why ([47c2591](https://github.com/Mondarth/fvtt-package-catalogue/commit/47c25912e7e05c8bc75bee586d0b3b9540aa8158))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.1.0...@mondarth/fvtt-package-catalogue-contract-v0.2.0) (2026-10-24)
 
 ### Features
