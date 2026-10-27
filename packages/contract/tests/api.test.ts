@@ -78,8 +78,22 @@ describe('responses', () => {
       pending: [{ type: 'module', id: 'lib-wrapper' }],
       asOf: '2026-10-24T09:00:00.000Z',
     };
-    expect(UniverseResponse.parse(body)).toEqual(body);
+    // A catalogue that predates them names no packages that cannot be had.
+    expect(UniverseResponse.parse(body)).toEqual({ ...body, unavailable: [] });
     expect(UniverseResponse.parse({ ...body, asOf: null }).asOf).toBeNull();
+  });
+
+  it('give the packages that cannot be had, and why', () => {
+    const unavailable = [
+      { package: { type: 'module', id: 'babonus' }, reason: 'archived' },
+      { package: { type: 'module', id: 'lost' }, reason: 'gone', note: 'Its repository was deleted' },
+    ];
+    const body = { universe: { core: [], releases: [] }, gaps: [], pending: [], unavailable, asOf: null };
+    expect(UniverseResponse.parse(body)).toEqual(body);
+    expect(
+      UniverseResponse.safeParse({ ...body, unavailable: [{ ...unavailable[0], reason: 'hidden' }] }).success,
+    ).toBe(false);
+    expect(UniverseResponse.safeParse({ ...body, unavailable: [{ ...unavailable[1], note: '' }] }).success).toBe(false);
   });
 
   it('give health', () => {
