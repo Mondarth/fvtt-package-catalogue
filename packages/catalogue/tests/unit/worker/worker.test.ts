@@ -7,6 +7,7 @@ import { mockStore } from '../support/store.js';
 
 import type { CoreRelease, PackageRef, Release } from '@mondarth/fvtt-package-catalogue-contract';
 import type { ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
+import type { PackageOverrides } from '../../../src/lib/server/overrides.js';
 import type { IndexEntry } from '../../../src/lib/server/refresh.js';
 import type { QueuedCrawl } from '../../../src/lib/server/store/types.js';
 
@@ -48,10 +49,12 @@ function setUp({
   releases = () => Promise.resolve<SourceResult<Release[]>>({ ok: true, value: [release()] }),
   core = () => Promise.resolve<SourceResult<CoreRelease[]>>({ ok: true, value: CORE }),
   index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [] }),
+  overrides,
 }: {
   releases?: () => Promise<SourceResult<Release[]>>;
   core?: () => Promise<SourceResult<CoreRelease[]>>;
   index?: () => Promise<SourceResult<IndexEntry[]>>;
+  overrides?: PackageOverrides;
 } = {}) {
   const store = mockStore();
   const log = memoryLogger();
@@ -63,6 +66,7 @@ function setUp({
     sources: () => [sourceOf(releases)],
     coreReleases: core,
     index,
+    ...(overrides !== undefined && { overrides }),
     now: () => NOW,
     sleep: ms => {
       sleeps.push(ms);
@@ -129,6 +133,60 @@ describe('the worker, draining the queue', () => {
     store.saveReleases.mockImplementationOnce(() => Promise.reject('gone'));
     await worker.drain();
     expect(store.finishRun).toHaveBeenCalledWith(1, expect.objectContaining({ error: 'gone' }));
+  });
+});
+
+describe('the worker, with package overrides', () => {
+  const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
+  const held = (ref: PackageRef) => ({
+    ref,
+    syncedAt: day('2026-10-20'),
+    listingUpdatedAt: null,
+    title: null,
+    premium: false,
+  });
+  const overrides: PackageOverrides = {
+    'module:midi-qol': { reason: 'Why', manifest: 'https://files.test/midi-qol/v{version}/module.json' },
+    'module:not-held': { reason: 'Why', ignoreVersions: ['99.test'] },
+  };
+
+  it('queues the packages held that have overrides, once, when it starts, leaving those not held', async () => {
+    const { store, log, worker } = setUp({ overrides });
+    store.heldPackages.mockResolvedValue([held(MIDI), held({ type: 'module', id: 'lib-wrapper' })]);
+    await worker.drain();
+    await worker.drain();
+    // The refresh queues what it finds besides: here, nothing.
+    const queuedNow = store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0);
+    expect(queuedNow).toEqual([[[{ package: MIDI, reason: 'refresh' }]]]);
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({ message: 'The packages with overrides are queued', packages: 1 }),
+    );
+  });
+
+  it('queues none when no package held has one', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.heldPackages.mockResolvedValue([held({ type: 'module', id: 'lib-wrapper' })]);
+    await worker.drain();
+    expect(store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0)).toEqual([]);
+  });
+
+  it('tries again to queue them when the store could not say what it holds', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.heldPackages.mockRejectedValueOnce(new Error('gone')).mockResolvedValue([held(MIDI)]);
+    await expect(worker.drain()).rejects.toThrow('gone');
+    await worker.drain();
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: MIDI, reason: 'refresh' }]);
+  });
+
+  it('crawls a package with its override', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    await worker.drain();
+    expect(store.saveReleases).toHaveBeenCalledWith(
+      MIDI,
+      [{ ...release(), versionManifest: 'https://files.test/midi-qol/v13.0.4/module.json' }],
+      expect.anything(),
+    );
   });
 });
 

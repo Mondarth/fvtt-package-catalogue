@@ -19,10 +19,13 @@ import {
 import { readConfig } from '#lib/server/config.js';
 import { connect } from '#lib/server/db/connect.js';
 import { createLogger } from '#lib/server/log.js';
+import { readOverrides } from '#lib/server/overrides.js';
 import { fetchIndex } from '#lib/server/refresh.js';
 import { drizzleStore } from '#lib/server/store/drizzle.js';
 
 import { createWorker } from './worker.js';
+
+import type { PackageOverrides } from '#lib/server/overrides.js';
 
 const COMMANDS = ['migrate', 'run', 'drain'];
 
@@ -30,8 +33,8 @@ const config = readConfig(process.env);
 const log = createLogger({ level: config.LOG_LEVEL }).child({ process: 'worker' });
 const [command] = process.argv.slice(2);
 
-/** The worker, over the database and the web. */
-function workerOver(connection: ReturnType<typeof connect>) {
+/** The worker, over the database and the web, with the package overrides. */
+function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOverrides) {
   // One cache for the process: Foundry VTT's index is fetched once in five minutes, not once a crawl.
   const cache = memoryCache();
   return createWorker({
@@ -52,6 +55,7 @@ function workerOver(connection: ReturnType<typeof connect>) {
     ],
     coreReleases: http => foundryCoreReleases(http, { url: config.FOUNDRY_RELEASES_URL }),
     index: http => fetchIndex(http, config.FOUNDRY_INDEX_URL),
+    overrides,
     pollMs: config.CRAWL_POLL_SECONDS * 1000,
     refreshEveryMs: config.REFRESH_MINUTES * 60 * 1000,
     staleMs: config.REFRESH_STALE_DAYS * 24 * 60 * 60 * 1000,
@@ -71,7 +75,7 @@ async function main(): Promise<number> {
         log.info('The database is up to date', { migrations: config.MIGRATIONS_DIR });
         return 0;
       case 'drain': {
-        const { crawled } = await workerOver(connection).drain();
+        const { crawled } = await workerOver(connection, await readOverrides(config.PACKAGE_OVERRIDES_FILE)).drain();
         log.info('The queue is drained', { crawled });
         return 0;
       }
@@ -83,7 +87,9 @@ async function main(): Promise<number> {
             stop.abort();
           });
         }
-        await workerOver(connection).run(stop.signal);
+        // An invalid overrides file stops the worker before it starts, rather than crawling without them.
+        const overrides = await readOverrides(config.PACKAGE_OVERRIDES_FILE);
+        await workerOver(connection, overrides).run(stop.signal);
         return 0;
       }
     }

@@ -81,6 +81,37 @@ package in hand, for up to a minute.
 
 To work through the queue once, by hand, and exit: `docker compose run --rm worker node build/worker/main.js drain`.
 
+### Package overrides
+
+Some packages' sources mislead the catalogue: a listing may give every version the manifest URL of the newest, so the
+older versions cannot be loaded, or a source may list a test build as a release. What the catalogue is told of such
+packages is kept in `packages/catalogue/overrides.json`, which the image ships and changes, like code, by a pull
+request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and must say why it is needed:
+
+```json
+{
+  "module:baileywiki-content": {
+    "reason": "The listing gives every version the newest's manifest URL; each has its own at v<version>/module.json.",
+    "manifest": "https://download.bailey.wiki/bcm/v{version}/module.json"
+  },
+  "module:multi-token-edit": {
+    "reason": "The GitHub release 99.test is a test build.",
+    "ignoreVersions": ["99.test"]
+  }
+}
+```
+
+- `manifest`: each version's own manifest URL, with `{version}` for the version as listed. The release is loaded from
+  it in place of the manifest its listing gives, and offers it as its own version's manifest, which EMMA's plan gives
+  as the URL to install that version from.
+- `ignoreVersions`: versions the sources list that are not releases of the package, which are left out.
+
+The worker reads the file when it starts, and stops at once if it is not valid, naming each problem. When it starts, it
+queues every package it holds that has an override to be crawled again, so a changed override applies straight away;
+a package with an override that the catalogue does not hold yet is left until a client asks for it. To use another
+file, such as to try a fix before it is released, mount it in the worker's container and set `PACKAGE_OVERRIDES_FILE`
+to its path. Removing an override does not crawl its package again: it takes effect at the package's next refresh.
+
 ## Upgrading
 
 Set `CATALOGUE_TAG`, then `docker compose pull && docker compose up -d`. The migration runs again first; it applies only

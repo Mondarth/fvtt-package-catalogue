@@ -48,6 +48,8 @@ export const WorkerConfig = z.object({
   REFRESH_MINUTES: Count.default(60),
   /** How long a package the index does not list waits to be crawled again. */
   REFRESH_STALE_DAYS: Count.default(7),
+  /** The package overrides: what the catalogue is told of packages whose sources mislead it. */
+  PACKAGE_OVERRIDES_FILE: z.string().min(1).default('overrides.json'),
   /** Foundry VTT's package index; another only to test against. */
   FOUNDRY_INDEX_URL: z.url().default(FOUNDRY_PACKAGE_INDEX),
   /** Foundry VTT's release notes, which list its builds; another only to test against. */
