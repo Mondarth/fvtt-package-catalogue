@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.3.0...@mondarth/fvtt-package-catalogue-v0.4.0) (2026-10-27)
+
+### Features
+
+* **catalogue:** leave archived and gone packages uncrawled, and say so ([33b186e](https://github.com/Mondarth/fvtt-package-catalogue/commit/33b186e186263e061cd5b25265032cd5a96e8b80))
+* **catalogue:** read package overrides for sources that mislead it ([1e3fb5c](https://github.com/Mondarth/fvtt-package-catalogue/commit/1e3fb5c12429b3cccb269788a507377af02c32eb))
+
 ## [@mondarth/fvtt-package-catalogue-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.2.0...@mondarth/fvtt-package-catalogue-v0.3.0) (2026-10-26)
 
 ### Features
