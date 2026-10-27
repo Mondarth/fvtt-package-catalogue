@@ -53,6 +53,22 @@ export const ReleasesResponse = z.object({
 });
 export type ReleasesResponse = z.infer<typeof ReleasesResponse>;
 
+/**
+ * Why a package cannot be had: `archived`, Foundry VTT's listing of it is archived, so its Setup screen no longer offers
+ * it; `gone`, its files are no longer there, as the catalogue's maintainers found.
+ */
+export const UnavailableReason = z.enum(['archived', 'gone']);
+export type UnavailableReason = z.infer<typeof UnavailableReason>;
+
+/** A package the catalogue knows cannot be had, so offers no releases of. */
+export const UnavailablePackage = z.object({
+  package: PackageRef,
+  reason: UnavailableReason,
+  /** More of why, in words, such as what the maintainers found. */
+  note: z.string().min(1).exactOptional(),
+});
+export type UnavailablePackage = z.infer<typeof UnavailablePackage>;
+
 /** `POST /api/v1/universe`: the packages to start from, such as those a world has enabled. */
 export const UniverseRequest = z.object({
   packages: z.array(PackageRef).min(1).max(MAX_UNIVERSE_PACKAGES),
@@ -72,6 +88,12 @@ export const UniverseResponse = z.object({
    * client finds them elsewhere, such as through EMMA's proxy.
    */
   pending: z.array(PackageRef),
+  /**
+   * Packages asked for or needed that cannot be had, with no releases in the universe, and not followed further. A
+   * client should leave them out of what it resolves, rather than look for them elsewhere. None from a catalogue that
+   * predates it.
+   */
+  unavailable: z.array(UnavailablePackage).default([]),
   /** The oldest time any of the packages held was brought up to date. */
   asOf: AsOf,
 });

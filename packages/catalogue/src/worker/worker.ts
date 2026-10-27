@@ -5,11 +5,13 @@
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { crawlPackage } from '#lib/server/crawl.js';
+import { unavailableOf } from '#lib/server/overrides.js';
 import { planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '#lib/server/log.js';
+import type { PackageOverrides } from '#lib/server/overrides.js';
 import type { IndexEntry } from '#lib/server/refresh.js';
 import type { CatalogueStore, QueuedCrawl } from '#lib/server/store/types.js';
 
@@ -29,6 +31,8 @@ export interface WorkerOptions {
   readonly coreReleases: (http: HttpClient) => Promise<SourceResult<CoreRelease[]>>;
   /** Foundry VTT's index, fetched through a job's client. */
   readonly index: (http: HttpClient) => Promise<SourceResult<IndexEntry[]>>;
+  /** What the catalogue is told of packages whose sources mislead it, by package key; none by default. */
+  readonly overrides?: PackageOverrides;
   /** The time now; the clock by default. */
   readonly now?: () => Date;
   /** Waits, or stops waiting when the signal aborts; {@link sleep} by default. */
@@ -103,6 +107,7 @@ export function createWorker({
   sources,
   coreReleases,
   index,
+  overrides = {},
   now = () => new Date(),
   sleep: wait = sleep,
   pollMs = 5000,
@@ -170,12 +175,42 @@ export function createWorker({
       return { refreshed: plan.refresh.length, listings: plan.listings.length };
     });
 
+  /** Whether the packages held with overrides were queued, which is done once, when the worker starts. */
+  let overridesQueued = false;
+
+  /**
+   * Queues the packages held that have overrides, once: the overrides are read when the worker starts, so one that
+   * changed applies at once, not at the package's next refresh. So is a package held as gone whose override no longer
+   * says so. A package not held is left until a client needs it.
+   */
+  async function queueOverridden(): Promise<void> {
+    if (overridesQueued) return;
+    const held = (await store.heldPackages()).filter(
+      ({ ref, unavailable }) => Object.hasOwn(overrides, packageKey(ref)) || unavailable === 'gone',
+    );
+    if (held.length > 0) {
+      await store.requestCrawl(held.map(({ ref }) => ({ package: ref, reason: 'refresh' })));
+      log.info('The packages with overrides are queued', { packages: held.length });
+    }
+    overridesQueued = true;
+  }
+
   /** Crawls one package from the queue, deferring it if the crawl fails. */
   async function crawl(item: QueuedCrawl): Promise<void> {
     const ref = item.package;
     const key = packageKey(ref);
     try {
       await job('crawl', { package: key, reason: item.reason }, async client => {
+        // A package that cannot be had is not crawled: whatever was held of it goes, with its gaps.
+        const listed = await index(client);
+        const archived = listed.ok && listed.value.some(entry => packageKey(entry.ref) === key && entry.archived);
+        const unavailable = unavailableOf(overrides[key], archived);
+        if (unavailable !== null) {
+          await store.saveUnavailable(ref, unavailable, { source: 'crawl', at: now() });
+          await store.replaceGaps(key, []);
+          await store.finishCrawl(item.id);
+          return { unavailable: unavailable.reason };
+        }
         const [held, manifests, core] = await Promise.all([
           store.releasesOf(ref),
           store.declaredManifests(ref),
@@ -187,6 +222,7 @@ export function createWorker({
           core,
           held: held?.releases ?? [],
           manifests,
+          override: overrides[key],
         });
         // Saved even when none was found, so that the package is known, and not asked for again until it is due.
         await store.saveReleases(ref, found.releases, { source: 'crawl', at: now() });
@@ -213,10 +249,17 @@ export function createWorker({
 
   return {
     async run(signal) {
-      log.info('The worker started', { pollMs, coreEveryMs, refreshEveryMs, staleMs });
+      log.info('The worker started', {
+        pollMs,
+        coreEveryMs,
+        refreshEveryMs,
+        staleMs,
+        overrides: Object.keys(overrides).length,
+      });
       while (!signal.aborted) {
         let worked = false;
         try {
+          await queueOverridden();
           await syncCore();
           await refresh();
           worked = await crawlNext();
@@ -230,6 +273,7 @@ export function createWorker({
     },
 
     async drain() {
+      await queueOverridden();
       await syncCore();
       await refresh();
       let crawled = 0;

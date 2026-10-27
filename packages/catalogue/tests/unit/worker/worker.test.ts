@@ -5,8 +5,9 @@ import { backoff, createWorker, sleep } from '../../../src/worker/worker.js';
 import { memoryLogger } from '../support/logger.js';
 import { mockStore } from '../support/store.js';
 
-import type { CoreRelease, PackageRef, Release } from '@mondarth/fvtt-package-catalogue-contract';
+import type { CoreRelease, PackageRef, Release, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
 import type { ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
+import type { PackageOverrides } from '../../../src/lib/server/overrides.js';
 import type { IndexEntry } from '../../../src/lib/server/refresh.js';
 import type { QueuedCrawl } from '../../../src/lib/server/store/types.js';
 
@@ -48,10 +49,12 @@ function setUp({
   releases = () => Promise.resolve<SourceResult<Release[]>>({ ok: true, value: [release()] }),
   core = () => Promise.resolve<SourceResult<CoreRelease[]>>({ ok: true, value: CORE }),
   index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [] }),
+  overrides,
 }: {
   releases?: () => Promise<SourceResult<Release[]>>;
   core?: () => Promise<SourceResult<CoreRelease[]>>;
   index?: () => Promise<SourceResult<IndexEntry[]>>;
+  overrides?: PackageOverrides;
 } = {}) {
   const store = mockStore();
   const log = memoryLogger();
@@ -63,6 +66,7 @@ function setUp({
     sources: () => [sourceOf(releases)],
     coreReleases: core,
     index,
+    ...(overrides !== undefined && { overrides }),
     now: () => NOW,
     sleep: ms => {
       sleeps.push(ms);
@@ -132,6 +136,98 @@ describe('the worker, draining the queue', () => {
   });
 });
 
+describe('the worker, with package overrides', () => {
+  const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
+  const held = (ref: PackageRef, unavailable: UnavailableReason | null = null) => ({
+    ref,
+    syncedAt: day('2026-10-20'),
+    listingUpdatedAt: null,
+    title: null,
+    premium: false,
+    unavailable,
+  });
+  const overrides: PackageOverrides = {
+    'module:midi-qol': { reason: 'Why', manifest: 'https://files.test/midi-qol/v{version}/module.json' },
+    'module:not-held': { reason: 'Why', ignoreVersions: ['99.test'] },
+  };
+
+  it('queues the packages held that have overrides, once, when it starts, leaving those not held', async () => {
+    const { store, log, worker } = setUp({ overrides });
+    store.heldPackages.mockResolvedValue([held(MIDI), held({ type: 'module', id: 'lib-wrapper' })]);
+    await worker.drain();
+    await worker.drain();
+    // The refresh queues what it finds besides: here, nothing.
+    const queuedNow = store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0);
+    expect(queuedNow).toEqual([[[{ package: MIDI, reason: 'refresh' }]]]);
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({ message: 'The packages with overrides are queued', packages: 1 }),
+    );
+  });
+
+  it('queues none when no package held has one', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.heldPackages.mockResolvedValue([held({ type: 'module', id: 'lib-wrapper' })]);
+    await worker.drain();
+    expect(store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0)).toEqual([]);
+  });
+
+  it('tries again to queue them when the store could not say what it holds', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.heldPackages.mockRejectedValueOnce(new Error('gone')).mockResolvedValue([held(MIDI)]);
+    await expect(worker.drain()).rejects.toThrow('gone');
+    await worker.drain();
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: MIDI, reason: 'refresh' }]);
+  });
+
+  it('queues a package held as gone that no override says is, so that it is crawled again', async () => {
+    const lost = { type: 'module', id: 'lost' } as const;
+    const { store, worker } = setUp();
+    store.heldPackages.mockResolvedValue([held(lost, 'gone'), held(MIDI, 'archived')]);
+    await worker.drain();
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: lost, reason: 'refresh' }]);
+  });
+
+  it('marks a package gone, as its override says, without crawling it, dropping its gaps', async () => {
+    const releases = vi.fn(() => Promise.resolve<SourceResult<Release[]>>({ ok: true, value: [release()] }));
+    const { store, worker } = setUp({
+      releases,
+      overrides: { 'module:midi-qol': { reason: 'Its repository was deleted', gone: true } },
+    });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    await worker.drain();
+    expect(store.saveUnavailable).toHaveBeenCalledWith(
+      MIDI,
+      { reason: 'gone', note: 'Its repository was deleted' },
+      { source: 'crawl', at: NOW },
+    );
+    expect(store.replaceGaps).toHaveBeenCalledWith('module:midi-qol', []);
+    expect(store.finishCrawl).toHaveBeenCalledWith(7);
+    expect(releases).not.toHaveBeenCalled();
+    expect(store.saveReleases).not.toHaveBeenCalled();
+  });
+
+  it('marks a package archived, as the index says, without crawling it', async () => {
+    const archived: IndexEntry = { ref: MIDI, lastUpdated: null, title: null, premium: false, archived: true };
+    const other: IndexEntry = { ...archived, ref: { type: 'module', id: 'other' } };
+    const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [other, archived] }) });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    await worker.drain();
+    expect(store.saveUnavailable).toHaveBeenCalledWith(MIDI, { reason: 'archived' }, { source: 'crawl', at: NOW });
+    expect(store.saveReleases).not.toHaveBeenCalled();
+  });
+
+  it('crawls a package with its override', async () => {
+    const { store, worker } = setUp({ overrides });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    await worker.drain();
+    expect(store.saveReleases).toHaveBeenCalledWith(
+      MIDI,
+      [{ ...release(), versionManifest: 'https://files.test/midi-qol/v13.0.4/module.json' }],
+      expect.anything(),
+    );
+  });
+});
+
 describe("the worker, keeping Foundry VTT's builds", () => {
   it('fetches them when they never were', async () => {
     const { store, worker } = setUp();
@@ -175,12 +271,25 @@ describe("the worker, keeping Foundry VTT's builds", () => {
 
 describe('the worker, refreshing the packages held', () => {
   const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
-  const changed: IndexEntry = { ref: MIDI, lastUpdated: day('2026-10-22'), title: 'Midi QOL', premium: false };
+  const changed: IndexEntry = {
+    ref: MIDI,
+    lastUpdated: day('2026-10-22'),
+    title: 'Midi QOL',
+    premium: false,
+    archived: false,
+  };
 
   it("queues what Foundry VTT's index says changed, and keeps its details, before crawling", async () => {
     const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [changed] }) });
     store.heldPackages.mockResolvedValue([
-      { ref: MIDI, syncedAt: day('2026-10-20'), listingUpdatedAt: day('2026-10-01'), title: null, premium: false },
+      {
+        ref: MIDI,
+        syncedAt: day('2026-10-20'),
+        listingUpdatedAt: day('2026-10-01'),
+        title: null,
+        premium: false,
+        unavailable: null,
+      },
     ]);
     const order: string[] = [];
     store.requestCrawl.mockImplementation(() => {
@@ -205,7 +314,7 @@ describe('the worker, refreshing the packages held', () => {
       Promise.resolve(job === 'refresh' ? new Date(NOW.getTime() - 30 * 60 * 1000) : null),
     );
     await worker.drain();
-    expect(store.heldPackages).not.toHaveBeenCalled();
+    expect(store.saveListings).not.toHaveBeenCalled();
   });
 
   it('goes on to crawl when the index cannot be read', async () => {
@@ -214,7 +323,9 @@ describe('the worker, refreshing the packages held', () => {
     });
     store.nextCrawl.mockResolvedValueOnce(queued());
     expect(await worker.drain()).toEqual({ crawled: 1 });
-    expect(store.heldPackages).not.toHaveBeenCalled();
+    expect(store.saveListings).not.toHaveBeenCalled();
+    // Not known to be archived, it is crawled.
+    expect(store.saveReleases).toHaveBeenCalled();
     expect(log.lines).toContainEqual(
       expect.objectContaining({ level: 'warn', message: 'The packages held were not checked for changes' }),
     );

@@ -46,7 +46,7 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
   { "packages": [{ "type": "module", "id": "midi-qol" }] }
   ```
 
-  The answer is `{ universe, gaps, pending, asOf }`:
+  The answer is `{ universe, gaps, pending, unavailable, asOf }`:
 
   - `universe`: `{ core, releases }`, what `@mondarth/fvtt-resolver` reads as a `Universe`. `releases` holds every
     release of the packages asked for, and of every package any of those releases requires or runs in, all the way
@@ -55,6 +55,11 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
   - `gaps`: what the catalogue's sources could not fetch or read for these packages.
   - `pending`: packages asked for or needed that the catalogue does not hold yet. Each is queued for the worker to
     fetch; until then, a client finds them elsewhere, such as through EMMA's proxy, and asks again later.
+  - `unavailable`: packages asked for or needed that cannot be had, each `{ package, reason, note? }`. The `reason` is
+    `archived`, when Foundry VTT's listing of the package is archived, so its Setup screen no longer offers it, or
+    `gone`, when the catalogue's maintainers found its files are no longer there; `note` says more, in words. None of
+    their releases are in the universe, and what they need is not followed. A client should leave them out of what it
+    resolves, rather than look for them elsewhere. A catalogue from before this field gives none.
   - `asOf`: the oldest time any package held was brought up to date, or `null` if none is held.
 
 ## Errors

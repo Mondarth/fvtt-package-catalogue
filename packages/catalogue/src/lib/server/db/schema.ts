@@ -26,6 +26,7 @@ export const relationshipKind = pgEnum('relationship_kind', ['requires', 'system
 export const coreChannel = pgEnum('core_channel', ['stable', 'testing', 'development', 'prototype']);
 export const gapReason = pgEnum('gap_reason', ['http', 'network', 'budget', 'invalid']);
 export const crawlReason = pgEnum('crawl_reason', ['request', 'closure', 'refresh']);
+export const unavailableReason = pgEnum('unavailable_reason', ['archived', 'gone']);
 
 const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
 
@@ -43,6 +44,10 @@ export const packages = pgTable(
     listingUpdatedAt: timestamp({ withTimezone: true }),
     /** When its releases were last brought up to date: the API's `asOf`. */
     syncedAt: timestamp({ withTimezone: true }),
+    /** Why it cannot be had, if it cannot: then it holds no releases, and is not crawled for any. */
+    unavailable: unavailableReason(),
+    /** More of why, in words. */
+    unavailableNote: text(),
     createdAt,
   },
   table => [unique().on(table.type, table.packageId)],

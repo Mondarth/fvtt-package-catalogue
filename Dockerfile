@@ -21,12 +21,14 @@ RUN DATABASE_URL=postgres://build:build@localhost:5432/build API_KEYS=build-only
 FROM node:24-alpine
 ENV NODE_ENV=production \
     PORT=3000 \
-    MIGRATIONS_DIR=/app/drizzle
+    MIGRATIONS_DIR=/app/drizzle \
+    PACKAGE_OVERRIDES_FILE=/app/overrides.json
 WORKDIR /app
 # The bundles are ES modules.
 RUN echo '{ "type": "module" }' > package.json
 COPY --from=build /repo/packages/catalogue/build ./build
 COPY --from=build /repo/packages/catalogue/drizzle ./drizzle
+COPY --from=build /repo/packages/catalogue/overrides.json ./overrides.json
 # The image's own unprivileged user; neither process writes to the file system.
 USER node
 EXPOSE 3000

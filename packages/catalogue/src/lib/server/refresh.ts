@@ -5,7 +5,7 @@
 import { PackageType, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 import { z } from 'zod';
 
-import type { PackageRef } from '@mondarth/fvtt-package-catalogue-contract';
+import type { PackageRef, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, SourceResult } from '@mondarth/fvtt-resolver/sources';
 
 /** The index is kept for five minutes, as Foundry VTT keeps it, and a stale copy serves for a day. */
@@ -21,6 +21,8 @@ export interface HeldPackage {
   readonly listingUpdatedAt: Date | null;
   readonly title: string | null;
   readonly premium: boolean;
+  /** Why it cannot be had, if it cannot. */
+  readonly unavailable: UnavailableReason | null;
 }
 
 /** A package Foundry VTT's index lists. */
@@ -30,6 +32,8 @@ export interface IndexEntry {
   readonly lastUpdated: Date | null;
   readonly title: string | null;
   readonly premium: boolean;
+  /** Whether its listing is archived, so that Foundry VTT's Setup screen no longer offers it. */
+  readonly archived: boolean;
 }
 
 /** The index's details of a package, to keep with it. */
@@ -56,6 +60,7 @@ const indexSchema = z.object({
       title: z.string().optional(),
       last_updated: z.string().nullish(),
       premium: z.boolean().optional(),
+      status: z.string().optional(),
     }),
   ),
 });
@@ -85,6 +90,7 @@ export function readIndex(value: unknown): IndexEntry[] | undefined {
         lastUpdated: dayOf(entry.last_updated),
         title: entry.title ?? null,
         premium: entry.premium === true,
+        archived: entry.status === 'archived',
       },
     ];
   });
@@ -142,6 +148,9 @@ export function planRefresh(
         ? entry.lastUpdated >= startOfDay(pkg.syncedAt)
         : entry.lastUpdated > pkg.listingUpdatedAt)
     ) {
+      refresh.push(pkg.ref);
+    } else if (entry.archived ? pkg.unavailable === null : pkg.unavailable === 'archived') {
+      // Archived or no longer, without its date changing: a package gone is gone whatever the index says.
       refresh.push(pkg.ref);
     }
     if (

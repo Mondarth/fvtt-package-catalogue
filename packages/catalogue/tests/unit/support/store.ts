@@ -10,6 +10,7 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     releasesOf: vi.fn<CatalogueStore['releasesOf']>().mockResolvedValue(undefined),
     releasesOfEach: vi.fn<CatalogueStore['releasesOfEach']>().mockResolvedValue(new Map()),
     saveReleases: vi.fn<CatalogueStore['saveReleases']>().mockResolvedValue(undefined),
+    saveUnavailable: vi.fn<CatalogueStore['saveUnavailable']>().mockResolvedValue(undefined),
     coreReleases: vi.fn<CatalogueStore['coreReleases']>().mockResolvedValue([]),
     saveCoreReleases: vi.fn<CatalogueStore['saveCoreReleases']>().mockResolvedValue(undefined),
     gapsOf: vi.fn<CatalogueStore['gapsOf']>().mockResolvedValue([]),

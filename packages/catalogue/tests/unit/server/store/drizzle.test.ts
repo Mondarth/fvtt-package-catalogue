@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PGlite } from '@electric-sql/pglite';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -85,12 +86,12 @@ describe('drizzleStore', () => {
 
   it('gives back the releases it saved, field for field', async () => {
     await store.saveReleases(MIDI, [loaded, listed], { source: 'foundry-index', at });
-    expect(await store.releasesOf(MIDI)).toEqual({ releases: [loaded, listed], asOf: at });
+    expect(await store.releasesOf(MIDI)).toEqual({ releases: [loaded, listed], asOf: at, unavailable: null });
   });
 
   it('knows a package saved with no releases', async () => {
     await store.saveReleases(MIDI, [], { source: 'foundry-index', at });
-    expect(await store.releasesOf(MIDI)).toEqual({ releases: [], asOf: at });
+    expect(await store.releasesOf(MIDI)).toEqual({ releases: [], asOf: at, unavailable: null });
   });
 
   it('replaces a release of a version it holds, relationships and all, and keeps the others', async () => {
@@ -101,7 +102,7 @@ describe('drizzleStore', () => {
       relationships: { ...loaded.relationships, requires: [], conflicts: [] },
     };
     await store.saveReleases(MIDI, [changed], { source: 'gitlab', at: later });
-    expect(await store.releasesOf(MIDI)).toEqual({ releases: [changed, listed], asOf: later });
+    expect(await store.releasesOf(MIDI)).toEqual({ releases: [changed, listed], asOf: later, unavailable: null });
   });
 
   // Regression: Drizzle's $onUpdate does not run for an upsert, so a replaced release kept its first time.
@@ -141,8 +142,32 @@ describe('drizzleStore, for universes', () => {
     await store.saveReleases(DND5E, [dnd5eRelease], { source: 'foundry-index', at: later });
     const found = await store.releasesOfEach([DND5E, { type: 'module', id: 'nobody' }, MIDI]);
     expect([...found.keys()]).toEqual(['system:dnd5e', 'module:midi-qol']);
-    expect(found.get('module:midi-qol')).toEqual({ releases: [loaded, listed], asOf: at });
-    expect(found.get('system:dnd5e')).toEqual({ releases: [dnd5eRelease], asOf: later });
+    expect(found.get('module:midi-qol')).toEqual({ releases: [loaded, listed], asOf: at, unavailable: null });
+    expect(found.get('system:dnd5e')).toEqual({ releases: [dnd5eRelease], asOf: later, unavailable: null });
+  });
+
+  it('gives a package that cannot be had with none of the releases it held, and why', async () => {
+    await store.saveReleases(MIDI, [loaded, listed], { source: 'crawl', at });
+    await store.saveUnavailable(
+      MIDI,
+      { reason: 'gone', note: 'Its repository was deleted' },
+      { source: 'crawl', at: later },
+    );
+    await store.saveUnavailable(DND5E, { reason: 'archived' }, { source: 'crawl', at });
+    const found = await store.releasesOfEach([MIDI, DND5E]);
+    expect(found.get('module:midi-qol')).toEqual({
+      releases: [],
+      asOf: later,
+      unavailable: { reason: 'gone', note: 'Its repository was deleted' },
+    });
+    expect(found.get('system:dnd5e')).toEqual({ releases: [], asOf: at, unavailable: { reason: 'archived' } });
+    expect(await store.declaredManifests({ type: 'module', id: 'lib-wrapper' })).toEqual([]);
+  });
+
+  it('makes a package available again when its releases are saved', async () => {
+    await store.saveUnavailable(MIDI, { reason: 'archived' }, { source: 'crawl', at });
+    await store.saveReleases(MIDI, [listed], { source: 'crawl', at: later });
+    expect(await store.releasesOf(MIDI)).toEqual({ releases: [listed], asOf: later, unavailable: null });
   });
 
   it('gives nothing for no packages', async () => {
@@ -292,8 +317,8 @@ describe('drizzleStore, for refreshing', () => {
     await store.saveReleases(MIDI, [], { source: 'crawl', at });
     await store.saveReleases(DND5E, [], { source: 'crawl', at: later });
     expect(await store.heldPackages()).toEqual([
-      { ref: MIDI, syncedAt: at, listingUpdatedAt: null, title: null, premium: false },
-      { ref: DND5E, syncedAt: later, listingUpdatedAt: null, title: null, premium: false },
+      { ref: MIDI, syncedAt: at, listingUpdatedAt: null, title: null, premium: false, unavailable: null },
+      { ref: DND5E, syncedAt: later, listingUpdatedAt: null, title: null, premium: false, unavailable: null },
     ]);
   });
 
@@ -306,7 +331,7 @@ describe('drizzleStore, for refreshing', () => {
     ]);
     await store.saveListings([]);
     expect(await store.heldPackages()).toEqual([
-      { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true },
+      { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true, unavailable: null },
     ]);
   });
 });
@@ -331,10 +356,11 @@ describe('the migration that keeps unlisted releases', () => {
       const client = new PGlite();
       const old = drizzle({ client, schema, casing: 'snake_case' });
       await migrate(old, { migrationsFolder: before });
-      const oldStore = drizzleStore(old);
-      await oldStore.saveReleases(MIDI, [], { source: 'crawl', at });
-      await oldStore.saveReleases({ type: 'system', id: 'dnd5e' }, [], { source: 'crawl', at });
-      await oldStore.requestCrawl([{ package: MIDI, reason: 'request' }]);
+      // Written as that schema had them: today's store writes columns later migrations add.
+      await old.execute(
+        sql`insert into packages (type, package_id, synced_at) values ('module', 'midi-qol', ${at.toISOString()}), ('system', 'dnd5e', ${at.toISOString()})`,
+      );
+      await drizzleStore(old).requestCrawl([{ package: MIDI, reason: 'request' }]);
 
       await migrate(old, { migrationsFolder: source });
       const queued = await old
