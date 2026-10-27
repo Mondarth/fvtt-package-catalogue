@@ -38,15 +38,15 @@ function release(
 const EARLY = new Date('2026-10-24T08:00:00.000Z');
 const LATE = new Date('2026-10-24T09:00:00.000Z');
 
-/** A store holding these packages, which records what it is asked. */
-function storeOf(held: Record<string, PackageReleases>) {
+/** A store holding these packages, each available unless said otherwise, which records what it is asked. */
+function storeOf(held: Record<string, Omit<PackageReleases, 'unavailable'> & Partial<PackageReleases>>) {
   const store = mockStore();
   store.releasesOfEach.mockImplementation(refs =>
     Promise.resolve(
       new Map(
         refs.flatMap(r => {
           const found = held[packageKey(r)];
-          return found === undefined ? [] : [[packageKey(r), found] as const];
+          return found === undefined ? [] : [[packageKey(r), { unavailable: null, ...found }] as const];
         }),
       ),
     ),
@@ -157,5 +157,25 @@ describe('gatherUniverse', () => {
     });
     expect((await gatherUniverse(store, [ref('module:a')])).asOf).toBeNull();
     expect((await gatherUniverse(store, [ref('module:unknown')])).asOf).toBeNull();
+  });
+
+  it('gives the packages that cannot be had, and why, following none of them', async () => {
+    const store = storeOf({
+      'module:midi-qol': {
+        releases: [release('module:midi-qol', '13.0.0', { requires: ['module:babonus', 'module:lost'] })],
+        asOf: LATE,
+      },
+      'module:babonus': { releases: [], asOf: EARLY, unavailable: { reason: 'archived' } },
+      'module:lost': { releases: [], asOf: LATE, unavailable: { reason: 'gone', note: 'Its repository was deleted' } },
+    });
+    const found = await gatherUniverse(store, [ref('module:midi-qol')]);
+    expect(keysOf(found.universe.releases)).toEqual(['module:midi-qol@13.0.0']);
+    expect(found.unavailable).toEqual([
+      { package: ref('module:babonus'), reason: 'archived' },
+      { package: ref('module:lost'), reason: 'gone', note: 'Its repository was deleted' },
+    ]);
+    expect(found.pending).toEqual([]);
+    expect(found.asOf).toEqual(EARLY);
+    expect(store.releasesOfEach).toHaveBeenCalledTimes(2);
   });
 });

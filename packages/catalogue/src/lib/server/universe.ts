@@ -3,7 +3,13 @@
  */
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
-import type { PackageRef, Release, SourceGap, Universe } from '@mondarth/fvtt-package-catalogue-contract';
+import type {
+  PackageRef,
+  Release,
+  SourceGap,
+  UnavailablePackage,
+  Universe,
+} from '@mondarth/fvtt-package-catalogue-contract';
 import type { CatalogueStore, CrawlRequest } from './store/types.js';
 
 /** A universe, with what is missing from it and how old it is. */
@@ -12,6 +18,8 @@ export interface GatheredUniverse {
   readonly gaps: SourceGap[];
   /** Packages asked for or needed that the catalogue does not hold, in the order they were met. */
   readonly pending: PackageRef[];
+  /** Packages asked for or needed that cannot be had, in the order they were met: none of their releases are given. */
+  readonly unavailable: UnavailablePackage[];
   /** The oldest time a package held was brought up to date; null if one never was, or none is held. */
   readonly asOf: Date | null;
 }
@@ -41,6 +49,7 @@ export async function gatherUniverse(store: CatalogueStore, roots: readonly Pack
 
   const releases: Release[] = [];
   const pending: PackageRef[] = [];
+  const unavailable: UnavailablePackage[] = [];
   const crawl: CrawlRequest[] = [];
   let asOf: Date | null | undefined;
   let level = meet(roots);
@@ -55,8 +64,13 @@ export async function gatherUniverse(store: CatalogueStore, roots: readonly Pack
         crawl.push({ package: ref, reason });
         continue;
       }
-      releases.push(...found.releases);
       asOf = older(asOf, found.asOf);
+      // It holds no releases, so needs nothing.
+      if (found.unavailable !== null) {
+        unavailable.push({ package: ref, ...found.unavailable });
+        continue;
+      }
+      releases.push(...found.releases);
       next.push(...meet(found.releases.flatMap(needs)));
     }
     level = next;
@@ -65,7 +79,7 @@ export async function gatherUniverse(store: CatalogueStore, roots: readonly Pack
 
   const [core, gaps] = await Promise.all([store.coreReleases(), store.gapsOf([...met.keys()])]);
   if (crawl.length > 0) await store.requestCrawl(crawl);
-  return { universe: { core, releases }, gaps, pending, asOf: asOf ?? null };
+  return { universe: { core, releases }, gaps, pending, unavailable, asOf: asOf ?? null };
 }
 
 /** The older of two times, where null, never, is older than any; undefined is none yet. */

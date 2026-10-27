@@ -10,6 +10,7 @@ import {
   manifestFor,
   overridden,
   readOverrides,
+  unavailableOf,
 } from '../../../src/lib/server/overrides.js';
 
 const TEMPLATE = 'https://files.test/bcm/v{version}/module.json';
@@ -26,6 +27,7 @@ describe('PackageOverrides', () => {
     const overrides = {
       'module:bcm': { reason: 'The listing gives the latest manifest', manifest: TEMPLATE },
       'system:junk': { reason: 'A test tag', ignoreVersions: ['99.test'] },
+      'module:lost': { reason: 'Its repository was deleted', gone: true },
     };
     expect(PackageOverrides.parse(overrides)).toEqual(overrides);
   });
@@ -40,6 +42,9 @@ describe('PackageOverrides', () => {
     ['a field it does not know', { 'module:bcm': { reason: 'Why', manifest: TEMPLATE, download: TEMPLATE } }],
     ['a key that is not a package', { bcm: { reason: 'Why', manifest: TEMPLATE } }],
     ['a world', { 'world:bcm': { reason: 'Why', manifest: TEMPLATE } }],
+    ['gone, false', { 'module:bcm': { reason: 'Why', gone: false } }],
+    ['gone, with a manifest', { 'module:bcm': { reason: 'Why', gone: true, manifest: TEMPLATE } }],
+    ['gone, with versions to ignore', { 'module:bcm': { reason: 'Why', gone: true, ignoreVersions: ['1.0.0'] } }],
   ])('refuses %s', (_name, overrides) => {
     expect(PackageOverrides.safeParse(overrides).success).toBe(false);
   });
@@ -121,5 +126,20 @@ describe('overridden', () => {
   it('leaves a release be without an override, or one with no manifest', () => {
     expect(overridden(undefined, listed)).toBe(listed);
     expect(overridden({ reason: 'Why', ignoreVersions: ['99.test'] }, listed)).toBe(listed);
+  });
+});
+
+describe('unavailableOf', () => {
+  it('gives a package its override says is gone as gone, with the reason as the note, archived or not', () => {
+    const gone = { reason: 'Its repository was deleted', gone: true as const };
+    expect(unavailableOf(gone, false)).toEqual({ reason: 'gone', note: 'Its repository was deleted' });
+    expect(unavailableOf(gone, true)).toEqual({ reason: 'gone', note: 'Its repository was deleted' });
+  });
+
+  it('gives a package the index archives as archived, and any other as available', () => {
+    expect(unavailableOf(undefined, true)).toEqual({ reason: 'archived' });
+    expect(unavailableOf({ reason: 'Why', manifest: TEMPLATE }, true)).toEqual({ reason: 'archived' });
+    expect(unavailableOf(undefined, false)).toBeNull();
+    expect(unavailableOf({ reason: 'Why', manifest: TEMPLATE }, false)).toBeNull();
   });
 });

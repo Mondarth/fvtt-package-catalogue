@@ -12,6 +12,7 @@ test('gives a universe of what it holds, and what it does not hold yet', async (
     gaps: SEEDED_GAPS,
     // The seeded package requires lib-wrapper and runs in dnd5e, which the catalogue does not hold.
     pending: [unknown, { type: 'module', id: 'lib-wrapper' }, { type: 'system', id: 'dnd5e' }],
+    unavailable: [],
     asOf: SEEDED_AT.toISOString(),
   });
 });

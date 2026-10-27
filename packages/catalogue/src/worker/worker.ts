@@ -5,6 +5,7 @@
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { crawlPackage } from '#lib/server/crawl.js';
+import { unavailableOf } from '#lib/server/overrides.js';
 import { planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
@@ -179,12 +180,14 @@ export function createWorker({
 
   /**
    * Queues the packages held that have overrides, once: the overrides are read when the worker starts, so one that
-   * changed applies at once, not at the package's next refresh. A package not held is left until a client needs it.
+   * changed applies at once, not at the package's next refresh. So is a package held as gone whose override no longer
+   * says so. A package not held is left until a client needs it.
    */
   async function queueOverridden(): Promise<void> {
     if (overridesQueued) return;
-    const keys = new Set(Object.keys(overrides));
-    const held = keys.size === 0 ? [] : (await store.heldPackages()).filter(({ ref }) => keys.has(packageKey(ref)));
+    const held = (await store.heldPackages()).filter(
+      ({ ref, unavailable }) => Object.hasOwn(overrides, packageKey(ref)) || unavailable === 'gone',
+    );
     if (held.length > 0) {
       await store.requestCrawl(held.map(({ ref }) => ({ package: ref, reason: 'refresh' })));
       log.info('The packages with overrides are queued', { packages: held.length });
@@ -198,6 +201,16 @@ export function createWorker({
     const key = packageKey(ref);
     try {
       await job('crawl', { package: key, reason: item.reason }, async client => {
+        // A package that cannot be had is not crawled: whatever was held of it goes, with its gaps.
+        const listed = await index(client);
+        const archived = listed.ok && listed.value.some(entry => packageKey(entry.ref) === key && entry.archived);
+        const unavailable = unavailableOf(overrides[key], archived);
+        if (unavailable !== null) {
+          await store.saveUnavailable(ref, unavailable, { source: 'crawl', at: now() });
+          await store.replaceGaps(key, []);
+          await store.finishCrawl(item.id);
+          return { unavailable: unavailable.reason };
+        }
         const [held, manifests, core] = await Promise.all([
           store.releasesOf(ref),
           store.declaredManifests(ref),

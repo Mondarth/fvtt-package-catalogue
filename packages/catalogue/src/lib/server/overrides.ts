@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
+import type { Unavailable } from './store/types.js';
 
 /** Where in a manifest URL template a release's version goes. */
 export const VERSION_PLACEHOLDER = '{version}';
@@ -33,9 +34,17 @@ export const PackageOverride = z
     manifest: ManifestTemplate.optional(),
     /** Versions the sources list that are not releases of the package, such as a test build's tag: left out. */
     ignoreVersions: z.array(z.string().trim().min(1)).min(1).optional(),
+    /**
+     * The package's files are no longer there, such as when its repository was deleted, though its listing remains:
+     * none of it is fetched, and clients are told it cannot be had, with the reason as the note.
+     */
+    gone: z.literal(true).optional(),
   })
-  .refine(entry => entry.manifest !== undefined || entry.ignoreVersions !== undefined, {
-    message: 'needs a manifest, ignoreVersions, or both',
+  .refine(entry => entry.manifest !== undefined || entry.ignoreVersions !== undefined || entry.gone === true, {
+    message: 'needs a manifest, ignoreVersions or gone',
+  })
+  .refine(entry => entry.gone !== true || (entry.manifest === undefined && entry.ignoreVersions === undefined), {
+    message: 'a package gone has no releases to load or ignore',
   });
 export type PackageOverride = z.infer<typeof PackageOverride>;
 
@@ -61,6 +70,18 @@ export async function readOverrides(path: string): Promise<PackageOverrides> {
   const read = PackageOverrides.safeParse(json);
   if (!read.success) throw new Error(`Invalid package overrides in ${path}:\n${z.prettifyError(read.error)}`);
   return read.data;
+}
+
+/**
+ * Why a package cannot be had, if it cannot: gone, as its override says, or archived, as Foundry VTT's index says.
+ *
+ * @param override - The package's override, if it has one
+ * @param archived - Whether the index says its listing is archived
+ * @returns Why, or null if it can be had
+ */
+export function unavailableOf(override: PackageOverride | undefined, archived: boolean): Unavailable | null {
+  if (override?.gone === true) return { reason: 'gone', note: override.reason };
+  return archived ? { reason: 'archived' } : null;
 }
 
 /** A version without the leading `v` some sources give it. */

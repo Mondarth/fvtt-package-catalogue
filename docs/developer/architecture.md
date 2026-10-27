@@ -85,7 +85,12 @@ is recorded in `sync_runs`.
   through a strict schema, so that a mistake stops it rather than being ignored. `crawlPackage` is given the package's
   override: it leaves out the versions it ignores, with their gaps, and sets `manifest` (for a release still to load)
   and `versionManifest` (for every release) from its manifest template before loading. Once, when it starts, the
-  worker queues as `refresh` each package it holds that has an override.
+  worker queues as `refresh` each package it holds that has an override, and each it holds as gone.
+- **Unavailable packages** are not crawled. Before crawling, the worker reads Foundry VTT's index (from the cache) and
+  the package's override: `unavailableOf` gives `gone` for an override that says so, else `archived` when the index's
+  `status` is `archived`. Such a package is saved with `packages.unavailable` (and `unavailable_note`), its releases and
+  gaps removed; saving releases again clears it. `planRefresh` queues a package whose archived status on the index no
+  longer matches what is held. `gatherUniverse` gives these packages as `unavailable` and follows none of them.
 - **Core builds** come from Foundry VTT's release notes, once a day; builds held stay when they cannot be read.
 
 - **Refreshing** (`lib/server/refresh.ts`), hourly, before the crawl, so that what it queues is crawled in the same

@@ -2,7 +2,13 @@
  * The store: everything the API and the worker read and write. Routes and services see only this interface, never
  * Drizzle, so that the database can change behind it and tests can stand in for it.
  */
-import type { CoreRelease, PackageRef, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
+import type {
+  CoreRelease,
+  PackageRef,
+  Release,
+  SourceGap,
+  UnavailableReason,
+} from '@mondarth/fvtt-package-catalogue-contract';
 import type { HeldPackage, Listing } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
@@ -17,6 +23,15 @@ export interface CatalogueStatus {
 export interface PackageReleases {
   readonly releases: readonly Release[];
   readonly asOf: Date | null;
+  /** Why the package cannot be had, if it cannot: then it has no releases. */
+  readonly unavailable: Unavailable | null;
+}
+
+/** Why a package cannot be had. */
+export interface Unavailable {
+  readonly reason: UnavailableReason;
+  /** More of why, in words. */
+  readonly note?: string;
 }
 
 /** The catalogue's data. */
@@ -38,6 +53,11 @@ export interface CatalogueStore {
    * @throws {Error} If a release is of another package
    */
   saveReleases(ref: PackageRef, releases: readonly Release[], options: SaveOptions): Promise<void>;
+  /**
+   * Records that a package cannot be had, adding the package if it is new, and removing every release held of it. Saving
+   * its releases again makes it available.
+   */
+  saveUnavailable(ref: PackageRef, unavailable: Unavailable, options: SaveOptions): Promise<void>;
   /** Foundry VTT's builds, oldest first. */
   coreReleases(): Promise<CoreRelease[]>;
   /** Records builds of Foundry VTT; a build already held is replaced. */

@@ -105,6 +105,13 @@ request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and
   it in place of the manifest its listing gives, and offers it as its own version's manifest, which EMMA's plan gives
   as the URL to install that version from.
 - `ignoreVersions`: versions the sources list that are not releases of the package, which are left out.
+- `gone`: `true` when the package's files are no longer there, such as when its repository was deleted, though Foundry
+  VTT still lists it. None of it is fetched; whatever was held of it is removed, and the universe names it as
+  `unavailable`, with the reason as its note. It cannot be given with the other two.
+
+A package whose listing Foundry VTT's index marks `archived` is treated the same way without an override: it is not
+crawled, and the universe names it as `unavailable` because it is archived. The hourly refresh crawls a package again
+when the index archives it, or no longer does.
 
 The worker reads the file when it starts, and stops at once if it is not valid, naming each problem. When it starts, it
 queues every package it holds that has an override to be crawled again, so a changed override applies straight away;

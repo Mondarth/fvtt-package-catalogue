@@ -115,7 +115,14 @@ export function drizzleStore(db: Database): CatalogueStore {
     const found = new Map<string, PackageReleases>();
     if (refs.length === 0) return found;
     const held = await db
-      .select({ id: packages.id, type: packages.type, packageId: packages.packageId, syncedAt: packages.syncedAt })
+      .select({
+        id: packages.id,
+        type: packages.type,
+        packageId: packages.packageId,
+        syncedAt: packages.syncedAt,
+        unavailable: packages.unavailable,
+        unavailableNote: packages.unavailableNote,
+      })
       .from(packages)
       .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
     const ids = held.map(row => row.id);
@@ -145,6 +152,10 @@ export function drizzleStore(db: Database): CatalogueStore {
       found.set(key, {
         releases: (rowsOf.get(pkg.id) ?? []).map(row => releaseOf(ref, row, relatedTo.get(row.id) ?? [])),
         asOf: pkg.syncedAt,
+        unavailable:
+          pkg.unavailable === null
+            ? null
+            : { reason: pkg.unavailable, ...(pkg.unavailableNote !== null && { note: pkg.unavailableNote }) },
       });
     }
     return found;
@@ -178,7 +189,11 @@ export function drizzleStore(db: Database): CatalogueStore {
         const [saved] = await tx
           .insert(packages)
           .values({ type: ref.type, packageId: ref.id, syncedAt: at })
-          .onConflictDoUpdate({ target: [packages.type, packages.packageId], set: { syncedAt: at } })
+          // Releases found make the package available, if it was not.
+          .onConflictDoUpdate({
+            target: [packages.type, packages.packageId],
+            set: { syncedAt: at, unavailable: null, unavailableNote: null },
+          })
           .returning({ id: packages.id });
         /* v8 ignore next -- an upsert always returns its row */
         if (saved === undefined) throw new Error(`${ref.type}:${ref.id} was not saved`);
@@ -223,6 +238,21 @@ export function drizzleStore(db: Database): CatalogueStore {
           );
           if (related.length > 0) await tx.insert(relationships).values(related);
         }
+      });
+    },
+
+    async saveUnavailable(ref, { reason, note }, { at }) {
+      await db.transaction(async tx => {
+        const marked = { syncedAt: at, unavailable: reason, unavailableNote: note ?? null };
+        const [saved] = await tx
+          .insert(packages)
+          .values({ type: ref.type, packageId: ref.id, ...marked })
+          .onConflictDoUpdate({ target: [packages.type, packages.packageId], set: marked })
+          .returning({ id: packages.id });
+        /* v8 ignore next -- an upsert always returns its row */
+        if (saved === undefined) throw new Error(`${ref.type}:${ref.id} was not saved`);
+        // Their relationships go with them.
+        await tx.delete(releases).where(eq(releases.packageRef, saved.id));
       });
     },
 
@@ -367,6 +397,7 @@ export function drizzleStore(db: Database): CatalogueStore {
           listingUpdatedAt: packages.listingUpdatedAt,
           title: packages.title,
           premium: packages.premium,
+          unavailable: packages.unavailable,
         })
         .from(packages)
         .orderBy(asc(packages.id));
