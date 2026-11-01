@@ -81,6 +81,13 @@ package in hand, for up to a minute.
 
 To work through the queue once, by hand, and exit: `docker compose run --rm worker node build/worker/main.js drain`.
 
+To crawl every package held again, as after an upgrade that crawls differently: `docker compose run --rm worker node
+build/worker/main.js recrawl`. It queues them and exits, and the running worker crawls them, a package at a time. A
+crawl keeps each version it loaded before, so it fetches little more than the listings, and gives each version what
+the sources say of it now, such as a manifest URL of its own that it had none of.
+
+The worker has no health check: the image's asks the server, which only `app` runs. Its log says what it does.
+
 ### Package overrides
 
 Some packages' sources mislead the catalogue: a listing may give every version the manifest URL of the newest, so the
@@ -123,6 +130,10 @@ to its path. Removing an override does not crawl its package again: it takes eff
 
 Set `CATALOGUE_TAG`, then `docker compose pull && docker compose up -d`. The migration runs again first; it applies only
 what the database does not have yet.
+
+An upgrade does not crawl the packages held again, except those with overrides: each waits for its next refresh. When
+the release notes say a release crawls differently, run `recrawl` (see [the worker](#the-worker)) once it is up. 0.5.0
+does: with resolver 0.9, premium packages' versions get a manifest URL of their own, such as Epic Rolls 5e 6.1.0's.
 
 ## Rotating an API key
 
