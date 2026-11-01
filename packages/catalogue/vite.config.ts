@@ -32,7 +32,9 @@ export default defineConfig({
   // The workspace's packages are read from their sources, so a change to the contract needs no build to be seen here.
   // Setting conditions replaces Vite's, so they are given too.
   resolve: { conditions: [SOURCE, ...defaultClientConditions] },
-  ssr: { resolve: { conditions: [SOURCE, ...defaultServerConditions] } },
+  // The resolver is transformed rather than loaded as it is, so that the contract it imports is the workspace's, from
+  // its sources, as everything else here reads it (see the overrides in pnpm-workspace.yaml).
+  ssr: { resolve: { conditions: [SOURCE, ...defaultServerConditions] }, noExternal: ['@mondarth/fvtt-resolver'] },
   // The release sets the version in package.json before it builds (release.config.js).
   define: DEFINE,
   test: {
