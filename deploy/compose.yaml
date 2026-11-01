@@ -40,6 +40,9 @@ services:
     image: *image
     <<: *hardening
     command: ['node', 'build/worker/main.js', 'migrate']
+    # The image's health check asks the server, which only the app runs.
+    healthcheck:
+      disable: true
     environment:
       DATABASE_URL: *database-url
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -81,6 +84,9 @@ services:
     <<: *hardening
     restart: unless-stopped
     command: ['node', 'build/worker/main.js', 'run']
+    # The image's health check asks the server, which only the app runs.
+    healthcheck:
+      disable: true
     environment:
       DATABASE_URL: *database-url
       LOG_LEVEL: ${LOG_LEVEL:-info}
