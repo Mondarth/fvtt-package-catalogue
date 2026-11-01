@@ -1,5 +1,8 @@
 packages:
   - packages/*
+minimumReleaseAgeExclude:
+  # The resolver is the maintainer's own package, released and adopted the same day, as in EMMA.
+  - '@mondarth/fvtt-resolver'
 allowBuilds:
   esbuild: true
   '@parcel/watcher': false
