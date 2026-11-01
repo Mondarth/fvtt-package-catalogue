@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-v0.5.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.4.1...@mondarth/fvtt-package-catalogue-v0.5.0) (2026-11-01)
+
+### Features
+
+* **worker:** add a recrawl command that queues every package held ([1da1cb0](https://github.com/Mondarth/fvtt-package-catalogue/commit/1da1cb01d4bf28bb1bba74823b3acc348a407f9b))
+
+### Bug Fixes
+
+* **catalogue:** give a release held the manifest URL it lacked ([b685bfb](https://github.com/Mondarth/fvtt-package-catalogue/commit/b685bfb738ca9c9ee52a8af20b864f9b22ad9752))
+
 ## [@mondarth/fvtt-package-catalogue-v0.4.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.4.0...@mondarth/fvtt-package-catalogue-v0.4.1) (2026-11-01)
 
 ### Build System
