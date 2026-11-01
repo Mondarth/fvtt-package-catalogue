@@ -1,5 +1,12 @@
 packages:
   - packages/*
+minimumReleaseAgeExclude:
+  # The resolver is the maintainer's own package, released and adopted the same day, as in EMMA.
+  - '@mondarth/fvtt-resolver'
 allowBuilds:
   esbuild: true
   '@parcel/watcher': false
+# The resolver depends on the published contract, whose exports name a source condition that only this
+# workspace's copy can serve, as its tarball ships dist alone; with this, the resolver uses that copy.
+overrides:
+  '@mondarth/fvtt-package-catalogue-contract': 'workspace:*'

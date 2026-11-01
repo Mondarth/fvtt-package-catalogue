@@ -6,6 +6,32 @@
 export const bumpVersionCmd = 'pnpm pkg set version=${nextRelease.version}';
 
 /**
+ * Releases beyond the preset's. A bump of what a package runs with, `build(deps)`, changes what it
+ * does, as a new resolver changes what the catalogue crawls, so it is released as a patch.
+ * Dependabot's bumps of development tools, `build(deps-dev)`, are not.
+ */
+export const RELEASE_RULES = [{ type: 'build', scope: 'deps', release: 'patch' }];
+
+/**
+ * The sections of the release notes: the preset's, with the build changes shown, so that a release
+ * cut for a dependency bump says what it brings.
+ */
+export const NOTE_TYPES = [
+  { type: 'feat', section: 'Features' },
+  { type: 'feature', section: 'Features' },
+  { type: 'fix', section: 'Bug Fixes' },
+  { type: 'perf', section: 'Performance Improvements' },
+  { type: 'revert', section: 'Reverts' },
+  { type: 'build', section: 'Build System' },
+  { type: 'docs', section: 'Documentation', hidden: true },
+  { type: 'style', section: 'Styles', hidden: true },
+  { type: 'chore', section: 'Miscellaneous Chores', hidden: true },
+  { type: 'refactor', section: 'Code Refactoring', hidden: true },
+  { type: 'test', section: 'Tests', hidden: true },
+  { type: 'ci', section: 'Continuous Integration', hidden: true },
+];
+
+/**
  * @typedef {object} PackageRelease
  * @property {string[]} [prepare] Commands that build what the release ships, after the version is set
  * @property {string} [publishCmd] Publishes the package to a registry; packages without one are only tagged
@@ -20,7 +46,8 @@ export const bumpVersionCmd = 'pnpm pkg set version=${nextRelease.version}';
  * semantic-release-monorepo counts only the commits that change files in the package, and tags
  * each release `<package name>-v<version>`. Releases are cut from `main` only; day-to-day work
  * lands on `dev`. Version numbers follow strict SemVer derived from Conventional Commits:
- * `fix` -> patch, `feat` -> minor, `BREAKING CHANGE:` / `!` -> major.
+ * `fix` -> patch, `feat` -> minor, `BREAKING CHANGE:` / `!` -> major. A runtime dependency bump,
+ * `build(deps)`, is a patch too (see {@link RELEASE_RULES}).
  *
  * semantic-release runs in the package's directory, and @semantic-release/git commits only files
  * under it, so everything a release changes must live in the package.
@@ -33,8 +60,11 @@ export function packageRelease({ prepare = [], publishCmd, output, githubAssets 
     extends: 'semantic-release-monorepo',
     branches: ['main'],
     plugins: [
-      ['@semantic-release/commit-analyzer', { preset: 'conventionalcommits' }],
-      ['@semantic-release/release-notes-generator', { preset: 'conventionalcommits' }],
+      ['@semantic-release/commit-analyzer', { preset: 'conventionalcommits', releaseRules: RELEASE_RULES }],
+      [
+        '@semantic-release/release-notes-generator',
+        { preset: 'conventionalcommits', presetConfig: { types: NOTE_TYPES } },
+      ],
       ['@semantic-release/changelog', { changelogFile: 'CHANGELOG.md' }],
       [
         '@semantic-release/exec',
