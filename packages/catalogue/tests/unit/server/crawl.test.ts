@@ -82,6 +82,30 @@ describe('crawlPackage', () => {
     expect(found.gaps).toEqual([]);
   });
 
+  // An older resolver did not read every listing's manifest URL as the version's own, such as a premium package's.
+  it('gives a release held the manifest URL of its own the sources give now, if it has none', async () => {
+    const { http, fetch } = web({});
+    const heldAs = (version: string, versionManifest?: string): Release => ({
+      package: MIDI,
+      version,
+      compatibility: { minimum: '13' },
+      relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+      protected: false,
+      origin: manifestOf(version),
+      detail: 'loaded',
+      ...(versionManifest !== undefined && { versionManifest }),
+    });
+    const own = 'https://files.test/midi-qol/releases/13.0.5/module.json';
+    const found = await crawl(http, [heldAs('13.0.4'), heldAs('13.0.5', own), heldAs('13.1.0')]);
+    expect(found.releases.map(release => [release.version, release.versionManifest])).toEqual([
+      ['13.0.4', manifestOf('13.0.4')],
+      ['13.0.5', own],
+      ['13.1.0', manifestOf('13.1.0')],
+    ]);
+    // None is loaded again.
+    expect(fetch).not.toHaveBeenCalledWith(manifestOf('13.0.4'), expect.anything());
+  });
+
   it('names what its releases require or run in, once each, for the closure', async () => {
     const { http } = web({ [manifestOf('13.0.4')]: manifest('13.0.4'), [manifestOf('13.1.0')]: manifest('13.1.0') });
     expect((await crawl(http)).named).toEqual([
@@ -118,7 +142,11 @@ describe('crawlPackage', () => {
       listing: { minimum: '12' },
     };
     const found = await crawl(http, [held]);
-    expect(found.releases[0]).toEqual({ ...held, listing: { minimum: '13', verified: '13' } });
+    expect(found.releases[0]).toEqual({
+      ...held,
+      listing: { minimum: '13', verified: '13' },
+      versionManifest: manifestOf('13.0.4'),
+    });
     expect(fetch).not.toHaveBeenCalledWith(manifestOf('13.0.4'), expect.anything());
   });
 

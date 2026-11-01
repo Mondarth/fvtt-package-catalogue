@@ -5,6 +5,7 @@
  *   node build/worker/main.js run       crawls the queue, refreshes what changed and keeps Foundry VTT's builds up to
  *                                       date, until stopped
  *   node build/worker/main.js drain     does what is due now, then exits
+ *   node build/worker/main.js recrawl   queues every package held to be crawled again, then exits
  */
 import {
   foundryCoreReleases,
@@ -27,7 +28,7 @@ import { createWorker } from './worker.js';
 
 import type { PackageOverrides } from '#lib/server/overrides.js';
 
-const COMMANDS = ['migrate', 'run', 'drain'];
+const COMMANDS = ['migrate', 'run', 'drain', 'recrawl'];
 
 const config = readConfig(process.env);
 const log = createLogger({ level: config.LOG_LEVEL }).child({ process: 'worker' });
@@ -79,6 +80,9 @@ async function main(): Promise<number> {
         log.info('The queue is drained', { crawled });
         return 0;
       }
+      case 'recrawl':
+        await workerOver(connection, await readOverrides(config.PACKAGE_OVERRIDES_FILE)).recrawl();
+        return 0;
       default: {
         // Docker stops a container with SIGTERM; the job in hand is finished first.
         const stop = new AbortController();
