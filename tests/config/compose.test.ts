@@ -10,6 +10,7 @@ interface Service {
   ports?: string[];
   depends_on?: Record<string, { condition: string }>;
   read_only?: boolean;
+  healthcheck?: { disable?: boolean; test?: unknown };
 }
 
 interface Compose {
@@ -57,6 +58,17 @@ describe('the production deployment', () => {
     expect(worker?.command).toEqual(['node', 'build/worker/main.js', 'run']);
     expect(worker?.restart).toBe('unless-stopped');
     expect(worker?.depends_on).toEqual({ migrate: { condition: 'service_completed_successfully' } });
+  });
+
+  /*
+   * Regression: the worker and the migration took the image's health check, which asks the server on its port. Neither
+   * runs it, so Docker called the worker unhealthy a minute after it started, though it was crawling.
+   */
+  it('checks the health of the server only, which is what the image checks', () => {
+    expect(app?.healthcheck).toBeUndefined();
+    expect(worker?.healthcheck).toEqual({ disable: true });
+    expect(migrate?.healthcheck).toEqual({ disable: true });
+    expect(readFileSync('Dockerfile', 'utf8')).toMatch(/^HEALTHCHECK .*\/healthz/m);
   });
 
   // The worker fetches from Foundry VTT, GitHub and GitLab; nothing else needs a way out.

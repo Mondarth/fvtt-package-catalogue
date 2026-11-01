@@ -164,6 +164,25 @@ describe('the worker, with package overrides', () => {
     );
   });
 
+  it('queues every package held when asked to crawl them again', async () => {
+    const lost = { type: 'module', id: 'lost' } as const;
+    const { store, log, worker } = setUp();
+    store.heldPackages.mockResolvedValue([held(MIDI), held(lost, 'gone')]);
+    await expect(worker.recrawl()).resolves.toEqual({ queued: 2 });
+    expect(store.requestCrawl).toHaveBeenCalledWith([
+      { package: MIDI, reason: 'refresh' },
+      { package: lost, reason: 'refresh' },
+    ]);
+    expect(log.lines).toContainEqual(expect.objectContaining({ message: 'Every package held is queued', packages: 2 }));
+  });
+
+  it('queues nothing to crawl again when it holds nothing', async () => {
+    const { store, worker } = setUp();
+    store.heldPackages.mockResolvedValue([]);
+    await expect(worker.recrawl()).resolves.toEqual({ queued: 0 });
+    expect(store.requestCrawl).not.toHaveBeenCalled();
+  });
+
   it('queues none when no package held has one', async () => {
     const { store, worker } = setUp({ overrides });
     store.heldPackages.mockResolvedValue([held({ type: 'module', id: 'lib-wrapper' })]);

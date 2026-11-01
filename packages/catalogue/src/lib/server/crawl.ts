@@ -66,13 +66,16 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     .map(release => overridden(override, release));
   const held = new Map(options.held.filter(release => release.detail === 'loaded').map(r => [r.version, r]));
   // A listing can change a release's core compatibility after it is released, and come to list it; its manifest
-  // cannot change. So a release held is kept, with what the listing says of it now.
+  // cannot change. So a release held is kept, with what the listing says of it now. So is a manifest URL for the
+  // version alone that the sources give now and the release held lacks, as one a newer resolver reads from a listing.
   const reused = (release: (typeof listed)[number]) => {
     const kept = held.get(release.version);
     if (kept === undefined) return undefined;
     const fresh: Release = overridden(override, {
       ...kept,
       ...(release.listing !== undefined && { listing: release.listing }),
+      ...(kept.versionManifest === undefined &&
+        release.versionManifest !== undefined && { versionManifest: release.versionManifest }),
     });
     if (release.unlisted === true) fresh.unlisted = true;
     else delete fresh.unlisted;

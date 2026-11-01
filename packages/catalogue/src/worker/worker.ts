@@ -56,6 +56,11 @@ export interface Worker {
    * the queue and due, and returns.
    */
   drain(): Promise<{ crawled: number }>;
+  /**
+   * Queues every package held to be crawled again, as after an upgrade that crawls differently, then returns. The worker
+   * that runs crawls them.
+   */
+  recrawl(): Promise<{ queued: number }>;
 }
 
 /**
@@ -279,6 +284,13 @@ export function createWorker({
       let crawled = 0;
       while (await crawlNext()) crawled++;
       return { crawled };
+    },
+
+    async recrawl() {
+      const held = await store.heldPackages();
+      if (held.length > 0) await store.requestCrawl(held.map(({ ref }) => ({ package: ref, reason: 'refresh' })));
+      log.info('Every package held is queued', { packages: held.length });
+      return { queued: held.length };
     },
   };
 }
