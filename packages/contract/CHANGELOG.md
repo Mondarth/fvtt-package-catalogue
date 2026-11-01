@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.3.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.3.0...@mondarth/fvtt-package-catalogue-contract-v0.3.1) (2026-11-01)
+
+### Build System
+
+* **contract:** build the contract when it is installed ([6f5c5ce](https://github.com/Mondarth/fvtt-package-catalogue/commit/6f5c5cef2c10391c2cf405f671f7cd8b4283fdd1))
+* **deps:** bump @mondarth/fvtt-resolver to 0.9.0 ([0c587a9](https://github.com/Mondarth/fvtt-package-catalogue/commit/0c587a97dc7522bb4690bb0ca328aebcae2f8105))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.2.0...@mondarth/fvtt-package-catalogue-contract-v0.3.0) (2026-10-27)
 
 ### Features
