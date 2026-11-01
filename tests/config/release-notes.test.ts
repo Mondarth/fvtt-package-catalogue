@@ -10,15 +10,20 @@ import { packageRelease } from '../../release.base.js';
 
 type GenerateNotes = (pluginConfig: object, context: object) => Promise<string>;
 
-/** Loads the release-notes plugin from semantic-release's own dependencies, as semantic-release does. */
-async function loadGenerateNotes(): Promise<GenerateNotes> {
+type AnalyzeCommits = (pluginConfig: object, context: object) => Promise<string | null>;
+
+/** Loads a plugin's export from semantic-release's own dependencies, as semantic-release does. */
+async function loadPlugin<T>(name: string, exported: string): Promise<T> {
   const fromSemanticRelease = createRequire(createRequire(import.meta.url).resolve('semantic-release/package.json'));
-  const module: unknown = await import(fromSemanticRelease.resolve('@semantic-release/release-notes-generator'));
-  if (typeof module !== 'object' || module === null || !('generateNotes' in module)) {
-    throw new Error('@semantic-release/release-notes-generator does not export generateNotes');
+  const module: unknown = await import(fromSemanticRelease.resolve(name));
+  if (typeof module !== 'object' || module === null || !(exported in module)) {
+    throw new Error(`${name} does not export ${exported}`);
   }
-  return module.generateNotes as GenerateNotes;
+  return (module as Record<string, unknown>)[exported] as T;
 }
+
+/** Loads the release-notes plugin. */
+const loadGenerateNotes = () => loadPlugin<GenerateNotes>('@semantic-release/release-notes-generator', 'generateNotes');
 
 const config = packageRelease({ output: 'version' });
 
@@ -52,5 +57,42 @@ describe('release notes', () => {
     expect(notes).toContain('### Bug Fixes');
     expect(notes).toContain('**repo:** repair a thing');
     expect(notes).not.toContain('not in the notes');
+  });
+
+  it('show a dependency bump', async () => {
+    const generateNotes = await loadGenerateNotes();
+
+    const notes = await generateNotes(pluginOptions('@semantic-release/release-notes-generator'), {
+      cwd: process.cwd(),
+      options: { repositoryUrl: 'https://github.com/Mondarth/fvtt-package-catalogue.git' },
+      logger: { log: () => undefined, error: () => undefined },
+      lastRelease: { gitTag: 'v1.0.0', version: '1.0.0' },
+      nextRelease: { gitTag: 'v1.0.1', version: '1.0.1' },
+      commits: [{ hash: 'aaaaaaa1', message: 'build(deps): bump a runtime library' }],
+    });
+
+    expect(notes).toContain('### Build System');
+    expect(notes).toContain('**deps:** bump a runtime library');
+  });
+});
+
+describe('releases', () => {
+  it.each([
+    ['build(deps): bump a runtime library', 'patch'],
+    ['build(deps-dev): bump a development tool', null],
+    ['build(contract): change how it is built', null],
+    ['fix(api): repair a thing', 'patch'],
+    ['perf(api): speed a thing up', 'patch'],
+    ['feat(api): add a thing', 'minor'],
+  ])('cut for %s: %s', async (message, release) => {
+    const analyzeCommits = await loadPlugin<AnalyzeCommits>('@semantic-release/commit-analyzer', 'analyzeCommits');
+
+    const type = await analyzeCommits(pluginOptions('@semantic-release/commit-analyzer'), {
+      cwd: process.cwd(),
+      logger: { log: () => undefined, error: () => undefined },
+      commits: [{ hash: 'aaaaaaa1', message }],
+    });
+
+    expect(type).toBe(release);
   });
 });

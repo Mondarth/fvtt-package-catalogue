@@ -81,12 +81,12 @@ Commits must follow [Conventional Commits](https://www.conventionalcommits.org),
 
 The type decides the next version number, so choose it with care:
 
-| Type                                                                | Release |
-| ------------------------------------------------------------------- | ------- |
-| `fix`                                                               | patch   |
-| `feat`                                                              | minor   |
-| `!` after the scope, or a `BREAKING CHANGE:` footer                 | major   |
-| `docs`, `test`, `refactor`, `style`, `perf`, `build`, `ci`, `chore` | none    |
+| Type                                                                      | Release |
+| ------------------------------------------------------------------------- | ------- |
+| `fix`, `perf`, and `build(deps)` (a bump of what a package runs with)     | patch   |
+| `feat`                                                                    | minor   |
+| `!` after the scope, or a `BREAKING CHANGE:` footer                       | major   |
+| `docs`, `test`, `refactor`, `style`, `ci`, `chore`, and any other `build` | none    |
 
 When you commit from a terminal, Commitizen prompts you for the parts of the message (or run `pnpm commit`). commitlint
 then rejects any message that does not conform. Reference issues with `Closes #N` in the body so that the release notes
