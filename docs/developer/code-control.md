@@ -36,6 +36,7 @@ ESLint, Prettier, the type checks and the tests related to the staged files.
 ## Versions
 
 Each package is released on its own, from the commits that change its files, and tagged `<package name>-v<version>`.
-Versions follow SemVer from the commits: `fix` is a patch, `feat` a minor version, and `!` after the scope or a
-`BREAKING CHANGE:` footer a major one. A change to the contract that breaks its clients is a major version of the
+Versions follow SemVer from the commits: `fix`, `perf` and `build(deps)` are a patch, `feat` a minor version, and
+`!` after the scope or a `BREAKING CHANGE:` footer a major one. `build(deps)` bumps what a package runs with, such as
+the resolver, which changes what the catalogue does; Dependabot's `build(deps-dev)` bumps of tools release nothing. A change to the contract that breaks its clients is a major version of the
 contract.
