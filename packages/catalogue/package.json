@@ -36,7 +36,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.11",
+    "@electric-sql/pglite": "^0.5.13",
     "@inlang/paraglide-js": "^2.29.1",
     "@mondarth/fvtt-package-catalogue-contract": "workspace:*",
     "@mondarth/fvtt-resolver": "^0.9.1",
@@ -52,7 +52,7 @@
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.4",
     "happy-dom": "^21.0.4",
-    "postgres": "^3.4.9",
+    "postgres": "^4.0.0",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.7",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
