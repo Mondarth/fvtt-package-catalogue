@@ -48,7 +48,7 @@ export interface CatalogueStore {
   releasesOfEach(refs: readonly PackageRef[]): Promise<ReadonlyMap<string, PackageReleases>>;
   /**
    * Records releases of a package, adding the package if it is new. A release of a version already held replaces it,
-   * relationships and all; releases not given are kept.
+   * relationships and all; releases not given are kept, but for the versions `options.remove` names, which go.
    *
    * @throws {Error} If a release is of another package
    */
@@ -126,4 +126,6 @@ export interface SaveOptions {
   readonly source: string;
   /** When they were fetched: the package's new `asOf`. */
   readonly at: Date;
+  /** Versions held to remove, relationships and all, as a crawl finds them gone (see `crawlPackage`). */
+  readonly remove?: readonly string[];
 }

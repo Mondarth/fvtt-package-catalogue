@@ -81,7 +81,7 @@ describe('the worker, draining the queue', () => {
     const { store, worker } = setUp();
     store.nextCrawl.mockResolvedValueOnce(queued());
     expect(await worker.drain()).toEqual({ crawled: 1 });
-    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [release()], { source: 'crawl', at: NOW });
+    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [release()], { source: 'crawl', at: NOW, remove: [] });
     expect(store.replaceGaps).toHaveBeenCalledWith('module:midi-qol', []);
     expect(store.finishCrawl).toHaveBeenCalledWith(7);
     expect(store.finishRun).toHaveBeenCalledWith(1, { at: NOW, outcome: 'ok', requests: 0 });
@@ -233,6 +233,38 @@ describe('the worker, with package overrides', () => {
     await worker.drain();
     expect(store.saveUnavailable).toHaveBeenCalledWith(MIDI, { reason: 'archived' }, { source: 'crawl', at: NOW });
     expect(store.saveReleases).not.toHaveBeenCalled();
+  });
+
+  it('removes a release held that is gone and could never be loaded, but keeps one that was loaded', async () => {
+    const { store, worker } = setUp();
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    const misread: Release = { ...release(), version: '2e-13.0.4', detail: 'listed', loadFailed: true };
+    const older: Release = { ...release(), version: '12.0.0' };
+    store.releasesOf.mockResolvedValue({ releases: [misread, older], asOf: NOW, unavailable: null });
+
+    await worker.drain();
+
+    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [release()], {
+      source: 'crawl',
+      at: NOW,
+      remove: ['2e-13.0.4'],
+    });
+  });
+
+  it('removes nothing while a listing could not be read', async () => {
+    const releases = () =>
+      Promise.resolve<SourceResult<Release[]>>({
+        ok: false,
+        gap: { source: 'test', url: 'https://files.test/list', reason: 'network' },
+      });
+    const { store, worker } = setUp({ releases });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    const misread: Release = { ...release(), version: '2e-13.0.4', detail: 'listed', loadFailed: true };
+    store.releasesOf.mockResolvedValue({ releases: [misread], asOf: NOW, unavailable: null });
+
+    await worker.drain();
+
+    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [], expect.objectContaining({ remove: [] }));
   });
 
   it('crawls a package with its override', async () => {

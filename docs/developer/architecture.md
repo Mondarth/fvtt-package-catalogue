@@ -77,7 +77,10 @@ is recorded in `sync_runs`.
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
   when no listed version fits. A release already held as loaded is kept rather than loaded again, with what the
-  listing says of it now: its compatibility, and whether it is listed. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
+  listing says of it now: its compatibility, and whether it is listed. A release held that no source lists now is kept
+  too, as a listing may give only the newest releases, such as GitHub's newest hundred; but one held as listed that
+  could never be loaded is removed, as it was only what a listing once said, such as a tag an older resolver read as
+  another version (`Crawled.gone`). Nothing is removed while a listing could not be read. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
   that does not is left out, as a gap from `contract`. The package's gaps are replaced, and what its releases require
   or run in that the catalogue does not know is queued as `closure`. A crawl that throws is deferred, with
   `attempts` counted and `not_before` doubling from a minute to a day.

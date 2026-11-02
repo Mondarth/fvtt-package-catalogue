@@ -28,6 +28,13 @@ export interface CrawlOptions {
 
 /** What a crawl found. */
 export interface Crawled {
+  /**
+   * The versions held that are gone: releases held that no listing gives now and that could never be loaded, as they
+   * were only what a listing once said, such as a tag read as another version by an older resolver. A release held
+   * that was loaded is kept, as a listing may give only the newest releases, such as GitHub's newest hundred; and none
+   * goes while a listing could not be read, as what it lists is not known.
+   */
+  readonly gone: string[];
   /** Every release found, each loaded unless its manifest could not be read, as the API gives them. */
   readonly releases: Release[];
   /** What the sources could not fetch or read for the package, and the releases the contract would not accept. */
@@ -103,7 +110,14 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     else
       gaps.push({ source: CONTRACT, url: release.origin, reason: 'invalid', package: key, version: release.version });
   }
-  return { releases, gaps, named: namedBy(ref, releases) };
+  const complete = !gaps.some(gap => gap.version === undefined);
+  const found = new Set(releases.map(release => release.version));
+  const gone = complete
+    ? options.held
+        .filter(release => release.detail === 'listed' && release.loadFailed === true && !found.has(release.version))
+        .map(release => release.version)
+    : [];
+  return { releases, gaps, gone, named: namedBy(ref, releases) };
 }
 
 /** The packages some releases require or run in, each once, leaving out the package itself and worlds. */
