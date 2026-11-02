@@ -134,6 +134,8 @@ what the database does not have yet.
 An upgrade does not crawl the packages held again, except those with overrides: each waits for its next refresh. When
 the release notes say a release crawls differently, run `recrawl` (see [the worker](#the-worker)) once it is up. 0.5.0
 does: with resolver 0.9, premium packages' versions get a manifest URL of their own, such as Epic Rolls 5e 6.1.0's.
+So does the release with resolver 0.9.1, which reads tags such as Pathfinder's `pf2e-8.6.1` as `8.6.1`: a recrawl saves
+those versions afresh, and removes the ones an older resolver misread, such as `2e-8.6.1`, which could never be loaded.
 
 ## Rotating an API key
 

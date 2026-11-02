@@ -180,7 +180,7 @@ export function drizzleStore(db: Database): CatalogueStore {
 
     releasesOfEach,
 
-    async saveReleases(ref, given, { source, at }) {
+    async saveReleases(ref, given, { source, at, remove = [] }) {
       const stranger = given.find(release => release.package.type !== ref.type || release.package.id !== ref.id);
       if (stranger !== undefined)
         throw new Error(`A release of ${stranger.package.type}:${stranger.package.id} is not of ${ref.type}:${ref.id}`);
@@ -197,6 +197,12 @@ export function drizzleStore(db: Database): CatalogueStore {
           .returning({ id: packages.id });
         /* v8 ignore next -- an upsert always returns its row */
         if (saved === undefined) throw new Error(`${ref.type}:${ref.id} was not saved`);
+
+        // Their relationships go with them.
+        if (remove.length > 0)
+          await tx
+            .delete(releases)
+            .where(and(eq(releases.packageRef, saved.id), inArray(releases.version, [...remove])));
 
         for (const release of given) {
           const values = {

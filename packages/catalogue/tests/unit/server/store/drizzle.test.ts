@@ -105,6 +105,20 @@ describe('drizzleStore', () => {
     expect(await store.releasesOf(MIDI)).toEqual({ releases: [changed, listed], asOf: later, unavailable: null });
   });
 
+  it('removes the versions it is told to, relationships and all, and only of that package', async () => {
+    const dnd5e = { type: 'system', id: 'dnd5e' } as const;
+    await store.saveReleases(MIDI, [loaded, listed], { source: 'foundry-index', at });
+    await store.saveReleases(dnd5e, [{ ...listed, package: dnd5e }], { source: 'foundry-index', at });
+
+    await store.saveReleases(MIDI, [], { source: 'crawl', at: later, remove: [listed.version, 'not-held'] });
+
+    expect(await store.releasesOf(MIDI)).toEqual({ releases: [loaded], asOf: later, unavailable: null });
+    expect((await store.releasesOf(dnd5e))?.releases).toEqual([{ ...listed, package: dnd5e }]);
+    // A version removed and given again is saved anew.
+    await store.saveReleases(MIDI, [listed], { source: 'crawl', at: later, remove: [listed.version] });
+    expect((await store.releasesOf(MIDI))?.releases).toEqual([loaded, listed]);
+  });
+
   // Regression: Drizzle's $onUpdate does not run for an upsert, so a replaced release kept its first time.
   it('records when a release last changed', async () => {
     await store.saveReleases(MIDI, [loaded], { source: 'foundry-index', at });
