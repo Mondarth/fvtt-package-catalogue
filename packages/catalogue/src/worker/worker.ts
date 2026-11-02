@@ -230,12 +230,17 @@ export function createWorker({
           override: overrides[key],
         });
         // Saved even when none was found, so that the package is known, and not asked for again until it is due.
-        await store.saveReleases(ref, found.releases, { source: 'crawl', at: now() });
+        await store.saveReleases(ref, found.releases, { source: 'crawl', at: now(), remove: found.gone });
         await store.replaceGaps(key, found.gaps);
         const unknown = await store.unknownOf(found.named);
         await store.requestCrawl(unknown.map(other => ({ package: other, reason: 'closure' })));
         await store.finishCrawl(item.id);
-        return { releases: found.releases.length, gaps: found.gaps.length, queued: unknown.length };
+        return {
+          releases: found.releases.length,
+          gaps: found.gaps.length,
+          removed: found.gone.length,
+          queued: unknown.length,
+        };
       });
     } catch (error) {
       const until = new Date(now().getTime() + backoff(item.attempts));
