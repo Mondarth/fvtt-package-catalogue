@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-v0.5.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.0...@mondarth/fvtt-package-catalogue-v0.5.1) (2026-11-02)
+
+### Bug Fixes
+
+* **worker:** remove a release held that is gone and was never loaded ([7b3be90](https://github.com/Mondarth/fvtt-package-catalogue/commit/7b3be905b6b06f9e237d616f2bdade40ef3d2a13))
+
+### Build System
+
+* **deps:** bump @mondarth/fvtt-resolver to 0.9.1 ([74cc538](https://github.com/Mondarth/fvtt-package-catalogue/commit/74cc53819f66a894f331e09a3ab871b34f9d899e))
+
 ## [@mondarth/fvtt-package-catalogue-v0.5.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.4.1...@mondarth/fvtt-package-catalogue-v0.5.0) (2026-11-01)
 
 ### Features
