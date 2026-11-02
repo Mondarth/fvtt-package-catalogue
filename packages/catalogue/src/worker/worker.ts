@@ -6,7 +6,7 @@ import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { crawlPackage } from '#lib/server/crawl.js';
 import { unavailableOf } from '#lib/server/overrides.js';
-import { planRefresh } from '#lib/server/refresh.js';
+import { manifestChanges, manifestCheckDue, ownManifest, planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
@@ -169,15 +169,33 @@ export function createWorker({
       return { builds: found.value.length };
     });
 
-  /** Queues the packages held that changed, or that are old enough, to be crawled again. */
+  /**
+   * Queues the packages held that changed, or that are old enough, to be crawled again: as Foundry VTT's index says,
+   * and, a 24th of them each hour, as their own manifests say, giving a version not held.
+   */
   const refresh = () =>
     periodic('refresh', refreshEveryMs, 'The packages held were not checked for changes', async client => {
       const found = await index(client);
       if (!found.ok) throw new Error(`Foundry VTT's index could not be read: ${found.gap.reason} ${found.gap.url}`);
-      const plan = planRefresh(await store.heldPackages(), found.value, { now: now(), staleMs });
+      const held = await store.heldPackages();
+      const plan = planRefresh(held, found.value, { now: now(), staleMs });
+      const planned = new Set(plan.refresh.map(packageKey));
+      const due = held
+        .filter(({ ref, unavailable }) => unavailable === null && !planned.has(packageKey(ref)))
+        .filter(({ ref }) => manifestCheckDue(ref, now()));
+      const releases = await store.releasesOfEach(due.map(({ ref }) => ref));
+      const changed = await manifestChanges(
+        client,
+        due.map(({ ref }) => ({ ref, releases: releases.get(packageKey(ref))?.releases ?? [] })),
+      );
       await store.saveListings(plan.listings);
-      await store.requestCrawl(plan.refresh.map(ref => ({ package: ref, reason: 'refresh' })));
-      return { refreshed: plan.refresh.length, listings: plan.listings.length };
+      await store.requestCrawl([...plan.refresh, ...changed].map(ref => ({ package: ref, reason: 'refresh' })));
+      return {
+        refreshed: plan.refresh.length,
+        manifestsChecked: due.length,
+        manifestsChanged: changed.length,
+        listings: plan.listings.length,
+      };
     });
 
   /** Whether the packages held with overrides were queued, which is done once, when the worker starts. */
@@ -221,12 +239,15 @@ export function createWorker({
           store.declaredManifests(ref),
           store.coreReleases(),
         ]);
+        // The package's own manifest is declared too, so that the version it gives now is read, as Foundry VTT's updater
+        // reads it, though the index does not list that version yet: a listing's manifest URLs only load what it lists.
+        const own = ownManifest(held?.releases ?? []);
         const found = await crawlPackage(ref, {
           http: client,
           sources: sources(client),
           core,
           held: held?.releases ?? [],
-          manifests,
+          manifests: own === undefined || manifests.includes(own) ? manifests : [...manifests, own],
           override: overrides[key],
         });
         // Saved even when none was found, so that the package is known, and not asked for again until it is due.

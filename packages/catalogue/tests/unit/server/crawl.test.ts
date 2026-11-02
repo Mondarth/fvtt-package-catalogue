@@ -261,6 +261,41 @@ describe('crawlPackage, with releases newer than the listing offers', () => {
   });
 
   // A release held loaded is kept, not loaded again; whether it is listed is the listing's to say, now.
+  it("lists the one the package's own manifest gives, as Foundry's updater installs it, but not one only GitLab has", async () => {
+    // The listing names its newest version's manifest by a URL for no version, which gives a newer one now.
+    const own = 'https://files.test/midi-qol/module.json';
+    const fetch = vi.fn<typeof globalThis.fetch>(input => {
+      const url = input instanceof Request ? input.url : String(input);
+      const files: Record<string, unknown> = {
+        [INDEX]: { details: 'https://index.test/detail/{id}.json', packages: [{ id: 'midi-qol', type: 'module' }] },
+        'https://index.test/detail/midi-qol.json': {
+          versions: [
+            { version: '13.0.4', manifest: manifestOf('13.0.4'), minimum: '13', verified: '13' },
+            { version: '13.1.0', manifest: own, minimum: '13', verified: '13' },
+          ],
+        },
+        [manifestOf('13.0.4')]: manifest('13.0.4'),
+        [own]: manifest('13.2.0', { manifest: own }),
+        ...everyManifest('14.6.4'),
+      };
+      return Promise.resolve(url in files ? Response.json(files[url]) : new Response('', { status: 404 }));
+    });
+    const http = httpClient({ fetch });
+
+    const found = await crawlPackage(MIDI, {
+      http,
+      sources: [foundryIndexSource(http, { indexUrl: INDEX }), manifestUrlSource(http), ahead('14.6.4')],
+      core: [],
+      held: [],
+      // Declared, as the worker declares the package's own, so that what it gives now is read.
+      manifests: [own],
+    });
+
+    expect(found.releases.find(release => release.version === '13.2.0')).toMatchObject({ detail: 'loaded' });
+    expect(found.releases.find(release => release.version === '13.2.0')).not.toHaveProperty('unlisted');
+    expect(found.releases.find(release => release.version === '14.6.4')).toMatchObject({ unlisted: true });
+  });
+
   it('marks a release held as the listing now has it, listed or not', async () => {
     const { http } = web(everyManifest('13.0.4', '13.0.5'));
     const heldAs = (version: string, unlisted: boolean): Release => ({

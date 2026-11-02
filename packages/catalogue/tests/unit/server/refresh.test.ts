@@ -1,8 +1,16 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import { fetchIndex, planRefresh, readIndex } from '../../../src/lib/server/refresh.js';
+import {
+  fetchIndex,
+  manifestChanges,
+  manifestCheckDue,
+  ownManifest,
+  planRefresh,
+  readIndex,
+} from '../../../src/lib/server/refresh.js';
 
+import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HeldPackage, IndexEntry } from '../../../src/lib/server/refresh.js';
 
 const NOW = new Date('2026-10-24T12:00:00.000Z');
@@ -98,6 +106,11 @@ describe('fetchIndex', () => {
 });
 
 describe('planRefresh, for a package on the index', () => {
+  it('crawls it again once it was synced a week ago, though the index says it has not changed', () => {
+    // Its own manifest may give a version the index does not, leaving the index's day as it was.
+    expect(plan([held({ syncedAt: new Date(NOW.getTime() - WEEK) })], [entry()]).refresh).toEqual([MIDI]);
+  });
+
   it('leaves it be while the index says it has not changed', () => {
     expect(plan([held()], [entry()])).toEqual({ refresh: [], listings: [] });
   });
@@ -175,5 +188,70 @@ describe('planRefresh, for a package off the index', () => {
       refresh: [],
       listings: [],
     });
+  });
+});
+
+describe("a package's own manifest", () => {
+  const MANIFEST = 'https://files.test/midi-qol/module.json';
+  const release = (version: string, change: Partial<Release> = {}): Release => ({
+    package: MIDI,
+    version,
+    compatibility: { minimum: '14' },
+    relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+    protected: false,
+    origin: MANIFEST,
+    detail: 'loaded',
+    manifest: MANIFEST,
+    ...change,
+  });
+
+  it('is checked once a day for each package, a 24th of them each hour', () => {
+    const refs = Array.from(
+      { length: 200 },
+      (_, index) => ({ type: 'module', id: `module-${String(index)}` }) as const,
+    );
+    const hours = Array.from({ length: 24 }, (_, hour) => new Date(Date.UTC(2026, 9, 24, hour, 30)));
+    for (const ref of refs) expect(hours.filter(hour => manifestCheckDue(ref, hour))).toHaveLength(1);
+    const busiest = Math.max(...hours.map(hour => refs.filter(ref => manifestCheckDue(ref, hour)).length));
+    expect(busiest).toBeLessThan(30);
+  });
+
+  it("is the newest listed release's, or else the newest's", () => {
+    expect(
+      ownManifest([
+        release('1.0.0'),
+        release('2.0.0', { manifest: 'https://files.test/midi-qol/2.0.0.json' }),
+        release('3.0.0', { unlisted: true, manifest: 'https://gitlab.test/v3.0.0/module.json' }),
+      ]),
+    ).toBe('https://files.test/midi-qol/2.0.0.json');
+    expect(ownManifest([release('3.0.0', { unlisted: true })])).toBe(MANIFEST);
+    expect(ownManifest([{ ...release('1.0.0'), manifest: undefined } as unknown as Release])).toBeUndefined();
+  });
+
+  it('queues a package whose manifest gives a version not held, and none whose does not, or cannot be read', async () => {
+    const answers: Record<string, () => Response> = {
+      [MANIFEST]: () => Response.json({ id: 'midi-qol', version: '1.0.36' }),
+      'https://files.test/same/module.json': () => Response.json({ id: 'same', version: 'v1.0.0' }),
+      'https://files.test/odd/module.json': () => Response.json({ id: 'odd' }),
+      'https://files.test/gone/module.json': () => new Response('', { status: 404 }),
+    };
+    const http = httpClient({
+      fetch: vi.fn<typeof fetch>(input => {
+        const url = input instanceof Request ? input.url : input.toString();
+        return Promise.resolve((answers[url] ?? (() => new Response('', { status: 404 })))());
+      }),
+    });
+    const of = (id: string) => ({ type: 'module', id }) as const;
+    const at = (id: string) => [release('1.0.0', { manifest: `https://files.test/${id}/module.json` })];
+
+    const changed = await manifestChanges(http, [
+      { ref: MIDI, releases: [release('1.0.35')] },
+      { ref: of('same'), releases: at('same') },
+      { ref: of('odd'), releases: at('odd') },
+      { ref: of('gone'), releases: at('gone') },
+      { ref: of('none'), releases: [] },
+    ]);
+
+    expect(changed).toEqual([MIDI]);
   });
 });

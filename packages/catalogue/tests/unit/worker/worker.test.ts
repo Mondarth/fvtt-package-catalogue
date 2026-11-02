@@ -1,6 +1,7 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
+import { manifestCheckDue } from '../../../src/lib/server/refresh.js';
 import { backoff, createWorker, sleep } from '../../../src/worker/worker.js';
 import { memoryLogger } from '../support/logger.js';
 import { mockStore } from '../support/store.js';
@@ -32,7 +33,7 @@ const release = (requires: PackageRef[] = []): Release => ({
 });
 
 /** A source that knows these releases, or fails. */
-const sourceOf = (found: () => Promise<SourceResult<Release[]>>): ReleaseSource => ({
+const sourceOf = (found: ReleaseSource['releases']): ReleaseSource => ({
   name: 'test',
   releases: found,
 });
@@ -50,11 +51,13 @@ function setUp({
   core = () => Promise.resolve<SourceResult<CoreRelease[]>>({ ok: true, value: CORE }),
   index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [] }),
   overrides,
+  send = vi.fn<typeof globalThis.fetch>(),
 }: {
-  releases?: () => Promise<SourceResult<Release[]>>;
+  releases?: ReleaseSource['releases'];
   core?: () => Promise<SourceResult<CoreRelease[]>>;
   index?: () => Promise<SourceResult<IndexEntry[]>>;
   overrides?: PackageOverrides;
+  send?: typeof globalThis.fetch;
 } = {}) {
   const store = mockStore();
   const log = memoryLogger();
@@ -62,7 +65,7 @@ function setUp({
   const worker = createWorker({
     store,
     log,
-    http: () => httpClient({ fetch: vi.fn<typeof fetch>() }),
+    http: () => httpClient({ fetch: send }),
     sources: () => [sourceOf(releases)],
     coreReleases: core,
     index,
@@ -357,6 +360,68 @@ describe('the worker, refreshing the packages held', () => {
     ]);
     expect(store.requestCrawl).toHaveBeenCalledWith([{ package: MIDI, reason: 'refresh' }]);
     expect(order).toEqual(['queued', 'crawled']);
+  });
+
+  it('queues, a 24th of them each hour, those whose own manifest gives a version not held', async () => {
+    // Two packages due this hour, and one not; Midi QOL's own manifest gives 13.0.5, the other's what is held.
+    const refs = Array.from({ length: 100 }, (_, index) => ({ type: 'module', id: `pkg-${String(index)}` }) as const);
+    // A third due has no releases held, so no manifest to check.
+    const [due, same, bare] = refs.filter(ref => manifestCheckDue(ref, NOW));
+    const notDue = refs.find(ref => !manifestCheckDue(ref, NOW));
+    if (due === undefined || same === undefined || bare === undefined || notDue === undefined)
+      throw new Error('No packages to check');
+    const manifestOf = (id: string) => `https://files.test/${id}/module.json`;
+    const fetch = vi.fn<typeof globalThis.fetch>(input => {
+      const url = input instanceof Request ? input.url : String(input);
+      return Promise.resolve(Response.json({ version: url === manifestOf(same.id) ? '13.0.4' : '13.0.5' }));
+    });
+    const { store, worker } = setUp({ send: fetch });
+    const at = (ref: PackageRef) => ({ ...release(), package: ref, manifest: manifestOf(ref.id) });
+    store.heldPackages.mockResolvedValue(
+      [due, same, bare, notDue].map(ref => ({
+        ref,
+        syncedAt: NOW,
+        listingUpdatedAt: null,
+        title: null,
+        premium: false,
+        unavailable: null,
+      })),
+    );
+    store.releasesOfEach.mockImplementation(asked =>
+      Promise.resolve(
+        new Map(
+          asked
+            .filter(ref => ref !== bare)
+            .map(ref => [`module:${ref.id}`, { releases: [at(ref)], asOf: NOW, unavailable: null }]),
+        ),
+      ),
+    );
+
+    await worker.drain();
+
+    expect(store.releasesOfEach).toHaveBeenCalledWith([due, same, bare]);
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: due, reason: 'refresh' }]);
+  });
+
+  it("crawls with the package's own manifest declared, so that what it gives now is read", async () => {
+    const releases = vi.fn<ReleaseSource['releases']>(() => Promise.resolve({ ok: true, value: [] }));
+    const { store, worker } = setUp({ releases });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    store.releasesOf.mockResolvedValue({
+      releases: [{ ...release(), manifest: 'https://files.test/midi-qol/module.json' }],
+      asOf: NOW,
+      unavailable: null,
+    });
+    store.declaredManifests.mockResolvedValue(['https://files.test/declared.json']);
+
+    await worker.drain();
+
+    expect(releases).toHaveBeenCalledWith(
+      MIDI,
+      expect.objectContaining({
+        declared: ['https://files.test/declared.json', 'https://files.test/midi-qol/module.json'],
+      }),
+    );
   });
 
   it('does not check again within an hour', async () => {

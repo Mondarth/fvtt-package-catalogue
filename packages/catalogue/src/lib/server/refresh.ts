@@ -3,9 +3,10 @@
  * package it lists last changed; a package it does not list is crawled again once it is old enough.
  */
 import { PackageType, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
+import { sameVersion } from '@mondarth/fvtt-resolver';
 import { z } from 'zod';
 
-import type { PackageRef, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
+import type { PackageRef, Release, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, SourceResult } from '@mondarth/fvtt-resolver/sources';
 
 /** The index is kept for five minutes, as Foundry VTT keeps it, and a stale copy serves for a day. */
@@ -121,8 +122,8 @@ const sameTime = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === 
  *
  * A package on the index is due when the index's `last_updated` is newer than the one read before, or, never read
  * before, when it is not older than the day the package was synced: the index gives only the day, so a change on the
- * day of the sync may be after it. A package not on the index, or whose entry gives no date, is due once it was last
- * synced `staleMs` ago.
+ * day of the sync may be after it. Every package is due once it was last synced `staleMs` ago, on the index or not,
+ * as a package's own manifest can give a version the index does not, and leave its date as it was.
  *
  * @param held - The packages held
  * @param index - Foundry VTT's index
@@ -143,7 +144,8 @@ export function planRefresh(
     if (entry?.lastUpdated == null) {
       if (stale) refresh.push(pkg.ref);
     } else if (
-      pkg.syncedAt === null ||
+      // Never synced, a package is stale.
+      stale ||
       (pkg.listingUpdatedAt === null
         ? entry.lastUpdated >= startOfDay(pkg.syncedAt)
         : entry.lastUpdated > pkg.listingUpdatedAt)
@@ -161,4 +163,56 @@ export function planRefresh(
     }
   }
   return { refresh, listings };
+}
+
+/**
+ * Whether a package's own manifest is to be checked this hour: each package's once a day, a 24th of them each hour, by
+ * its key, so that the requests are spread through the day.
+ *
+ * @param ref - The package
+ * @param now - The time now
+ * @returns Whether it is due
+ */
+export function manifestCheckDue(ref: PackageRef, now: Date): boolean {
+  let hash = 0;
+  for (const char of packageKey(ref)) hash = (hash * 31 + char.charCodeAt(0)) % 2_147_483_647;
+  return hash % 24 === now.getUTCHours();
+}
+
+/**
+ * The manifest a package's releases say is its own, as Foundry VTT's updater reads it to update the package: that of
+ * its newest listed release, or, if none is listed, of its newest.
+ *
+ * @param releases - Its releases held, oldest first as stored
+ * @returns The manifest's URL, if any release gives one
+ */
+export function ownManifest(releases: readonly Release[]): string | undefined {
+  const withManifest = releases.filter(release => release.manifest !== undefined);
+  const listed = withManifest.filter(release => release.unlisted !== true);
+  return (listed.at(-1) ?? withManifest.at(-1))?.manifest;
+}
+
+/**
+ * The packages whose own manifest gives a version the catalogue does not hold, as one its author published by the
+ * manifest alone, so that Foundry VTT's index, and its date, are as they were. Each manifest is asked through the
+ * client's cache; one that cannot be read, or gives no version, changes nothing.
+ *
+ * @param http - The client
+ * @param held - The packages to check, each with its releases held
+ * @returns Those to crawl again
+ */
+export async function manifestChanges(
+  http: HttpClient,
+  held: readonly { readonly ref: PackageRef; readonly releases: readonly Release[] }[],
+): Promise<PackageRef[]> {
+  const changed: PackageRef[] = [];
+  for (const { ref, releases } of held) {
+    const url = ownManifest(releases);
+    if (url === undefined) continue;
+    const fetched = await http.getJson(url, { maxAge: FIVE_MINUTES });
+    const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
+    if (typeof version !== 'string' && typeof version !== 'number') continue;
+    if (!releases.some(release => sameVersion(release.version, String(version)))) changed.push(ref);
+  }
+  return changed;
 }
