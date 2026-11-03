@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-v0.5.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.1...@mondarth/fvtt-package-catalogue-v0.5.2) (2026-11-03)
+
+### Bug Fixes
+
+* **worker:** hold the version a package's own manifest gives now ([d0c3609](https://github.com/Mondarth/fvtt-package-catalogue/commit/d0c360979fb7133bb97a4a08acd3e5bc0e29eb98))
+* **worker:** skip a manifest naming its version as a package's own ([86aa0f5](https://github.com/Mondarth/fvtt-package-catalogue/commit/86aa0f51befa6cc84ecc06b30270aa332c0610c0))
+
 ## [@mondarth/fvtt-package-catalogue-v0.5.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.0...@mondarth/fvtt-package-catalogue-v0.5.1) (2026-11-02)
 
 ### Bug Fixes
