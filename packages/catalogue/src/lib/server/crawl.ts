@@ -3,6 +3,7 @@
  * the catalogue holds what each release requires and runs in.
  */
 import { Release, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
+import { namesVersion } from '@mondarth/fvtt-resolver';
 import { sourceSet } from '@mondarth/fvtt-resolver/sources';
 
 import { ignores, overridden } from './overrides.js';
@@ -109,6 +110,26 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     if (read.success) releases.push(read.data);
     else
       gaps.push({ source: CONTRACT, url: release.origin, reason: 'invalid', package: key, version: release.version });
+  }
+  // A release newer than the listing offers is kept, marked unlisted (see above), as one its author publishes on GitLab
+  // first. But one the package's own manifest gives, the one a listed release, or another package, names for it, and
+  // that names no version, is what Foundry VTT's updater installs from that manifest, as one its author published by
+  // the manifest alone: it is listed.
+  const own = new Set([
+    ...options.manifests,
+    ...releases.flatMap(release =>
+      release.unlisted !== true && release.manifest !== undefined ? [release.manifest] : [],
+    ),
+  ]);
+  for (const release of releases) {
+    const { manifest } = release;
+    if (
+      release.unlisted === true &&
+      manifest !== undefined &&
+      own.has(manifest) &&
+      !namesVersion(manifest, release.version)
+    )
+      delete release.unlisted;
   }
   const complete = !gaps.some(gap => gap.version === undefined);
   const found = new Set(releases.map(release => release.version));
