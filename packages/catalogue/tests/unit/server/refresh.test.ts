@@ -216,14 +216,18 @@ describe("a package's own manifest", () => {
     expect(busiest).toBeLessThan(30);
   });
 
-  it("is the newest listed release's, or else the newest's", () => {
+  it("is the newest listed release's, or else the newest's, unless it names that release's version", () => {
     expect(
       ownManifest([
-        release('1.0.0'),
-        release('2.0.0', { manifest: 'https://files.test/midi-qol/2.0.0.json' }),
+        release('1.0.0', { manifest: 'https://files.test/midi-qol/1.0.0.json' }),
+        release('2.0.0', { manifest: 'https://files.test/midi-qol/latest.json' }),
         release('3.0.0', { unlisted: true, manifest: 'https://gitlab.test/v3.0.0/module.json' }),
       ]),
-    ).toBe('https://files.test/midi-qol/2.0.0.json');
+    ).toBe('https://files.test/midi-qol/latest.json');
+    // A manifest of one version's own never gives a newer.
+    expect(
+      ownManifest([release('1.0.0'), release('2.0.0', { manifest: 'https://files.test/midi-qol/2.0.0.json' })]),
+    ).toBeUndefined();
     expect(ownManifest([release('3.0.0', { unlisted: true })])).toBe(MANIFEST);
     expect(ownManifest([{ ...release('1.0.0'), manifest: undefined } as unknown as Release])).toBeUndefined();
   });

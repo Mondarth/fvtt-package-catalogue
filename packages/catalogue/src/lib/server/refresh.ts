@@ -3,7 +3,7 @@
  * package it lists last changed; a package it does not list is crawled again once it is old enough.
  */
 import { PackageType, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { sameVersion } from '@mondarth/fvtt-resolver';
+import { namesVersion, sameVersion } from '@mondarth/fvtt-resolver';
 import { z } from 'zod';
 
 import type { PackageRef, Release, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
@@ -181,15 +181,17 @@ export function manifestCheckDue(ref: PackageRef, now: Date): boolean {
 
 /**
  * The manifest a package's releases say is its own, as Foundry VTT's updater reads it to update the package: that of
- * its newest listed release, or, if none is listed, of its newest.
+ * its newest listed release, or, if none is listed, of its newest. One that names that release's version is that
+ * release's alone, and never gives a newer one, so it is none: reading it again would only load what is held.
  *
  * @param releases - Its releases held, oldest first as stored
- * @returns The manifest's URL, if any release gives one
+ * @returns The manifest's URL, if the release gives one that may give a newer version
  */
 export function ownManifest(releases: readonly Release[]): string | undefined {
   const withManifest = releases.filter(release => release.manifest !== undefined);
   const listed = withManifest.filter(release => release.unlisted !== true);
-  return (listed.at(-1) ?? withManifest.at(-1))?.manifest;
+  const newest = listed.at(-1) ?? withManifest.at(-1);
+  return newest?.manifest === undefined || namesVersion(newest.manifest, newest.version) ? undefined : newest.manifest;
 }
 
 /**
