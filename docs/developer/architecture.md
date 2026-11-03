@@ -76,7 +76,10 @@ is recorded in `sync_runs`.
   before due a refresh. The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
-  when no listed version fits. A release already held as loaded is kept rather than loaded again, with what the
+  when no listed version fits. The package's own manifest, that of its newest listed release held, is declared to the
+  sources, so that the version it gives now is read: a listing's manifest URLs only load the versions it lists. That
+  version, given by a manifest a listed release names that names no version, is what Foundry VTT's updater installs,
+  as one its author publishes by the manifest alone, so it is listed. A release already held as loaded is kept rather than loaded again, with what the
   listing says of it now: its compatibility, and whether it is listed. A release held that no source lists now is kept
   too, as a listing may give only the newest releases, such as GitHub's newest hundred; but one held as listed that
   could never be loaded is removed, as it was only what a listing once said, such as a tag an older resolver read as
@@ -101,8 +104,11 @@ is recorded in `sync_runs`.
   `last_updated`; a held package is queued as `refresh` when that is newer than the one read before, which is kept in
   `packages.listing_updated_at` with the title and premium flag. Never read before, a package is queued when the date is
   not older than the day it was synced, as the index gives only the day. A package the index does not list, or lists
-  with no date, is queued once it was synced a week ago. The rules are `planRefresh`'s, a pure function. A refresh
-  costs little: releases held as loaded are kept, so only new versions' manifests are fetched.
+  with no date, is queued once it was synced a week ago, and so is every package, on the index or not, as its own
+  manifest may give a version the index does not, leaving its date as it was. The rules are `planRefresh`'s, a pure
+  function. Each hour, a 24th of the packages held, by key (`manifestCheckDue`), so each once a day, have their own
+  manifest read, and are queued if it gives a version not held (`manifestChanges`). A refresh costs little: releases
+  held as loaded are kept, so only new versions' manifests are fetched.
 
 ## SvelteKit 3
 
