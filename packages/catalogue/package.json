@@ -36,7 +36,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.13",
+    "@electric-sql/pglite": "^0.5.14",
     "@inlang/paraglide-js": "^2.29.3",
     "@mondarth/fvtt-package-catalogue-contract": "workspace:*",
     "@mondarth/fvtt-resolver": "^0.9.1",
