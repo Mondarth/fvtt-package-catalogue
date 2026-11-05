@@ -28,3 +28,15 @@ export {
   UniverseResponse,
   releasesPath,
 } from './api.js';
+export {
+  API_V2_BASE,
+  API_V2_VERSION,
+  LOOKUP_PATH,
+  LookupPackage,
+  LookupPackageRequest,
+  LookupRequest,
+  LookupResponse,
+  OwnManifest,
+  PackageRelease,
+  PendingPackage,
+} from './v2.js';
