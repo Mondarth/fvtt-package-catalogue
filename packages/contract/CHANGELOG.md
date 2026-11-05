@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.3.2...@mondarth/fvtt-package-catalogue-contract-v0.4.0) (2026-11-05)
+
+### Features
+
+* **contract:** add version 2 of the API, starting with lookups ([37b6174](https://github.com/Mondarth/fvtt-package-catalogue/commit/37b6174b3e8fb387c77ce8e85206ba0fbc127053))
+* **contract:** give Foundry VTT's listing and builds in version 2 ([76fd47f](https://github.com/Mondarth/fvtt-package-catalogue/commit/76fd47f36c97afadd5c9d399d60e71c2984e606e))
+* **contract:** give how the catalogue compares with the index ([bd81a1d](https://github.com/Mondarth/fvtt-package-catalogue/commit/bd81a1d8bf23da97f9a3ff155825dde16675c7ec))
+* **contract:** have packages' own manifests rechecked in version 2 ([f24725e](https://github.com/Mondarth/fvtt-package-catalogue/commit/f24725ead4951bea368722b3892222d678e96dd5))
+* **contract:** read a manifest URL a user gives, in version 2 ([7c96b57](https://github.com/Mondarth/fvtt-package-catalogue/commit/7c96b57572280d7912d95df6d47382eccc11e139))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.3.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.3.1...@mondarth/fvtt-package-catalogue-contract-v0.3.2) (2026-11-02)
 
 ### Build System
