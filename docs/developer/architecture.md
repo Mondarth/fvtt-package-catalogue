@@ -74,6 +74,11 @@ is recorded in `sync_runs`.
 
 - **Crawling** (`lib/server/crawl.ts`) takes the next package from `crawl_requests`: asked for before needed, needed
   before due a refresh, due a refresh before warming. A package queued again keeps the most pressing of its reasons.
+  The worker keeps up to `CRAWL_CONCURRENCY` crawls in hand. `nextCrawl` takes a package in a transaction, locking its
+  row (`FOR UPDATE SKIP LOCKED`) and moving its `not_before` an hour on, so that no other crawl takes it: finishing
+  takes it off the queue, deferring sets its own time, and one neither, as when the worker is killed mid-crawl, is
+  crawled again once the hour is over. Every crawl's client fetches through one `hostLimited` fetch, which makes at
+  most `CRAWL_PER_HOST` requests to a host at once, across them all.
   The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only

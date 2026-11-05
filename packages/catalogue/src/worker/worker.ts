@@ -50,15 +50,17 @@ export interface WorkerOptions {
    * 300 by default. None queues none.
    */
   readonly warmPerHour?: number;
+  /** How many packages are crawled at once; four by default. */
+  readonly crawlConcurrency?: number;
 }
 
 /** The worker. */
 export interface Worker {
-  /** Works until the signal aborts, finishing the job in hand. */
+  /** Works until the signal aborts, finishing the crawls in hand. */
   run(signal: AbortSignal): Promise<void>;
   /**
    * Fetches Foundry VTT's builds and checks the packages held for changes, if those are due, then crawls what is on
-   * the queue and due, and returns.
+   * the queue and due, several at once, and returns.
    */
   drain(): Promise<{ crawled: number }>;
   /**
@@ -125,6 +127,7 @@ export function createWorker({
   refreshEveryMs = HOUR,
   staleMs = 7 * DAY,
   warmPerHour = 300,
+  crawlConcurrency = 4,
 }: WorkerOptions): Worker {
   /**
    * Runs a job with a client of its own, recording the run; whatever it throws is rethrown once recorded. What the work
@@ -232,7 +235,7 @@ export function createWorker({
     overridesQueued = true;
   }
 
-  /** Crawls one package from the queue, deferring it if the crawl fails. */
+  /** Crawls one package from the queue, deferring it if the crawl fails. Rejects only if it cannot be deferred. */
   async function crawl(item: QueuedCrawl): Promise<void> {
     const ref = item.package;
     const key = packageKey(ref);
@@ -293,17 +296,50 @@ export function createWorker({
     return warmed.length < warmPerHour;
   }
 
+  /** The crawls in hand, each removing itself once done. */
+  const inHand = new Set<Promise<void>>();
+
   /**
-   * Crawls the next package due, if there is one. Packages queued to warm are crawled at most `warmPerHour` an hour, so
-   * that warming the whole index is spread out; any other is crawled as soon as it is due.
+   * Starts crawls of the packages due, until `crawlConcurrency` are in hand or none is due. The store hands each to one
+   * crawl alone. Packages queued to warm are crawled at most `warmPerHour` an hour, so that warming the whole index is
+   * spread out; any other is crawled as soon as it is due.
+   *
+   * @returns How many were started
    */
-  async function crawlNext(): Promise<boolean> {
-    const at = now();
-    const item = await store.nextCrawl(at, { warm: mayWarm(at.getTime()) });
-    if (item === undefined) return false;
-    if (item.reason === 'warm') warmed.push(at.getTime());
-    await crawl(item);
-    return true;
+  async function startCrawls(): Promise<number> {
+    let started = 0;
+    while (inHand.size < crawlConcurrency) {
+      const at = now();
+      const item = await store.nextCrawl(at, { warm: mayWarm(at.getTime()) });
+      if (item === undefined) break;
+      if (item.reason === 'warm') warmed.push(at.getTime());
+      const crawling: Promise<void> = crawl(item)
+        .catch((error: unknown) => {
+          // Left on the queue as it was taken: the store hands it out again once its hold runs out.
+          log.error('The crawl could not be deferred', { package: packageKey(item.package), error });
+        })
+        .finally(() => inHand.delete(crawling));
+      inHand.add(crawling);
+      started++;
+    }
+    return started;
+  }
+
+  /** Resolves once a crawl in hand is done, or the wait is over, whichever is first; the wait is cut short then. */
+  async function untilCrawled(ms: number, signal: AbortSignal): Promise<void> {
+    const pause = new AbortController();
+    const stop = () => {
+      pause.abort();
+    };
+    // An abort that has happened already is never heard by a listener added now.
+    if (signal.aborted) pause.abort();
+    signal.addEventListener('abort', stop, { once: true });
+    try {
+      await Promise.race([wait(ms, pause.signal), ...inHand]);
+    } finally {
+      pause.abort();
+      signal.removeEventListener('abort', stop);
+    }
   }
 
   return {
@@ -314,21 +350,25 @@ export function createWorker({
         refreshEveryMs,
         staleMs,
         warmPerHour,
+        crawlConcurrency,
         overrides: Object.keys(overrides).length,
       });
       while (!signal.aborted) {
-        let worked = false;
         try {
           await queueOverridden();
           await syncCore();
           await refresh();
-          worked = await crawlNext();
+          await startCrawls();
         } catch (error) {
           // The database, most likely: wait, and try again.
           log.error('The worker could not reach the store', { error });
         }
-        if (!worked) await wait(pollMs, signal);
+        // As many crawls in hand as may be: on once one is done. Fewer, as none more is due: on once one is done, or
+        // the wait is over, to look again.
+        if (inHand.size >= crawlConcurrency) await Promise.race(inHand);
+        else await untilCrawled(pollMs, signal);
       }
+      await Promise.all(inHand);
       log.info('The worker stopped');
     },
 
@@ -337,8 +377,12 @@ export function createWorker({
       await syncCore();
       await refresh();
       let crawled = 0;
-      while (await crawlNext()) crawled++;
-      return { crawled };
+      // A crawl done may queue more, as a closure: the queue is drained once none is due and none is in hand.
+      for (;;) {
+        crawled += await startCrawls();
+        if (inHand.size === 0) return { crawled };
+        await Promise.race(inHand);
+      }
     },
 
     async recrawl() {

@@ -71,8 +71,10 @@ export interface CatalogueStore {
    */
   requestCrawl(requests: readonly CrawlRequest[]): Promise<void>;
   /**
-   * The next package the worker may crawl at this time: asked for before needed, needed before due a refresh, due a
-   * refresh before warming, oldest first within each. Undefined if none is due.
+   * Takes the next package the worker may crawl at this time: asked for before needed, needed before due a refresh, due
+   * a refresh before warming, oldest first within each. Undefined if none is due. It is held for an hour, so that no
+   * other crawl takes it, until it is finished or deferred; one neither, as when the worker stops mid-crawl, is given
+   * again once the hour is over.
    *
    * @param options.warm - Whether a package queued to warm may be given; true by default
    */

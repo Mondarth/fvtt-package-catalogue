@@ -83,8 +83,11 @@ that it does not hold yet, and crawls up to `WARM_PER_HOUR` of them an hour (300
 the queue. The first time, that is about 6,700 packages, so about a day; after that, only packages newly listed. Set
 `WARM_PER_HOUR=0` in `.env` to turn warming off, so that the catalogue holds only what clients have needed.
 
-Each crawl may make at most `CRAWL_MAX_REQUESTS` requests (5000 by default). Stopping the container lets it finish the
-package in hand, for up to a minute.
+The worker crawls `CRAWL_CONCURRENCY` packages at once (4 by default), making at most `CRAWL_PER_HOST` requests to any
+one host at once across them all (4 by default), so that GitHub's API or a package's host is never asked many times
+at once. Each crawl may make at most `CRAWL_MAX_REQUESTS` requests (5000 by default). Stopping the container lets it
+finish the packages in hand, for up to a minute; a package left unfinished, as when the container is killed, is crawled
+again an hour later.
 
 To work through the queue once, by hand, and exit: `docker compose run --rm worker node build/worker/main.js drain`.
 

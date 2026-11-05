@@ -54,6 +54,7 @@ function setUp({
   overrides,
   send = vi.fn<typeof globalThis.fetch>(),
   warmPerHour,
+  crawlConcurrency,
   clock = () => NOW,
 }: {
   releases?: ReleaseSource['releases'];
@@ -62,6 +63,7 @@ function setUp({
   overrides?: PackageOverrides;
   send?: typeof globalThis.fetch;
   warmPerHour?: number;
+  crawlConcurrency?: number;
   clock?: () => Date;
 } = {}) {
   const store = mockStore();
@@ -76,6 +78,7 @@ function setUp({
     index,
     ...(overrides !== undefined && { overrides }),
     ...(warmPerHour !== undefined && { warmPerHour }),
+    ...(crawlConcurrency !== undefined && { crawlConcurrency }),
     now: clock,
     sleep: ms => {
       sleeps.push(ms);
@@ -517,6 +520,85 @@ describe('the worker, refreshing the packages held', () => {
   });
 });
 
+describe('the worker, crawling several packages at once', () => {
+  /** Sources whose every listing waits until released, so that crawls stay in hand; and the queue they come from. */
+  function held(count: number) {
+    const pending: (() => void)[] = [];
+    const releases = vi.fn<ReleaseSource['releases']>(
+      () =>
+        new Promise(resolve => {
+          pending.push(() => {
+            resolve({ ok: true, value: [] });
+          });
+        }),
+    );
+    const queue = Array.from({ length: count }, (_, index) => queued({ id: index + 1 }));
+    const next = () => Promise.resolve(queue.shift());
+    return { releases, next, release: () => pending.shift()?.() };
+  }
+  const settled = () => new Promise(resolve => setTimeout(resolve, 0));
+
+  it('drains the queue with at most so many crawls in hand at once', async () => {
+    const { releases, next, release } = held(3);
+    const { store, worker } = setUp({ releases, crawlConcurrency: 2 });
+    store.nextCrawl.mockImplementation(next);
+    const drained = worker.drain();
+    await settled();
+    expect(releases).toHaveBeenCalledTimes(2);
+    release();
+    await settled();
+    expect(releases).toHaveBeenCalledTimes(3);
+    release();
+    release();
+    expect(await drained).toEqual({ crawled: 3 });
+    expect(store.finishCrawl.mock.calls.map(([id]) => id).toSorted()).toEqual([1, 2, 3]);
+  });
+
+  it('crawls what a crawl done queued, in the same drain', async () => {
+    const { store, worker } = setUp({ crawlConcurrency: 2 });
+    store.nextCrawl.mockResolvedValueOnce(queued({ id: 1 }));
+    store.requestCrawl.mockImplementationOnce(() => {
+      store.nextCrawl.mockResolvedValueOnce(queued({ id: 2 }));
+      return Promise.resolve();
+    });
+    expect(await worker.drain()).toEqual({ crawled: 2 });
+  });
+
+  it('runs with as many crawls in hand as it may, waiting for one to be done rather than sleeping', async () => {
+    const { releases, next, release } = held(3);
+    const { store, worker, sleeps } = setUp({ releases, crawlConcurrency: 2 });
+    const stop = new AbortController();
+    store.nextCrawl.mockImplementation(next);
+    const running = worker.run(stop.signal);
+    await settled();
+    expect(releases).toHaveBeenCalledTimes(2);
+    expect(sleeps).toEqual([]);
+    release();
+    await settled();
+    expect(releases).toHaveBeenCalledTimes(3);
+    // Stopped, it finishes the crawls in hand.
+    stop.abort();
+    release();
+    release();
+    await running;
+    expect(store.finishCrawl).toHaveBeenCalledTimes(3);
+  });
+
+  it('logs a crawl that failed and could not be deferred, and goes on', async () => {
+    const { store, log, worker } = setUp({ releases: () => Promise.reject(new Error('down')) });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    store.deferCrawl.mockRejectedValueOnce(new Error('connection refused'));
+    expect(await worker.drain()).toEqual({ crawled: 1 });
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({
+        level: 'error',
+        message: 'The crawl could not be deferred',
+        package: 'module:midi-qol',
+      }),
+    );
+  });
+});
+
 describe('the worker, running', () => {
   it('waits when there is nothing to do, and stops when told', async () => {
     const { store, worker, sleeps } = setUp();
@@ -543,6 +625,37 @@ describe('the worker, running', () => {
     expect(log.lines).toContainEqual(
       expect.objectContaining({ level: 'error', message: 'The worker could not reach the store' }),
     );
+  });
+});
+
+describe('the worker, stopped while it waits', () => {
+  it('stops waiting at once', async () => {
+    const store = mockStore();
+    const stop = new AbortController();
+    const waits: AbortSignal[] = [];
+    const worker = createWorker({
+      store,
+      log: memoryLogger(),
+      http: () => httpClient({ fetch: vi.fn<typeof fetch>() }),
+      sources: () => [],
+      coreReleases: () => Promise.resolve({ ok: true, value: [] }),
+      index: () => Promise.resolve({ ok: true, value: [] }),
+      now: () => NOW,
+      // Waits until told to stop waiting, however long it was asked to wait.
+      sleep: (_ms, signal) =>
+        new Promise(resolve => {
+          waits.push(signal);
+          signal.addEventListener('abort', () => {
+            resolve();
+          });
+        }),
+    });
+    const running = worker.run(stop.signal);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(waits).toHaveLength(1);
+    stop.abort();
+    await running;
+    expect(waits[0]?.aborted).toBe(true);
   });
 });
 
