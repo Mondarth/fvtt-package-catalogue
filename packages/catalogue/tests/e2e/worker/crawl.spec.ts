@@ -73,6 +73,19 @@ test('the worker crawls what was asked for and what that needs, then what change
     // Loaded once: the catalogue keeps what it loaded rather than fetching it again.
     expect(web.hits.get(manifestPath('1.0.0'))).toBe(1);
     expect(web.hits.get(manifestPath('1.1.0'))).toBe(1);
+
+    // The index is kept, as it lists the package now.
+    const kept = connect(E2E_ENV.DATABASE_URL);
+    try {
+      const rows = await kept.db.execute(
+        'select package_id, title, last_updated from listings where delisted_at is null order by package_id',
+      );
+      expect(rows).toEqual([
+        { package_id: CRAWLED.id, title: 'E2E crawled', last_updated: expect.anything() as unknown },
+      ]);
+    } finally {
+      await kept.close();
+    }
   } finally {
     await web.close();
   }

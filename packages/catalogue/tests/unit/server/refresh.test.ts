@@ -9,6 +9,7 @@ import {
   planRefresh,
   readIndex,
 } from '../../../src/lib/server/refresh.js';
+import { NO_DETAILS } from '../support/index-entry.js';
 
 import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HeldPackage, IndexEntry } from '../../../src/lib/server/refresh.js';
@@ -34,6 +35,7 @@ const entry = (overrides: Partial<IndexEntry> = {}): IndexEntry => ({
   title: 'Midi QOL',
   premium: false,
   archived: false,
+  details: NO_DETAILS,
   ...overrides,
 });
 
@@ -52,8 +54,104 @@ describe('readIndex', () => {
       }),
     ).toEqual([
       entry(),
-      { ref: { type: 'system', id: 'pf2e' }, lastUpdated: null, title: null, premium: true, archived: true },
+      {
+        ref: { type: 'system', id: 'pf2e' },
+        lastUpdated: null,
+        title: null,
+        premium: true,
+        archived: true,
+        details: { ...NO_DETAILS, status: 'archived' },
+      },
     ]);
+  });
+
+  it('reads what its listing shows, as the index gives it', () => {
+    const [read] =
+      readIndex({
+        packages: [
+          {
+            id: 'midi-qol',
+            type: 'module',
+            title: 'Midi QOL',
+            summary: 'Automation',
+            author: { name: 'tim posney', username: 'tim-posney' },
+            provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+            url: 'https://github.com/tposney/midi-qol',
+            marketplace_url: 'https://store.test/midi',
+            tags: ['combat', 7],
+            requires: ['dnd5e'],
+            exclusive: true,
+            status: 'approved',
+            latest_version: 14,
+            compatibility: [
+              {
+                from: '14.368',
+                to: '14.999',
+                verified: 14.368,
+                version: '14.0.20',
+                manifest: 'https://files.test/14.0.20/module.json',
+                notes: 'https://files.test/notes',
+              },
+              { from: '13', to: null, verified: null, version: '13.0.4', manifest: null, notes: null },
+              { from: '12', notes: 'no version' },
+            ],
+          },
+        ],
+      }) ?? [];
+    expect(read?.details).toEqual({
+      summary: 'Automation',
+      author: { name: 'tim posney', username: 'tim-posney' },
+      provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      exclusive: true,
+      status: 'approved',
+      latestVersion: '14',
+      versions: [
+        {
+          version: '14.0.20',
+          minimum: '14.368',
+          maximum: '14.999',
+          verified: '14.368',
+          manifest: 'https://files.test/14.0.20/module.json',
+          notes: 'https://files.test/notes',
+        },
+        { version: '13.0.4', minimum: '13', maximum: null, verified: null, manifest: null, notes: null },
+      ],
+    });
+  });
+
+  it('reads an entry with a field of another shape, leaving that field out', () => {
+    // Foundry VTT's own index gives many entries a null author; an entry of another shape leaves the index readable.
+    const [read] =
+      readIndex({
+        packages: [
+          {
+            id: 'odd',
+            type: 'module',
+            title: null,
+            author: { username: 'no-name' },
+            tags: 'combat',
+            premium: 'yes',
+            compatibility: { version: '1.0.0' },
+          },
+        ],
+      }) ?? [];
+    expect(read).toEqual({
+      ref: { type: 'module', id: 'odd' },
+      lastUpdated: null,
+      title: null,
+      premium: false,
+      archived: false,
+      details: NO_DETAILS,
+    });
+  });
+
+  it('reads an author with no username', () => {
+    const [read] = readIndex({ packages: [{ id: 'a', type: 'module', author: { name: 'Ann' } }] }) ?? [];
+    expect(read?.details.author).toEqual({ name: 'Ann', username: null });
   });
 
   it('reads the time it last changed, as the index gives it now', () => {

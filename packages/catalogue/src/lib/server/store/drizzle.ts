@@ -1,10 +1,21 @@
 /**
  * The store, in PostgreSQL through Drizzle.
  */
-import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { and, asc, count, desc, eq, inArray, isNotNull, lte, max, or, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
-import { coreReleases, crawlRequests, packages, relationships, releases, sourceGaps, syncRuns } from '../db/schema.js';
+import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, max, or, sql } from 'drizzle-orm';
+
+import {
+  coreReleases,
+  crawlRequests,
+  listings,
+  packages,
+  relationships,
+  releases,
+  sourceGaps,
+  syncRuns,
+} from '../db/schema.js';
 
 import type {
   Compatibility,
@@ -14,6 +25,7 @@ import type {
   SourceGap,
 } from '@mondarth/fvtt-package-catalogue-contract';
 import type { Database } from '../db/database.js';
+import type { IndexEntry } from '../refresh.js';
 import type { CatalogueStore, PackageReleases } from './types.js';
 
 type ReleaseRow = typeof releases.$inferSelect;
@@ -89,6 +101,34 @@ const gapRow = (gap: SourceGap) => ({
   packageKey: gap.package ?? null,
   version: gap.version ?? null,
 });
+
+/** How many index entries are written in one statement. */
+const INDEX_BATCH = 500;
+
+/** An index entry as a row of `listings`, with the hash of what the index gave. */
+function listingRow({ ref, lastUpdated, title, premium, details }: IndexEntry) {
+  const row = {
+    type: ref.type,
+    packageId: ref.id,
+    title,
+    summary: details.summary,
+    authorName: details.author?.name ?? null,
+    authorUsername: details.author?.username ?? null,
+    providerId: details.provider?.id ?? null,
+    providerName: details.provider?.name ?? null,
+    url: details.url,
+    marketplaceUrl: details.marketplaceUrl,
+    tags: [...details.tags],
+    systems: [...details.systems],
+    premium,
+    exclusive: details.exclusive,
+    status: details.status,
+    lastUpdated,
+    latestVersion: details.latestVersion,
+    versions: [...details.versions],
+  };
+  return { ...row, hash: createHash('sha256').update(JSON.stringify(row)).digest('hex') };
+}
 
 /** The worker crawls what was asked for first, then what closures need, then refreshes. */
 const CRAWL_PRIORITY = sql`case ${crawlRequests.reason} when 'request' then 0 when 'closure' then 1 else 2 end`;
@@ -420,6 +460,48 @@ export function drizzleStore(db: Database): CatalogueStore {
             .where(and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)));
         }
       });
+    },
+
+    async saveIndex(entries, at) {
+      const kept = await db
+        .select({
+          id: listings.id,
+          type: listings.type,
+          packageId: listings.packageId,
+          hash: listings.hash,
+          delistedAt: listings.delistedAt,
+        })
+        .from(listings);
+      const byKey = new Map(kept.map(row => [packageKey({ type: row.type, id: row.packageId }), row]));
+      const rows = new Map(entries.map(entry => [packageKey(entry.ref), listingRow(entry)]));
+      const added = [...rows].filter(([key]) => !byKey.has(key)).map(([, row]) => ({ ...row, updatedAt: at }));
+      const changed = [...rows].flatMap(([key, row]) => {
+        const held = byKey.get(key);
+        return held !== undefined && (held.hash !== row.hash || held.delistedAt !== null) ? [{ id: held.id, row }] : [];
+      });
+      const listed = kept.filter(row => row.delistedAt === null);
+      const gone =
+        rows.size * 2 < listed.length
+          ? []
+          : listed.filter(row => !rows.has(packageKey({ type: row.type, id: row.packageId }))).map(row => row.id);
+      await db.transaction(async tx => {
+        for (let start = 0; start < added.length; start += INDEX_BATCH) {
+          await tx.insert(listings).values(added.slice(start, start + INDEX_BATCH));
+        }
+        for (const { id, row } of changed) {
+          await tx
+            .update(listings)
+            .set({ ...row, delistedAt: null, updatedAt: at })
+            .where(eq(listings.id, id));
+        }
+        for (let start = 0; start < gone.length; start += INDEX_BATCH) {
+          await tx
+            .update(listings)
+            .set({ delistedAt: at, updatedAt: at })
+            .where(and(inArray(listings.id, gone.slice(start, start + INDEX_BATCH)), isNull(listings.delistedAt)));
+        }
+      });
+      return { added: added.length, changed: changed.length, delisted: gone.length };
     },
   };
 }

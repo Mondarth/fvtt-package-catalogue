@@ -29,6 +29,13 @@
       "when": 1793121709177,
       "tag": "0003_unavailable-packages",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793878091065,
+      "tag": "0004_index-listings",
+      "breakpoints": true
     }
   ]
 }

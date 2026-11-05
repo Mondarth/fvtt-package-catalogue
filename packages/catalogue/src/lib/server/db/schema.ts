@@ -18,7 +18,10 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 
+import { sql } from 'drizzle-orm';
+
 import type { Compatibility } from '@mondarth/fvtt-package-catalogue-contract';
+import type { ListedVersion } from '../refresh.js';
 
 export const packageType = pgEnum('package_type', ['module', 'system', 'world']);
 export const releaseDetail = pgEnum('release_detail', ['listed', 'loaded']);
@@ -49,6 +52,53 @@ export const packages = pgTable(
     /** More of why, in words. */
     unavailableNote: text(),
     createdAt,
+  },
+  table => [unique().on(table.type, table.packageId)],
+);
+
+/**
+ * A package on Foundry VTT's index, as the index gives it, whether the catalogue has crawled it or not: the catalogue's
+ * copy of the index, read with each refresh. A package the index stops listing is kept, marked delisted.
+ */
+export const listings = pgTable(
+  'listings',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: packageType().notNull(),
+    packageId: text().notNull(),
+    title: text(),
+    summary: text(),
+    authorName: text(),
+    authorUsername: text(),
+    providerId: text(),
+    providerName: text(),
+    url: text(),
+    marketplaceUrl: text(),
+    tags: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** The IDs of the game systems it is for; empty for any. */
+    systems: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    premium: boolean().notNull().default(false),
+    exclusive: boolean().notNull().default(false),
+    /** The index's status, such as `approved` or `archived`. */
+    status: text(),
+    /** The index's `last_updated`. */
+    lastUpdated: timestamp({ withTimezone: true }),
+    latestVersion: text(),
+    /** The newest version for each line of builds, as the index lists them. */
+    versions: jsonb().$type<ListedVersion[]>().notNull().default([]),
+    /** The SHA-256 of what the index gave, so that an entry is written only when it changes. */
+    hash: text().notNull(),
+    /** When the index stopped listing it; null while it lists it. */
+    delistedAt: timestamp({ withTimezone: true }),
+    createdAt,
+    /** When the entry last changed. */
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   table => [unique().on(table.type, table.packageId)],
 );

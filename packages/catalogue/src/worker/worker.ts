@@ -170,13 +170,15 @@ export function createWorker({
     });
 
   /**
-   * Queues the packages held that changed, or that are old enough, to be crawled again: as Foundry VTT's index says,
-   * and, a 24th of them each hour, as their own manifests say, giving a version not held.
+   * Keeps the catalogue's copy of Foundry VTT's index, and queues the packages held that changed, or that are old
+   * enough, to be crawled again: as the index says, and, a 24th of them each hour, as their own manifests say, giving a
+   * version not held.
    */
   const refresh = () =>
     periodic('refresh', refreshEveryMs, 'The packages held were not checked for changes', async client => {
       const found = await index(client);
       if (!found.ok) throw new Error(`Foundry VTT's index could not be read: ${found.gap.reason} ${found.gap.url}`);
+      const indexed = await store.saveIndex(found.value, now());
       const held = await store.heldPackages();
       const plan = planRefresh(held, found.value, { now: now(), staleMs });
       const planned = new Set(plan.refresh.map(packageKey));
@@ -195,6 +197,9 @@ export function createWorker({
         manifestsChecked: due.length,
         manifestsChanged: changed.length,
         listings: plan.listings.length,
+        indexAdded: indexed.added,
+        indexChanged: indexed.changed,
+        indexDelisted: indexed.delisted,
       };
     });
 

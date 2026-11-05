@@ -9,12 +9,14 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../../../../src/lib/server/db/schema.js';
-import { crawlRequests, releases } from '../../../../src/lib/server/db/schema.js';
+import { crawlRequests, listings, releases } from '../../../../src/lib/server/db/schema.js';
 import { drizzleStore } from '../../../../src/lib/server/store/drizzle.js';
+import { NO_DETAILS } from '../../support/index-entry.js';
 import { testDatabase } from '../../support/pglite.js';
 
 import type { CoreRelease, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 import type { Database } from '../../../../src/lib/server/db/database.js';
+import type { IndexEntry } from '../../../../src/lib/server/refresh.js';
 import type { CatalogueStore } from '../../../../src/lib/server/store/types.js';
 
 const MIDI = { type: 'module', id: 'midi-qol' } as const;
@@ -347,6 +349,132 @@ describe('drizzleStore, for refreshing', () => {
     expect(await store.heldPackages()).toEqual([
       { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true, unavailable: null },
     ]);
+  });
+});
+
+describe("drizzleStore, keeping Foundry VTT's index", () => {
+  const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+    ref: { type: 'module', id },
+    lastUpdated: at,
+    title: id,
+    premium: false,
+    archived: false,
+    details: NO_DETAILS,
+    ...change,
+  });
+  const kept = () =>
+    db
+      .select({
+        packageId: listings.packageId,
+        title: listings.title,
+        delistedAt: listings.delistedAt,
+        updatedAt: listings.updatedAt,
+      })
+      .from(listings)
+      .orderBy(listings.packageId);
+
+  it('keeps every entry, held or not, with what its listing shows', async () => {
+    const details = {
+      ...NO_DETAILS,
+      summary: 'Automation',
+      author: { name: 'tim posney', username: 'tim-posney' },
+      provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      exclusive: true,
+      status: 'approved',
+      latestVersion: '14.0.20',
+      versions: [
+        { version: '14.0.20', minimum: '14.368', maximum: '14.999', verified: '14.368', manifest: null, notes: null },
+      ],
+    };
+    expect(await store.saveIndex([entry('midi-qol', { premium: true, details }), entry('dae')], at)).toEqual({
+      added: 2,
+      changed: 0,
+      delisted: 0,
+    });
+    const [midi] = await db
+      .select()
+      .from(listings)
+      .where(sql`${listings.packageId} = 'midi-qol'`);
+    expect(midi).toMatchObject({
+      type: 'module',
+      title: 'midi-qol',
+      summary: 'Automation',
+      authorName: 'tim posney',
+      authorUsername: 'tim-posney',
+      providerId: 'pelgrane',
+      providerName: 'Pelgrane Press',
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      premium: true,
+      exclusive: true,
+      status: 'approved',
+      lastUpdated: at,
+      latestVersion: '14.0.20',
+      versions: details.versions,
+      delistedAt: null,
+      updatedAt: at,
+    });
+    expect(await store.heldPackages()).toEqual([]);
+  });
+
+  it('writes only the entries that changed', async () => {
+    await store.saveIndex([entry('midi-qol'), entry('dae')], at);
+    expect(await store.saveIndex([entry('midi-qol', { title: 'Midi QOL' }), entry('dae')], later)).toEqual({
+      added: 0,
+      changed: 1,
+      delisted: 0,
+    });
+    expect(await kept()).toEqual([
+      { packageId: 'dae', title: 'dae', delistedAt: null, updatedAt: at },
+      { packageId: 'midi-qol', title: 'Midi QOL', delistedAt: null, updatedAt: later },
+    ]);
+  });
+
+  it('marks an entry the index no longer lists delisted, and not when it is listed again', async () => {
+    await store.saveIndex([entry('midi-qol'), entry('dae'), entry('socketlib')], at);
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae')], later)).toEqual({
+      added: 0,
+      changed: 0,
+      delisted: 1,
+    });
+    expect((await kept()).find(row => row.packageId === 'socketlib')).toMatchObject({ delistedAt: later });
+    // Delisted once: not again.
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae')], later)).toMatchObject({ delisted: 0 });
+
+    const again = new Date('2026-10-24T11:00:00.000Z');
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae'), entry('socketlib')], again)).toEqual({
+      added: 0,
+      changed: 1,
+      delisted: 0,
+    });
+    expect((await kept()).find(row => row.packageId === 'socketlib')).toMatchObject({
+      delistedAt: null,
+      updatedAt: again,
+    });
+  });
+
+  it('delists none when the index lists fewer than half the entries kept', async () => {
+    await store.saveIndex([entry('a'), entry('b'), entry('c'), entry('d'), entry('e')], at);
+    expect(await store.saveIndex([entry('a'), entry('b')], later)).toEqual({ added: 0, changed: 0, delisted: 0 });
+    expect(await store.saveIndex([], later)).toMatchObject({ delisted: 0 });
+    expect((await kept()).every(row => row.delistedAt === null)).toBe(true);
+  });
+
+  it('tells apart packages of two types with one id', async () => {
+    await store.saveIndex([entry('dnd5e'), entry('dnd5e', { ref: { type: 'system', id: 'dnd5e' } })], at);
+    expect(await kept()).toHaveLength(2);
+  });
+
+  it('writes the entries of a large index in batches', async () => {
+    const many = Array.from({ length: 1201 }, (_, index) => entry(`pkg-${String(index)}`));
+    expect(await store.saveIndex(many, at)).toMatchObject({ added: 1201 });
+    expect(await kept()).toHaveLength(1201);
   });
 });
 

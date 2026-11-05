@@ -6,6 +6,7 @@ PostgreSQL 18, through [Drizzle ORM](https://orm.drizzle.team). The schema is in
 | Table            | Holds                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------- |
 | `packages`       | Each package known, with its listing details and when its releases were last updated     |
+| `listings`       | Foundry VTT's index: every entry, crawled or not, with its listing; delisted ones kept   |
 | `releases`       | Each version of a package, as the API gives it                                           |
 | `relationships`  | What each release requires, runs in, conflicts with or recommends, in manifest order     |
 | `raw_manifests`  | Manifests as fetched, by hash, so releases can be normalised again without fetching      |
