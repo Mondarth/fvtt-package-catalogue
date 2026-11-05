@@ -10,7 +10,10 @@ import {
   LookupRequest,
   LookupResponse,
   MAX_UNIVERSE_PACKAGES,
+  MANIFEST_PATH,
   MAX_RECHECK_PACKAGES,
+  ManifestRequest,
+  ManifestResponse,
   PackageRelease,
   RECHECK_PATH,
   RecheckRequest,
@@ -25,6 +28,7 @@ describe('version 2', () => {
     expect(LISTING_PATH).toBe('/api/v2/listing');
     expect(CORE_PATH).toBe('/api/v2/core');
     expect(RECHECK_PATH).toBe('/api/v2/recheck');
+    expect(MANIFEST_PATH).toBe('/api/v2/manifest');
   });
 });
 
@@ -171,5 +175,29 @@ describe('rechecks', () => {
       pending: [{ package: midi, retryAfter: 30 }],
     };
     expect(RecheckResponse.parse(response)).toEqual(response);
+  });
+});
+
+describe('manifests', () => {
+  it('take a web URL and a type', () => {
+    const request = { url: 'https://example.com/module.json', type: 'module' };
+    expect(ManifestRequest.parse(request)).toEqual(request);
+    expect(ManifestRequest.safeParse({ ...request, url: 'file:///etc/passwd' }).success).toBe(false);
+    expect(ManifestRequest.safeParse({ ...request, type: 'world' }).success).toBe(false);
+  });
+
+  it('give the release, or why there is none', () => {
+    for (const answer of [
+      { ok: true, title: 'Midi QOL', release: loaded },
+      { ok: false, problem: 'unreadable', reason: 'http', status: 404, host: 'example.com' },
+      { ok: false, problem: 'unreadable', reason: 'refused', host: '10.0.0.1' },
+      { ok: false, problem: 'other-type', type: 'system' },
+      { ok: false, problem: 'not-manifest' },
+    ]) {
+      expect(ManifestResponse.parse(answer)).toEqual(answer);
+    }
+    expect(ManifestResponse.safeParse({ ok: false, problem: 'unreadable', reason: 'lost', host: 'x' }).success).toBe(
+      false,
+    );
   });
 });

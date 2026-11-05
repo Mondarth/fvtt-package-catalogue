@@ -24,6 +24,9 @@ export const LISTING_PATH = `${API_V2_BASE}/listing`;
 /** The path of Foundry VTT's builds. */
 export const CORE_PATH = `${API_V2_BASE}/core`;
 
+/** The path that reads a manifest URL a user gives, to install a package from. */
+export const MANIFEST_PATH = `${API_V2_BASE}/manifest`;
+
 /** The path that has packages' own manifests checked again now, as a client's "check live" asks. */
 export const RECHECK_PATH = `${API_V2_BASE}/recheck`;
 
@@ -200,3 +203,34 @@ export const RecheckResponse = z.object({
   pending: z.array(PendingPackage),
 });
 export type RecheckResponse = z.infer<typeof RecheckResponse>;
+
+/** `POST /api/v2/manifest`: a manifest URL a user gives, and the type of package they mean to install from it. */
+export const ManifestRequest = z.object({
+  url: z.url({ protocol: /^https?$/ }),
+  type: z.enum(['module', 'system']),
+});
+export type ManifestRequest = z.infer<typeof ManifestRequest>;
+
+/**
+ * `POST /api/v2/manifest`: the package the manifest describes, with its title, as a release whose manifest is the URL
+ * given, for its version alone, since what it gives is what the user chose; or why it is none. The catalogue queues
+ * the package, found by the URL, so that a lookup soon holds its other releases.
+ *
+ * - `unreadable`: it could not be had. `reason` is as a gap gives it, or `refused`, a URL that may not be fetched,
+ *   such as one of a private address, or that redirects too often; or `too-large`.
+ * - `other-type`: it is a manifest of the other type of package, which Foundry VTT would install as the type asked.
+ * - `not-manifest`: what it gave is not a manifest.
+ */
+export const ManifestResponse = z.union([
+  z.object({ ok: z.literal(true), title: z.string(), release: Release }),
+  z.object({
+    ok: z.literal(false),
+    problem: z.literal('unreadable'),
+    reason: z.enum(['http', 'network', 'invalid', 'refused', 'too-large']),
+    status: z.int().exactOptional(),
+    host: z.string(),
+  }),
+  z.object({ ok: z.literal(false), problem: z.literal('other-type'), type: z.enum(['module', 'system']) }),
+  z.object({ ok: z.literal(false), problem: z.literal('not-manifest') }),
+]);
+export type ManifestResponse = z.infer<typeof ManifestResponse>;
