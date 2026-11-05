@@ -1,3 +1,16 @@
+## [@mondarth/fvtt-package-catalogue-v0.5.3](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.2...@mondarth/fvtt-package-catalogue-v0.5.3) (2026-11-05)
+
+### Bug Fixes
+
+* **catalogue:** read the index's last_updated as a time ([77a61de](https://github.com/Mondarth/fvtt-package-catalogue/commit/77a61ded065699abfc121db17591f17142334b2c))
+
+### Build System
+
+* **deps-dev:** Bump @electric-sql/pglite ([ed1274f](https://github.com/Mondarth/fvtt-package-catalogue/commit/ed1274fc4a975221290521f2db2647c548b60cd0))
+* **deps-dev:** Bump @inlang/paraglide-js from 2.29.1 to 2.29.3 ([2d99a5a](https://github.com/Mondarth/fvtt-package-catalogue/commit/2d99a5a80933ef4f3b94e90fad4856ba4cd8fbb4))
+* **deps-dev:** Bump the database group across 1 directory with 2 updates ([6133ecd](https://github.com/Mondarth/fvtt-package-catalogue/commit/6133ecd78c40df96c66dfb97eede4e1d15cf93ca))
+* **deps-dev:** Bump the svelte group across 1 directory with 3 updates ([4b054db](https://github.com/Mondarth/fvtt-package-catalogue/commit/4b054dbd562a24db1e89e99cec350f02e1f790bc))
+
 ## [@mondarth/fvtt-package-catalogue-v0.5.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.1...@mondarth/fvtt-package-catalogue-v0.5.2) (2026-11-03)
 
 ### Bug Fixes
