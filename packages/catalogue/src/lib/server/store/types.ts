@@ -11,7 +11,7 @@ import type {
   UnavailableReason,
 } from '@mondarth/fvtt-package-catalogue-contract';
 import type { CheckedPackage, IndexedPackage } from '../consistency.js';
-import type { HeldPackage, IndexEntry, Listing, OwnCheck } from '../refresh.js';
+import type { HeldPackage, IndexEntry, ListedVersion, Listing, OwnCheck } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
 export interface CatalogueStatus {
@@ -96,6 +96,16 @@ export interface CatalogueStore {
    * and premium flag, when it was synced, and what its own manifest last gave. A package not held is left out.
    */
   detailsOf(refs: readonly PackageRef[]): Promise<ReadonlyMap<string, PackageDetails>>;
+  /**
+   * The packages of a type, or of both, that the catalogue's copy of Foundry VTT's listing offers: neither archived nor
+   * delisted, in the order first listed.
+   */
+  listing(type?: ListingType): Promise<ListedEntry[]>;
+  /**
+   * What changes whenever the copy of the listing does: how many packages of the type it offers, and when an entry last
+   * changed, delisted and archived ones too. A response made from the listing is the same while this is.
+   */
+  listingStamp(type?: ListingType): Promise<{ readonly count: number; readonly changedAt: Date | null }>;
   /** Which of these packages the catalogue does not know, in the order given. */
   unknownOf(refs: readonly PackageRef[]): Promise<PackageRef[]>;
   /** Records that a run of a worker job started, and returns its id. */
@@ -144,6 +154,24 @@ export interface IndexSaved {
   /** Entries that changed, among them those listed again. */
   readonly changed: number;
   readonly delisted: number;
+}
+
+/** The types of package Foundry VTT's listing offers to install. */
+export type ListingType = 'module' | 'system';
+
+/** A package the catalogue's copy of Foundry VTT's listing offers. */
+export interface ListedEntry {
+  readonly ref: PackageRef;
+  readonly title: string | null;
+  readonly summary: string | null;
+  readonly author: string | null;
+  readonly url: string | null;
+  readonly tags: readonly string[];
+  readonly systems: readonly string[];
+  readonly premium: boolean;
+  readonly exclusive: boolean;
+  readonly latest: string | null;
+  readonly versions: readonly ListedVersion[];
 }
 
 /** What a lookup gives of a package held, beside its releases. */

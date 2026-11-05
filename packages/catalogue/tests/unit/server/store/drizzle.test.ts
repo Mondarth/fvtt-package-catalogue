@@ -458,6 +458,75 @@ describe('drizzleStore, for lookups', () => {
   });
 });
 
+describe("drizzleStore, giving Foundry VTT's listing", () => {
+  const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+    ref: { type: 'module', id },
+    lastUpdated: at,
+    title: id,
+    premium: false,
+    archived: false,
+    details: NO_DETAILS,
+    ...change,
+  });
+  const index = [
+    entry('midi-qol', {
+      premium: true,
+      details: {
+        ...NO_DETAILS,
+        summary: 'Automation',
+        author: { name: 'tim posney', username: 'tim-posney' },
+        url: 'https://github.com/tposney/midi-qol',
+        tags: ['combat'],
+        systems: ['dnd5e'],
+        exclusive: true,
+        status: 'approved',
+        latestVersion: '14.0.20',
+        versions: [
+          { version: '14.0.20', minimum: '14.368', maximum: null, verified: '14.368', manifest: null, notes: null },
+        ],
+      },
+    }),
+    entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+    entry('dnd5e', { ref: { type: 'system', id: 'dnd5e' } }),
+    entry('world', { ref: { type: 'world', id: 'world' } }),
+  ];
+
+  it('gives the packages of a type, or of both, neither archived nor delisted nor worlds', async () => {
+    await store.saveIndex([...index, entry('delisted')], at);
+    await store.saveIndex(index, later);
+    expect(await store.listing('module')).toEqual([
+      {
+        ref: MIDI,
+        title: 'midi-qol',
+        summary: 'Automation',
+        author: 'tim posney',
+        url: 'https://github.com/tposney/midi-qol',
+        tags: ['combat'],
+        systems: ['dnd5e'],
+        premium: true,
+        exclusive: true,
+        latest: '14.0.20',
+        versions: index[0]?.details.versions,
+      },
+    ]);
+    expect((await store.listing('system')).map(row => row.ref)).toEqual([{ type: 'system', id: 'dnd5e' }]);
+    expect((await store.listing()).map(row => row.ref.id)).toEqual(['midi-qol', 'dnd5e']);
+  });
+
+  it('gives a stamp that changes whenever the copy of the listing does', async () => {
+    expect(await store.listingStamp()).toEqual({ count: 0, changedAt: null });
+    await store.saveIndex(index, at);
+    expect(await store.listingStamp('module')).toEqual({ count: 1, changedAt: at });
+    expect(await store.listingStamp()).toEqual({ count: 2, changedAt: at });
+    // Archived later: one fewer offered, and changed then.
+    await store.saveIndex(
+      [entry('midi-qol', { details: { ...NO_DETAILS, status: 'archived' } }), ...index.slice(1)],
+      later,
+    );
+    expect(await store.listingStamp('module')).toEqual({ count: 0, changedAt: later });
+  });
+});
+
 describe("drizzleStore, for checking packages' own manifests", () => {
   const DAE = { type: 'module', id: 'dae' } as const;
   const DND5E = { type: 'system', id: 'dnd5e' } as const;

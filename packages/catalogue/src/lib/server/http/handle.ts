@@ -31,7 +31,9 @@ export interface HandleOptions {
 export const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${CLIENT_HEADER}, Content-Type`,
+  // A client may revalidate what it keeps, such as the listing, by its ETag.
+  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${CLIENT_HEADER}, Content-Type, If-None-Match`,
+  'Access-Control-Expose-Headers': 'ETag',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -54,7 +56,9 @@ function codeFor(status: number): ErrorCode {
  * as its 404 for a path no route matches, is HTML, so it is replaced by the contract's error.
  */
 function inContract(response: Response, requestId: string): Response {
-  if (response.ok || response.headers.get('Content-Type')?.startsWith('application/json') === true) return response;
+  // A 304 has no body: the client keeps what it had.
+  const json = response.headers.get('Content-Type')?.startsWith('application/json') === true;
+  if (response.ok || response.status === 304 || json) return response;
   return apiError(codeFor(response.status), `The API answered ${String(response.status)}`, requestId);
 }
 
