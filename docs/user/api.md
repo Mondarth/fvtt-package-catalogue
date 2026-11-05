@@ -23,7 +23,8 @@ A client may name itself in `X-Catalogue-Client`, such as `EMMA/0.6.0`. It is lo
 ## CORS
 
 Any origin may call the API, since Foundry VTT runs wherever its users host it. The server answers the preflight
-(`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `X-Catalogue-Client` and `Content-Type` headers.
+(`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `X-Catalogue-Client`, `Content-Type` and `If-None-Match` headers, and
+lets it read the `ETag`.
 
 ## Endpoints
 
@@ -46,6 +47,17 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
     `retryAfter` seconds may find them.
   - `unavailable`: packages that cannot be had, as in version 1. `unreached`: packages whose sources could not all be
     listed when they were last brought up to date, so may have newer versions not held.
+
+`GET /api/v2/listing`, or `?type=module` or `?type=system`
+: Every package Foundry VTT's listing offers to install, as the catalogue keeps it, neither archived nor delisted:
+  `{ packages, asOf }`, each package `{ package, title, summary, author, url, tags, systems, premium, exclusive,
+  latest, versions }`, where `versions` gives the newest version of each line of builds the listing lists, with its
+  `minimum`, `maximum`, `verified`, `manifest` and `notes`. It is the same for every client, so it comes with an `ETag`
+  and `Cache-Control: max-age=300`: a client that sends the ETag back in `If-None-Match` is answered `304` while the
+  listing has not changed. Whether the user owns a premium package is not the catalogue's to know: Foundry VTT says.
+
+`GET /api/v2/core`
+: Foundry VTT's builds, oldest first: `{ core }`, with an `ETag` and `Cache-Control: max-age=3600`, as the listing.
 
 ### Version 1
 

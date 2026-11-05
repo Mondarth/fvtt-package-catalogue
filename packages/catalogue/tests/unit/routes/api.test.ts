@@ -5,6 +5,8 @@ import manifest from '../../../package.json';
 import { GET as releases } from '../../../src/routes/api/v1/packages/[type=packageType]/[id]/releases/+server.js';
 import { GET as status } from '../../../src/routes/api/v1/status/+server.js';
 import { POST as universe } from '../../../src/routes/api/v1/universe/+server.js';
+import { GET as core } from '../../../src/routes/api/v2/core/+server.js';
+import { GET as listing } from '../../../src/routes/api/v2/listing/+server.js';
 import { POST as lookup } from '../../../src/routes/api/v2/lookup/+server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
 import { invoke } from '../support/event.js';
@@ -169,6 +171,50 @@ describe('POST /api/v2/lookup', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: { code: 'bad-request' } });
     expect(store.releasesOfEach).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/v2/listing', () => {
+  const get = (query: string, store = mockStore(), headers: Record<string, string> = {}) =>
+    invoke(listing, { url: `http://catalogue.test/api/v2/listing${query}`, headers, locals: { store } });
+
+  it('gives the listing of the type asked for, with an ETag, and 304 to a client that has it', async () => {
+    const store = mockStore();
+    store.listingStamp.mockResolvedValue({ count: 0, changedAt: new Date('2026-11-05T08:00:00Z') });
+    const response = await get('?type=system', store);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ packages: [], asOf: '2026-11-05T08:00:00.000Z' });
+    expect(store.listingStamp).toHaveBeenCalledWith('system');
+    const etag = response.headers.get('ETag') ?? '';
+    expect((await get('?type=system', store, { 'If-None-Match': etag })).status).toBe(304);
+  });
+
+  it('gives both types when none is asked for', async () => {
+    const store = mockStore();
+    await get('', store);
+    expect(store.listingStamp).toHaveBeenCalledWith(undefined);
+  });
+
+  it('answers bad-request for a type the listing does not offer', async () => {
+    const store = mockStore();
+    const response = await get('?type=world', store);
+    expect(response.status).toBe(400);
+    expect(store.listingStamp).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/v2/core', () => {
+  it("gives Foundry VTT's builds with an ETag, and 304 to a client that has them", async () => {
+    const store = mockStore();
+    store.coreReleases.mockResolvedValue([{ version: '14.368', generation: 14, channel: 'stable' }]);
+    const response = await invoke(core, { url: 'http://catalogue.test/api/v2/core', locals: { store } });
+    expect(await response.json()).toEqual({ core: [{ version: '14.368', generation: 14, channel: 'stable' }] });
+    const again = await invoke(core, {
+      url: 'http://catalogue.test/api/v2/core',
+      headers: { 'If-None-Match': response.headers.get('ETag') ?? '' },
+      locals: { store },
+    });
+    expect(again.status).toBe(304);
   });
 });
 

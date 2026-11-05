@@ -24,6 +24,8 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     replaceGaps: vi.fn<CatalogueStore['replaceGaps']>().mockResolvedValue(undefined),
     declaredManifests: vi.fn<CatalogueStore['declaredManifests']>().mockResolvedValue([]),
     detailsOf: vi.fn<CatalogueStore['detailsOf']>().mockResolvedValue(new Map()),
+    listing: vi.fn<CatalogueStore['listing']>().mockResolvedValue([]),
+    listingStamp: vi.fn<CatalogueStore['listingStamp']>().mockResolvedValue({ count: 0, changedAt: null }),
     unknownOf: vi.fn<CatalogueStore['unknownOf']>().mockImplementation(refs => Promise.resolve([...refs])),
     startRun: vi.fn<CatalogueStore['startRun']>().mockResolvedValue(1),
     finishRun: vi.fn<CatalogueStore['finishRun']>().mockResolvedValue(undefined),

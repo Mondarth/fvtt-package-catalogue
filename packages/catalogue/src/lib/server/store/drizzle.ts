@@ -44,7 +44,7 @@ import type {
 import type { SQL } from 'drizzle-orm';
 import type { Database } from '../db/database.js';
 import type { IndexEntry } from '../refresh.js';
-import type { CatalogueStore, PackageDetails, PackageReleases } from './types.js';
+import type { CatalogueStore, ListingType, PackageDetails, PackageReleases } from './types.js';
 
 type ReleaseRow = typeof releases.$inferSelect;
 type GapRow = typeof sourceGaps.$inferSelect;
@@ -119,6 +119,10 @@ const gapRow = (gap: SourceGap) => ({
   packageKey: gap.package ?? null,
   version: gap.version ?? null,
 });
+
+/** The listing's entries of a type, or of both types it offers. */
+const ofListingType = (type: ListingType | undefined) =>
+  type === undefined ? inArray(listings.type, ['module', 'system']) : eq(listings.type, type);
 
 /** How long a package taken to crawl is held from other crawls, unless it is finished or deferred first. */
 const CRAWL_HOLD_MS = 60 * 60 * 1000;
@@ -487,6 +491,53 @@ export function drizzleStore(db: Database): CatalogueStore {
         });
       }
       return found;
+    },
+
+    async listing(type) {
+      const rows = await db
+        .select()
+        .from(listings)
+        .where(
+          and(
+            ofListingType(type),
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+          ),
+        )
+        .orderBy(asc(listings.id));
+      return rows.map(row => ({
+        ref: { type: row.type, id: row.packageId },
+        title: row.title,
+        summary: row.summary,
+        author: row.authorName,
+        url: row.url,
+        tags: row.tags,
+        systems: row.systems,
+        premium: row.premium,
+        exclusive: row.exclusive,
+        latest: row.latestVersion,
+        versions: row.versions,
+      }));
+    },
+
+    async listingStamp(type) {
+      const [row] = await db
+        .select({ changedAt: max(listings.updatedAt) })
+        .from(listings)
+        .where(ofListingType(type));
+      const [offered] = await db
+        .select({ count: count() })
+        .from(listings)
+        .where(
+          and(
+            ofListingType(type),
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+          ),
+        );
+      /* v8 ignore next -- an aggregate without GROUP BY always gives one row */
+      if (row === undefined || offered === undefined) throw new Error('The listing could not be counted');
+      return { count: offered.count, changedAt: row.changedAt };
     },
 
     async unknownOf(refs) {

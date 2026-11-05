@@ -121,6 +121,17 @@ describe('createHandle', () => {
     expect(await response.json()).toMatchObject({ error: { code, requestId: 'id-1' } });
   });
 
+  it('passes a 304 through as it is, with the CORS headers, and lets a client revalidate and read the ETag', async () => {
+    const { resolve, run } = setUp();
+    resolve.mockResolvedValueOnce(new Response(null, { status: 304, headers: { ETag: '"a"' } }));
+    const response = await run('/api/v2/listing', { headers: { 'X-API-Key': 'secret' } }).response;
+    expect(response.status).toBe(304);
+    expect(response.headers.get('ETag')).toBe('"a"');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(CORS_HEADERS['Access-Control-Allow-Headers']).toContain('If-None-Match');
+    expect(CORS_HEADERS['Access-Control-Expose-Headers']).toBe('ETag');
+  });
+
   it('makes a new random id for each request by default', async () => {
     const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger() });
     const ids = await Promise.all(
