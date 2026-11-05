@@ -99,14 +99,45 @@ export const UniverseResponse = z.object({
 });
 export type UniverseResponse = z.infer<typeof UniverseResponse>;
 
+/** A count of none or more. */
+const Count = z.int().nonnegative();
+
+/**
+ * How what the catalogue holds compares with Foundry VTT's index, as the catalogue last checked, once a day. Each count
+ * but the first two is of something to put right; the catalogue queues the packages concerned to be crawled again.
+ */
+export const ConsistencyReport = z.object({
+  /** When it was checked. */
+  at: z.iso.datetime(),
+  /** The packages the index lists, and has not archived. */
+  listed: Count,
+  /** Of those, the packages the catalogue holds. */
+  held: Count,
+  /** Versions the index lists of a package held that the catalogue does not hold. */
+  versionsMissing: Count,
+  /** Packages held whose newest version, where the index gives it, the catalogue does not hold. */
+  latestMissing: Count,
+  /** Releases held whose core compatibility, as the index lists it, is not what the catalogue holds. */
+  listingsDiffer: Count,
+  /** Packages the index has archived that the catalogue holds as available. */
+  archivedHeld: Count,
+  /** Packages whose own manifest last gave a version the catalogue does not hold. */
+  ownMissing: Count,
+  /** The packages queued to be crawled again for these. */
+  requeued: Count,
+});
+export type ConsistencyReport = z.infer<typeof ConsistencyReport>;
+
 /** `GET /api/v1/status`: what the catalogue holds. */
 export const StatusResponse = z.object({
   apiVersion: z.literal(API_VERSION),
   /** The catalogue's own release. */
   version: z.string(),
-  packages: z.int().nonnegative(),
-  releases: z.int().nonnegative(),
+  packages: Count,
+  releases: Count,
   asOf: AsOf,
+  /** How it last compared with Foundry VTT's index; null if it never has, or predates the check. */
+  consistency: ConsistencyReport.nullable().default(null),
 });
 export type StatusResponse = z.infer<typeof StatusResponse>;
 

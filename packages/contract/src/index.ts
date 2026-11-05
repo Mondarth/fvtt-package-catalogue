@@ -14,6 +14,7 @@ export {
   API_KEY_HEADER,
   API_VERSION,
   CLIENT_HEADER,
+  ConsistencyReport,
   ErrorCode,
   ErrorResponse,
   HealthResponse,

@@ -66,9 +66,27 @@ describe('responses', () => {
   });
 
   it('give the status of this API version only', () => {
-    const status = { apiVersion: 'v1', version: '0.1.0', packages: 1, releases: 2, asOf: null };
+    const status = { apiVersion: 'v1', version: '0.1.0', packages: 1, releases: 2, asOf: null, consistency: null };
     expect(StatusResponse.parse(status)).toEqual(status);
     expect(StatusResponse.safeParse({ ...status, apiVersion: 'v2' }).success).toBe(false);
+  });
+
+  it('give how the catalogue last compared with the index, or none from a catalogue that predates it', () => {
+    const consistency = {
+      at: '2026-11-05T03:00:00.000Z',
+      listed: 6724,
+      held: 6500,
+      versionsMissing: 3,
+      latestMissing: 1,
+      listingsDiffer: 2,
+      archivedHeld: 0,
+      ownMissing: 4,
+      requeued: 9,
+    };
+    const status = { apiVersion: 'v1', version: '0.6.0', packages: 1, releases: 2, asOf: null };
+    expect(StatusResponse.parse({ ...status, consistency }).consistency).toEqual(consistency);
+    expect(StatusResponse.parse(status).consistency).toBeNull();
+    expect(StatusResponse.safeParse({ ...status, consistency: { ...consistency, held: -1 } }).success).toBe(false);
   });
 
   it('give a universe, what could not be fetched, and what is not held yet', () => {
