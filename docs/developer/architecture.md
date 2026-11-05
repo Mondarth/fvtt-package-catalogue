@@ -102,8 +102,9 @@ is recorded in `sync_runs`.
 - **Refreshing** (`lib/server/refresh.ts`), hourly, before the crawl, so that what it queues is crawled in the same
   pass. Foundry VTT's index (fetched through the cache, and revalidated by its ETag) gives each listed package's
   `last_updated`; a held package is queued as `refresh` when that is newer than the one read before, which is kept in
-  `packages.listing_updated_at` with the title and premium flag. Never read before, a package is queued when the date is
-  not older than the day it was synced, as the index gives only the day. A package the index does not list, or lists
+  `packages.listing_updated_at` with the title and premium flag. The index gives the time of the change; it once gave
+  only the day, which is still read, as the start of that day in UTC. Never read before, a package is queued when the
+  date is not older than the day it was synced, as a change given only by its day may be after the sync. A package the index does not list, or lists
   with no date, is queued once it was synced a week ago, and so is every package, on the index or not, as its own
   manifest may give a version the index does not, leaving its date as it was. The rules are `planRefresh`'s, a pure
   function. Each hour, a 24th of the packages held, by key (`manifestCheckDue`), so each once a day, have their own

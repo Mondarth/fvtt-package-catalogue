@@ -56,15 +56,33 @@ describe('readIndex', () => {
     ]);
   });
 
-  it('gives no day for one that is not a day', () => {
+  it('reads the time it last changed, as the index gives it now', () => {
+    // Foundry VTT's index gave only the day until 2026; since then, every entry gives the time, so none read as undated.
+    const read = readIndex({
+      packages: [
+        { id: 'a', type: 'module', last_updated: '2026-11-02T12:04:25Z' },
+        { id: 'b', type: 'module', last_updated: '2026-11-02T12:04:25.808402+00:00' },
+        { id: 'c', type: 'module', last_updated: '2026-11-02T14:04:25+02:00' },
+      ],
+    });
+    expect(read?.map(e => e.lastUpdated)).toEqual([
+      new Date('2026-11-02T12:04:25.000Z'),
+      new Date('2026-11-02T12:04:25.808Z'),
+      new Date('2026-11-02T12:04:25.000Z'),
+    ]);
+  });
+
+  it('gives no time for one that is neither a day nor a time', () => {
     const read = readIndex({
       packages: [
         { id: 'a', type: 'module', last_updated: 'yesterday' },
         { id: 'b', type: 'module', last_updated: '2026-13-45' },
         { id: 'c', type: 'module', last_updated: null },
+        { id: 'd', type: 'module', last_updated: '2026-11-02T12:04:25' },
+        { id: 'e', type: 'module', last_updated: '2026-13-02T12:04:25Z' },
       ],
     });
-    expect(read?.map(e => e.lastUpdated)).toEqual([null, null, null]);
+    expect(read?.map(e => e.lastUpdated)).toEqual([null, null, null, null, null]);
   });
 
   it('leaves out a type of package the catalogue does not know', () => {
@@ -124,6 +142,13 @@ describe('planRefresh, for a package on the index', () => {
   it('leaves a package gone be, whatever the index says of it', () => {
     expect(plan([held({ unavailable: 'gone' })], [entry({ archived: true })]).refresh).toEqual([]);
     expect(plan([held({ unavailable: 'gone' })], [entry()]).refresh).toEqual([]);
+  });
+
+  it('crawls it again when the index says it changed later the same day, as it gives the time', () => {
+    const before = held({ listingUpdatedAt: new Date('2026-10-22T09:00:00.000Z') });
+    const changed = entry({ lastUpdated: new Date('2026-10-22T15:30:00.000Z') });
+    expect(plan([before], [changed]).refresh).toEqual([MIDI]);
+    expect(plan([before], [entry({ lastUpdated: before.listingUpdatedAt })])).toEqual({ refresh: [], listings: [] });
   });
 
   it('crawls it again when the index says it changed, and keeps the new day', () => {
