@@ -10,6 +10,7 @@ import { API_KEYS, DATABASE_URL, LOG_LEVEL } from '$app/env/private';
 import { connect } from './db/connect.js';
 import { createLogger } from './log.js';
 import { lruCache, versionsOnly } from './lru-cache.js';
+import { safeFetch } from './safe-fetch.js';
 import { drizzleStore } from './store/drizzle.js';
 
 export const log = createLogger({ level: LOG_LEVEL });
@@ -20,11 +21,16 @@ export const apiKeys = API_KEYS;
 // The versions of packages' own manifests rechecked, so that each is revalidated by its ETag, as the worker's are.
 const versions = versionsOnly(lruCache(5000));
 
+const userAgent = `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`;
+
+/** Fetches a URL a client gave, such as a manifest to install from, refusing what only the server may reach. */
+export const fetchGiven = (url: string) => safeFetch(url, { userAgent });
+
 /** A client for one request, as many requests as packages a recheck may ask for, through the server's own cache. */
 export const http = () =>
   httpClient({
     fetch: globalThis.fetch,
     cache: versions,
     budget: { maxRequests: MAX_RECHECK_PACKAGES },
-    userAgent: `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`,
+    userAgent,
   });

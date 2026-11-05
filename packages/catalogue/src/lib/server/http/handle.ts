@@ -12,6 +12,7 @@ import { apiError } from './respond.js';
 
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '../log.js';
+import type { SafeFetched } from '../safe-fetch.js';
 import type { CatalogueStore } from '../store/types.js';
 
 /** What the `handle` hook works with. */
@@ -21,6 +22,8 @@ export interface HandleOptions {
   readonly log: Logger;
   /** A client for a request that fetches, such as a recheck, with a budget of its own. */
   readonly http: () => HttpClient;
+  /** Fetches a URL a client gave, refusing what only the server may reach. */
+  readonly fetchGiven: (url: string) => Promise<SafeFetched>;
   /** A new request id; a random UUID by default. */
   readonly requestId?: () => string;
   /** Milliseconds since some fixed point, for timing requests; `performance.now` by default. */
@@ -76,6 +79,7 @@ export function createHandle({
   apiKeys,
   log,
   http,
+  fetchGiven,
   requestId = () => crypto.randomUUID(),
   clock = () => performance.now(),
 }: HandleOptions): Handle {
@@ -88,6 +92,7 @@ export function createHandle({
     event.locals.store = store;
     event.locals.log = log.child({ requestId: id });
     event.locals.http = http;
+    event.locals.fetchGiven = fetchGiven;
 
     const { pathname } = event.url;
     let response: Response;

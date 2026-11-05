@@ -35,6 +35,7 @@ export function fakeEvent<E extends RequestEvent = RequestEvent>({
       store: mockStore(),
       log: memoryLogger(),
       http: () => httpClient({ fetch: () => Promise.reject(new TypeError('No fetching in a test')) }),
+      fetchGiven: () => Promise.resolve({ ok: false, reason: 'network' }),
       ...locals,
     },
   };
