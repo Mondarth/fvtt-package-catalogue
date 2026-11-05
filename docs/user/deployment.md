@@ -74,9 +74,10 @@ twice as long each time, to a day at most. Foundry VTT's builds are fetched from
 
 Every hour (`REFRESH_MINUTES`), the worker reads Foundry VTT's index and crawls again each package it holds that the
 index says has changed. Every package is crawled again a week (`REFRESH_STALE_DAYS`) after it was last synced, whatever
-the index says. Each package's own manifest is also read once a day, a 24th of them each hour, and the package crawled
-again if it gives a version not held: some authors publish by their manifest alone, as Foundry VTT's updater reads it,
-and the index does not change. A refresh fetches only new versions' manifests: what it loaded before, it keeps.
+the index says. Each package's own manifest is also read about once an hour (`OWN_MANIFEST_CHECK_MINUTES`), checking
+those due every five minutes, and the package crawled again if it gives a version not held: some authors publish by
+their manifest alone, as Foundry VTT's updater reads it, and the index does not change. A manifest that has not changed
+costs its server only a `304`. A refresh fetches only new versions' manifests: what it loaded before, it keeps.
 
 The worker also warms the catalogue: each hour it queues every package Foundry VTT's index lists, and has not archived,
 that it does not hold yet, and crawls up to `WARM_PER_HOUR` of them an hour (300 by default), after everything else on

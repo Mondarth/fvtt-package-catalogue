@@ -9,7 +9,7 @@ import type {
   SourceGap,
   UnavailableReason,
 } from '@mondarth/fvtt-package-catalogue-contract';
-import type { HeldPackage, IndexEntry, Listing } from '../refresh.js';
+import type { HeldPackage, IndexEntry, Listing, OwnCheck } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
 export interface CatalogueStatus {
@@ -97,6 +97,16 @@ export interface CatalogueStore {
   lastSuccess(job: string): Promise<Date | null>;
   /** Every package the catalogue holds, with when it was synced and its listing details. */
   heldPackages(): Promise<HeldPackage[]>;
+  /**
+   * The packages held, and available, whose own manifest was last checked before `before`, or never, the least recently
+   * checked first, never checked first of all; at most `limit`.
+   */
+  ownChecksDue(before: Date, limit: number): Promise<PackageRef[]>;
+  /**
+   * Records checks of packages' own manifests, made at `at`: a package read keeps the version its manifest gave; one
+   * with no manifest of its own keeps none; one whose manifest could not be read keeps what it last gave.
+   */
+  saveOwnChecks(checks: readonly OwnCheck[], at: Date): Promise<void>;
   /**
    * The packages Foundry VTT's index lists, and has not archived, that the catalogue does not hold and has not queued,
    * the most recently changed first: those to warm.

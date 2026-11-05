@@ -7,6 +7,25 @@
 import type { Cache, CacheEntry } from '@mondarth/fvtt-resolver/sources';
 
 /**
+ * A cache that keeps, of each manifest set in it, only its version, with the ETag to revalidate it by: all that a check
+ * of a package's own manifest reads. A few hundred bytes each, so it can hold every package's, and an unchanged
+ * manifest costs its server only a `304`, however many crawls passed through the worker's cache in the hour between.
+ *
+ * @param cache - The cache to keep them in
+ * @returns The cache
+ */
+export function versionsOnly(cache: Cache): Cache {
+  return {
+    get: key => cache.get(key),
+    set: (key, entry) => {
+      const version: unknown =
+        typeof entry.value === 'object' && entry.value !== null ? Reflect.get(entry.value, 'version') : undefined;
+      return cache.set(key, { ...entry, value: { version } });
+    },
+  };
+}
+
+/**
  * A cache in memory that keeps at most `maxEntries` entries, letting go of the least recently used first.
  *
  * @param maxEntries - How many it keeps

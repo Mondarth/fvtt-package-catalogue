@@ -9,7 +9,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../../../../src/lib/server/db/schema.js';
-import { crawlRequests, listings, releases } from '../../../../src/lib/server/db/schema.js';
+import { crawlRequests, listings, packages, releases } from '../../../../src/lib/server/db/schema.js';
 import { drizzleStore } from '../../../../src/lib/server/store/drizzle.js';
 import { NO_DETAILS } from '../../support/index-entry.js';
 import { testDatabase } from '../../support/pglite.js';
@@ -397,6 +397,55 @@ describe('drizzleStore, for refreshing', () => {
     await store.saveListings([]);
     expect(await store.heldPackages()).toEqual([
       { ref: MIDI, syncedAt: at, listingUpdatedAt: day, title: 'Midi QOL', premium: true, unavailable: null },
+    ]);
+  });
+});
+
+describe("drizzleStore, for checking packages' own manifests", () => {
+  const DAE = { type: 'module', id: 'dae' } as const;
+  const DND5E = { type: 'system', id: 'dnd5e' } as const;
+  const own = () =>
+    db
+      .select({
+        packageId: packages.packageId,
+        ownVersion: packages.ownVersion,
+        ownCheckedAt: packages.ownCheckedAt,
+        ownReadAt: packages.ownReadAt,
+      })
+      .from(packages)
+      .orderBy(packages.id);
+
+  it('gives those due: never checked first, then the least recently checked, of the available, at most so many', async () => {
+    for (const ref of [MIDI, DAE, DND5E]) await store.saveReleases(ref, [], { source: 'crawl', at });
+    await store.saveUnavailable({ type: 'module', id: 'gone' }, { reason: 'gone' }, { source: 'crawl', at });
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'none', changed: false }], later);
+    await store.saveOwnChecks([{ ref: DAE, outcome: 'none', changed: false }], at);
+    expect(await store.ownChecksDue(new Date(later.getTime() + 1), 10)).toEqual([DND5E, DAE, MIDI]);
+    expect(await store.ownChecksDue(later, 10)).toEqual([DND5E, DAE]);
+    expect(await store.ownChecksDue(later, 1)).toEqual([DND5E]);
+  });
+
+  it('keeps what each check found: the version read, none, or what was last read when it fails', async () => {
+    for (const ref of [MIDI, DAE, DND5E]) await store.saveReleases(ref, [], { source: 'crawl', at });
+    await store.saveOwnChecks(
+      [
+        { ref: MIDI, outcome: 'read', version: '13.0.5', changed: true },
+        { ref: DAE, outcome: 'read', version: '1.0.0', changed: false },
+      ],
+      at,
+    );
+    await store.saveOwnChecks(
+      [
+        { ref: DAE, outcome: 'failed', changed: false },
+        { ref: DND5E, outcome: 'none', changed: false },
+      ],
+      later,
+    );
+    await store.saveOwnChecks([], later);
+    expect(await own()).toEqual([
+      { packageId: 'midi-qol', ownVersion: '13.0.5', ownCheckedAt: at, ownReadAt: at },
+      { packageId: 'dae', ownVersion: '1.0.0', ownCheckedAt: later, ownReadAt: at },
+      { packageId: 'dnd5e', ownVersion: null, ownCheckedAt: later, ownReadAt: null },
     ]);
   });
 });

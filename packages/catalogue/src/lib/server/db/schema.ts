@@ -51,9 +51,16 @@ export const packages = pgTable(
     unavailable: unavailableReason(),
     /** More of why, in words. */
     unavailableNote: text(),
+    /** The version its own manifest gave when last read. */
+    ownVersion: text(),
+    /** When its own manifest was last checked, whether it could be read or not; null if never. */
+    ownCheckedAt: timestamp({ withTimezone: true }),
+    /** When its own manifest was last read, giving `ownVersion`; null if never. */
+    ownReadAt: timestamp({ withTimezone: true }),
     createdAt,
   },
-  table => [unique().on(table.type, table.packageId)],
+  // The packages whose own manifest is due a check, the least recently checked first.
+  table => [unique().on(table.type, table.packageId), index().on(table.ownCheckedAt)],
 );
 
 /**

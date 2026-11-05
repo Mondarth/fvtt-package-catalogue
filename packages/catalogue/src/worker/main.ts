@@ -20,13 +20,14 @@ import { readConfig } from '#lib/server/config.js';
 import { connect } from '#lib/server/db/connect.js';
 import { hostLimited } from '#lib/server/host-limit.js';
 import { createLogger } from '#lib/server/log.js';
-import { lruCache } from '#lib/server/lru-cache.js';
+import { lruCache, versionsOnly } from '#lib/server/lru-cache.js';
 import { readOverrides } from '#lib/server/overrides.js';
 import { fetchIndex } from '#lib/server/refresh.js';
 import { drizzleStore } from '#lib/server/store/drizzle.js';
 
 import { createWorker } from './worker.js';
 
+import type { Cache } from '@mondarth/fvtt-resolver/sources';
 import type { PackageOverrides } from '#lib/server/overrides.js';
 
 const COMMANDS = ['migrate', 'run', 'drain', 'recrawl'];
@@ -35,22 +36,31 @@ const config = readConfig(process.env);
 const log = createLogger({ level: config.LOG_LEVEL }).child({ process: 'worker' });
 const [command] = process.argv.slice(2);
 
+/** How many packages' own manifest versions the worker keeps, at a few hundred bytes each. */
+const OWN_VERSIONS = 20_000;
+
 /** The worker, over the database and the web, with the package overrides. */
 function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOverrides) {
   // One cache for the process: Foundry VTT's index is fetched once in five minutes, not once a crawl.
   const cache = lruCache(config.CACHE_ENTRIES);
+  // The versions of packages' own manifests, apart, so that each is revalidated by its ETag an hour on: enough for
+  // every package the index lists, and more.
+  const versions = versionsOnly(lruCache(OWN_VERSIONS));
   // One limit for the process: every crawl in hand asks the same hosts.
   const send = hostLimited(globalThis.fetch, config.CRAWL_PER_HOST);
+  /** A client for one job, through a cache, with a budget of its own. */
+  const clientWith = (through: Cache) => () =>
+    httpClient({
+      fetch: send,
+      cache: through,
+      budget: { maxRequests: config.CRAWL_MAX_REQUESTS },
+      userAgent: `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`,
+    });
   return createWorker({
     store: drizzleStore(connection.db),
     log,
-    http: () =>
-      httpClient({
-        fetch: send,
-        cache,
-        budget: { maxRequests: config.CRAWL_MAX_REQUESTS },
-        userAgent: `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`,
-      }),
+    http: clientWith(cache),
+    ownHttp: clientWith(versions),
     sources: http => [
       foundryIndexSource(http, { indexUrl: config.FOUNDRY_INDEX_URL }),
       githubSource(http, { ...(config.GITHUB_TOKEN !== undefined && { token: config.GITHUB_TOKEN }) }),
@@ -65,6 +75,7 @@ function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOv
     staleMs: config.REFRESH_STALE_DAYS * 24 * 60 * 60 * 1000,
     warmPerHour: config.WARM_PER_HOUR,
     crawlConcurrency: config.CRAWL_CONCURRENCY,
+    ownCheckStaleMs: config.OWN_MANIFEST_CHECK_MINUTES * 60 * 1000,
   });
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { lruCache } from '../../../src/lib/server/lru-cache.js';
+import { lruCache, versionsOnly } from '../../../src/lib/server/lru-cache.js';
 
 const entry = (value: string) => ({ value, storedAt: 0 });
 
@@ -32,5 +32,21 @@ describe('lruCache', () => {
     await cache.set('c', entry('three'));
     expect(await cache.get('b')).toBeUndefined();
     expect(await cache.get('a')).toEqual(entry('again'));
+  });
+});
+
+describe('versionsOnly', () => {
+  it("keeps only each manifest's version, with its ETag", async () => {
+    const cache = versionsOnly(lruCache(5));
+    await cache.set('a', {
+      value: { id: 'midi-qol', version: '14.0.20', description: 'long' },
+      etag: '"v1"',
+      storedAt: 1,
+    });
+    await cache.set('b', { value: 'not a manifest', storedAt: 2 });
+    await cache.set('c', { value: null, storedAt: 3 });
+    expect(await cache.get('a')).toEqual({ value: { version: '14.0.20' }, etag: '"v1"', storedAt: 1 });
+    expect(await cache.get('b')).toEqual({ value: { version: undefined }, storedAt: 2 });
+    expect(await cache.get('c')).toEqual({ value: { version: undefined }, storedAt: 3 });
   });
 });

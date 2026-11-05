@@ -1,14 +1,7 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  fetchIndex,
-  manifestChanges,
-  manifestCheckDue,
-  ownManifest,
-  planRefresh,
-  readIndex,
-} from '../../../src/lib/server/refresh.js';
+import { fetchIndex, checkOwnManifests, ownManifest, planRefresh, readIndex } from '../../../src/lib/server/refresh.js';
 import { NO_DETAILS } from '../support/index-entry.js';
 
 import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
@@ -328,17 +321,6 @@ describe("a package's own manifest", () => {
     ...change,
   });
 
-  it('is checked once a day for each package, a 24th of them each hour', () => {
-    const refs = Array.from(
-      { length: 200 },
-      (_, index) => ({ type: 'module', id: `module-${String(index)}` }) as const,
-    );
-    const hours = Array.from({ length: 24 }, (_, hour) => new Date(Date.UTC(2026, 9, 24, hour, 30)));
-    for (const ref of refs) expect(hours.filter(hour => manifestCheckDue(ref, hour))).toHaveLength(1);
-    const busiest = Math.max(...hours.map(hour => refs.filter(ref => manifestCheckDue(ref, hour)).length));
-    expect(busiest).toBeLessThan(30);
-  });
-
   it("is the newest listed release's, or else the newest's, unless it names that release's version", () => {
     expect(
       ownManifest([
@@ -355,7 +337,7 @@ describe("a package's own manifest", () => {
     expect(ownManifest([{ ...release('1.0.0'), manifest: undefined } as unknown as Release])).toBeUndefined();
   });
 
-  it('queues a package whose manifest gives a version not held, and none whose does not, or cannot be read', async () => {
+  it('is read for a version not held, and says so of one whose is held, cannot be read, or has none', async () => {
     const answers: Record<string, () => Response> = {
       [MANIFEST]: () => Response.json({ id: 'midi-qol', version: '1.0.36' }),
       'https://files.test/same/module.json': () => Response.json({ id: 'same', version: 'v1.0.0' }),
@@ -371,7 +353,7 @@ describe("a package's own manifest", () => {
     const of = (id: string) => ({ type: 'module', id }) as const;
     const at = (id: string) => [release('1.0.0', { manifest: `https://files.test/${id}/module.json` })];
 
-    const changed = await manifestChanges(http, [
+    const checks = await checkOwnManifests(http, [
       { ref: MIDI, releases: [release('1.0.35')] },
       { ref: of('same'), releases: at('same') },
       { ref: of('odd'), releases: at('odd') },
@@ -379,6 +361,31 @@ describe("a package's own manifest", () => {
       { ref: of('none'), releases: [] },
     ]);
 
-    expect(changed).toEqual([MIDI]);
+    expect(checks).toEqual([
+      { ref: MIDI, outcome: 'read', version: '1.0.36', changed: true },
+      // A leading "v" aside, the version held.
+      { ref: of('same'), outcome: 'read', version: 'v1.0.0', changed: false },
+      { ref: of('odd'), outcome: 'failed', changed: false },
+      { ref: of('gone'), outcome: 'failed', changed: false },
+      { ref: of('none'), outcome: 'none', changed: false },
+    ]);
+  });
+
+  it('is asked of its server every time, revalidating with the ETag it gave', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>((_input, init) =>
+      Promise.resolve(
+        new Headers(init?.headers).get('If-None-Match') === '"v1"'
+          ? new Response(null, { status: 304 })
+          : Response.json({ version: '1.0.36' }, { headers: { ETag: '"v1"' } }),
+      ),
+    );
+    const http = httpClient({ fetch });
+    const held = [{ ref: MIDI, releases: [release('1.0.35')] }];
+    await checkOwnManifests(http, held);
+    expect(await checkOwnManifests(http, held)).toEqual([
+      { ref: MIDI, outcome: 'read', version: '1.0.36', changed: true },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).get('If-None-Match')).toBe('"v1"');
   });
 });
