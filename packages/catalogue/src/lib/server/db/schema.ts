@@ -28,7 +28,7 @@ export const releaseDetail = pgEnum('release_detail', ['listed', 'loaded']);
 export const relationshipKind = pgEnum('relationship_kind', ['requires', 'systems', 'conflicts', 'recommends']);
 export const coreChannel = pgEnum('core_channel', ['stable', 'testing', 'development', 'prototype']);
 export const gapReason = pgEnum('gap_reason', ['http', 'network', 'budget', 'invalid']);
-export const crawlReason = pgEnum('crawl_reason', ['request', 'closure', 'refresh']);
+export const crawlReason = pgEnum('crawl_reason', ['request', 'closure', 'refresh', 'warm']);
 export const unavailableReason = pgEnum('unavailable_reason', ['archived', 'gone']);
 
 const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
@@ -192,7 +192,7 @@ export const sourceGaps = pgTable(
   table => [index().on(table.packageKey)],
 );
 
-/** A package someone asked for, or that a closure needs, waiting for the worker to fetch it. */
+/** A package someone asked for, that a closure needs, due a refresh or on the index to warm, waiting for the worker. */
 export const crawlRequests = pgTable(
   'crawl_requests',
   {

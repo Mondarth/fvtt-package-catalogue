@@ -73,7 +73,8 @@ manifest URLs that relationships declare. Each job has an HTTP client with a bud
 is recorded in `sync_runs`.
 
 - **Crawling** (`lib/server/crawl.ts`) takes the next package from `crawl_requests`: asked for before needed, needed
-  before due a refresh. The resolver's `sourceSet` lists every release the sources know, then loads each from its own
+  before due a refresh, due a refresh before warming. A package queued again keeps the most pressing of its reasons.
+  The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
   when no listed version fits. The package's own manifest, that of its newest listed release held, is declared to the
@@ -116,6 +117,12 @@ is recorded in `sync_runs`.
   gives of it changes (by a hash). One the index stops listing is kept, marked `delisted_at`, unless the index lists
   fewer than half of those kept, which is more likely an index cut short. Nothing reads `listings` yet: it is the start
   of the catalogue standing in for the index.
+- **Warming**: each refresh, once the index's copy is kept, queues as `warm` every package it lists, not archived or
+  delisted, that the catalogue neither holds nor has queued (`unwarmed`), the most recently changed first. So the
+  catalogue comes to hold the whole index before clients ask for it, and a package newly listed is warmed within the
+  hour. Packages to warm are crawled last, and at most `WARM_PER_HOUR` an hour (300 by default; 0 turns warming off),
+  counted by the worker as it takes them from the queue (`nextCrawl`'s `warm` option), so that the first warming of
+  the whole index, about 6,700 packages, is spread over about a day rather than made at once.
 
 ## SvelteKit 3
 

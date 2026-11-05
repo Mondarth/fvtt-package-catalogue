@@ -45,6 +45,11 @@ export interface WorkerOptions {
   readonly refreshEveryMs?: number;
   /** How long a package Foundry VTT's index does not list waits to be crawled again; a week by default. */
   readonly staleMs?: number;
+  /**
+   * The most packages crawled in an hour to warm the catalogue, those the index lists that no client has needed yet;
+   * 300 by default. None queues none.
+   */
+  readonly warmPerHour?: number;
 }
 
 /** The worker. */
@@ -119,6 +124,7 @@ export function createWorker({
   coreEveryMs = DAY,
   refreshEveryMs = HOUR,
   staleMs = 7 * DAY,
+  warmPerHour = 300,
 }: WorkerOptions): Worker {
   /**
    * Runs a job with a client of its own, recording the run; whatever it throws is rethrown once recorded. What the work
@@ -172,7 +178,7 @@ export function createWorker({
   /**
    * Keeps the catalogue's copy of Foundry VTT's index, and queues the packages held that changed, or that are old
    * enough, to be crawled again: as the index says, and, a 24th of them each hour, as their own manifests say, giving a
-   * version not held.
+   * version not held. Then queues, to warm, the packages the index lists that the catalogue does not hold.
    */
   const refresh = () =>
     periodic('refresh', refreshEveryMs, 'The packages held were not checked for changes', async client => {
@@ -192,6 +198,8 @@ export function createWorker({
       );
       await store.saveListings(plan.listings);
       await store.requestCrawl([...plan.refresh, ...changed].map(ref => ({ package: ref, reason: 'refresh' })));
+      const unwarmed = warmPerHour > 0 ? await store.unwarmed() : [];
+      if (unwarmed.length > 0) await store.requestCrawl(unwarmed.map(ref => ({ package: ref, reason: 'warm' })));
       return {
         refreshed: plan.refresh.length,
         manifestsChecked: due.length,
@@ -200,6 +208,7 @@ export function createWorker({
         indexAdded: indexed.added,
         indexChanged: indexed.changed,
         indexDelisted: indexed.delisted,
+        warmQueued: unwarmed.length,
       };
     });
 
@@ -275,10 +284,24 @@ export function createWorker({
     }
   }
 
-  /** Crawls the next package due, if there is one. */
+  /** When each package crawled to warm in the last hour was taken from the queue, oldest first. */
+  const warmed: number[] = [];
+
+  /** Whether another package may be crawled to warm this hour. */
+  function mayWarm(at: number): boolean {
+    while (warmed[0] !== undefined && at - warmed[0] >= HOUR) warmed.shift();
+    return warmed.length < warmPerHour;
+  }
+
+  /**
+   * Crawls the next package due, if there is one. Packages queued to warm are crawled at most `warmPerHour` an hour, so
+   * that warming the whole index is spread out; any other is crawled as soon as it is due.
+   */
   async function crawlNext(): Promise<boolean> {
-    const item = await store.nextCrawl(now());
+    const at = now();
+    const item = await store.nextCrawl(at, { warm: mayWarm(at.getTime()) });
     if (item === undefined) return false;
+    if (item.reason === 'warm') warmed.push(at.getTime());
     await crawl(item);
     return true;
   }
@@ -290,6 +313,7 @@ export function createWorker({
         coreEveryMs,
         refreshEveryMs,
         staleMs,
+        warmPerHour,
         overrides: Object.keys(overrides).length,
       });
       while (!signal.aborted) {

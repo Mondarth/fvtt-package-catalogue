@@ -5,6 +5,8 @@ import type { AddressInfo } from 'node:net';
 /** A package Foundry VTT's index lists, which needs another, found only by the manifest URL it declares. */
 export const CRAWLED = { type: 'module', id: 'e2e-crawled' } as const;
 export const NEEDED = { type: 'module', id: 'e2e-needed' } as const;
+/** A package the index lists that no client asks for: the worker crawls it to warm the catalogue. */
+export const WARMED = { type: 'module', id: 'e2e-warmed' } as const;
 
 /** Foundry VTT's builds, as its release notes give them. */
 export const STUB_BUILDS = [{ version: '14.369', generation: 14, channel: 'testing' }] as const;
@@ -25,6 +27,7 @@ export interface StubWeb {
 /** What the web gives, by path, with the stub's own address where a file names another. */
 function files(base: string, versions: readonly string[], lastUpdated: string): Record<string, unknown> {
   const needed = `${base}/e2e-needed/module.json`;
+  const warmed = `${base}/e2e-warmed/0.1.0/module.json`;
   const manifests = Object.fromEntries(
     versions.map(version => [
       manifestPath(version),
@@ -42,7 +45,19 @@ function files(base: string, versions: readonly string[], lastUpdated: string): 
   return {
     '/index-latest.json': {
       details: `${base}/detail/{id}.json`,
-      packages: [{ id: CRAWLED.id, type: 'module', title: 'E2E crawled', last_updated: lastUpdated }],
+      packages: [
+        { id: CRAWLED.id, type: 'module', title: 'E2E crawled', last_updated: lastUpdated },
+        { id: WARMED.id, type: 'module', title: 'E2E warmed', last_updated: '2026-10-01T09:00:00Z' },
+      ],
+    },
+    '/detail/e2e-warmed.json': { versions: [{ version: '0.1.0', manifest: warmed, minimum: '13', verified: '14' }] },
+    '/e2e-warmed/0.1.0/module.json': {
+      id: WARMED.id,
+      title: 'E2E warmed',
+      version: '0.1.0',
+      compatibility: { minimum: '13', verified: '14' },
+      manifest: warmed,
+      download: `${base}/e2e-warmed/0.1.0/module.zip`,
     },
     '/detail/e2e-crawled.json': {
       versions: versions.map(version => ({

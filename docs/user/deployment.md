@@ -78,6 +78,11 @@ the index says. Each package's own manifest is also read once a day, a 24th of t
 again if it gives a version not held: some authors publish by their manifest alone, as Foundry VTT's updater reads it,
 and the index does not change. A refresh fetches only new versions' manifests: what it loaded before, it keeps.
 
+The worker also warms the catalogue: each hour it queues every package Foundry VTT's index lists, and has not archived,
+that it does not hold yet, and crawls up to `WARM_PER_HOUR` of them an hour (300 by default), after everything else on
+the queue. The first time, that is about 6,700 packages, so about a day; after that, only packages newly listed. Set
+`WARM_PER_HOUR=0` in `.env` to turn warming off, so that the catalogue holds only what clients have needed.
+
 Each crawl may make at most `CRAWL_MAX_REQUESTS` requests (5000 by default). Stopping the container lets it finish the
 package in hand, for up to a minute.
 

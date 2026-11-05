@@ -48,6 +48,11 @@ export const WorkerConfig = z.object({
   REFRESH_MINUTES: Count.default(60),
   /** How long a package the index does not list waits to be crawled again. */
   REFRESH_STALE_DAYS: Count.default(7),
+  /**
+   * The most packages crawled each hour to warm the catalogue: those Foundry VTT's index lists that no client has needed
+   * yet. None turns warming off.
+   */
+  WARM_PER_HOUR: z.coerce.number().int().nonnegative().default(300),
   /** The package overrides: what the catalogue is told of packages whose sources mislead it. */
   PACKAGE_OVERRIDES_FILE: z.string().min(1).default('overrides.json'),
   /** Foundry VTT's package index; another only to test against. */

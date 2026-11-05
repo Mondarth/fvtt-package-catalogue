@@ -60,6 +60,7 @@ function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOv
     pollMs: config.CRAWL_POLL_SECONDS * 1000,
     refreshEveryMs: config.REFRESH_MINUTES * 60 * 1000,
     staleMs: config.REFRESH_STALE_DAYS * 24 * 60 * 60 * 1000,
+    warmPerHour: config.WARM_PER_HOUR,
   });
 }
 

@@ -226,6 +226,21 @@ describe('drizzleStore, for universes', () => {
     expect(await store.gapsOf([])).toEqual([]);
   });
 
+  it('queues a package for the most pressing reason it was queued for', async () => {
+    await store.requestCrawl([
+      { package: MIDI, reason: 'warm' },
+      { package: DND5E, reason: 'refresh' },
+    ]);
+    await store.requestCrawl([
+      { package: MIDI, reason: 'closure' },
+      { package: DND5E, reason: 'warm' },
+    ]);
+    expect(await queue()).toEqual([
+      { type: 'module', packageId: 'midi-qol', reason: 'closure' },
+      { type: 'system', packageId: 'dnd5e', reason: 'refresh' },
+    ]);
+  });
+
   it('queues each package once, as asked for if it ever was', async () => {
     await store.requestCrawl([
       { package: MIDI, reason: 'request' },
@@ -260,8 +275,9 @@ describe('drizzleStore, for the worker', () => {
   // these tests are slow enough, under coverage, for a time taken once to fall behind.
   const soon = () => new Date(Date.now() + 60_000);
 
-  it('gives the next package to crawl: asked for first, then needed, then due a refresh, oldest first', async () => {
+  it('gives the next package to crawl: asked for first, then needed, then due a refresh, then to warm', async () => {
     await store.requestCrawl([
+      { package: { type: 'module', id: 'socketlib' }, reason: 'warm' },
       { package: DAE, reason: 'refresh' },
       { package: DND5E, reason: 'closure' },
     ]);
@@ -271,7 +287,25 @@ describe('drizzleStore, for the worker', () => {
       order.push(`${next.reason} ${next.package.type}:${next.package.id} ${String(next.attempts)}`);
       await store.finishCrawl(next.id);
     }
-    expect(order).toEqual(['request module:midi-qol 0', 'closure system:dnd5e 0', 'refresh module:dae 0']);
+    expect(order).toEqual([
+      'request module:midi-qol 0',
+      'closure system:dnd5e 0',
+      'refresh module:dae 0',
+      'warm module:socketlib 0',
+    ]);
+  });
+
+  it('gives no package to warm when told not to', async () => {
+    await store.requestCrawl([
+      { package: DAE, reason: 'warm' },
+      { package: DND5E, reason: 'refresh' },
+    ]);
+    expect(await store.nextCrawl(soon(), { warm: false })).toMatchObject({ package: DND5E });
+    const next = await store.nextCrawl(soon());
+    if (next === undefined) throw new Error('nothing queued');
+    await store.finishCrawl(next.id);
+    expect(await store.nextCrawl(soon(), { warm: false })).toBeUndefined();
+    expect(await store.nextCrawl(soon())).toMatchObject({ package: DAE, reason: 'warm' });
   });
 
   it('gives nothing when the queue is empty', async () => {
@@ -469,6 +503,25 @@ describe("drizzleStore, keeping Foundry VTT's index", () => {
   it('tells apart packages of two types with one id', async () => {
     await store.saveIndex([entry('dnd5e'), entry('dnd5e', { ref: { type: 'system', id: 'dnd5e' } })], at);
     expect(await kept()).toHaveLength(2);
+  });
+
+  it('gives the packages to warm: listed, not archived, not held and not queued, the most recently changed first', async () => {
+    const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
+    const index = [
+      entry('old', { lastUpdated: day('2026-01-01') }),
+      entry('new', { lastUpdated: day('2026-10-01') }),
+      entry('undated', { lastUpdated: null }),
+      entry('archived', { details: { ...NO_DETAILS, status: 'archived' } }),
+      entry('approved', { lastUpdated: day('2026-05-01'), details: { ...NO_DETAILS, status: 'approved' } }),
+      entry('held'),
+      entry('queued'),
+      entry('world', { ref: { type: 'world', id: 'world' } }),
+    ];
+    await store.saveIndex([...index, entry('delisted')], at);
+    await store.saveIndex(index, later);
+    await store.saveReleases({ type: 'module', id: 'held' }, [], { source: 'crawl', at });
+    await store.requestCrawl([{ package: { type: 'module', id: 'queued' }, reason: 'request' }]);
+    expect((await store.unwarmed()).map(ref => ref.id)).toEqual(['new', 'approved', 'old', 'undated']);
   });
 
   it('writes the entries of a large index in batches', async () => {
