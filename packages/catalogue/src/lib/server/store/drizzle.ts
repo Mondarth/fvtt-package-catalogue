@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, max, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, max, ne, notExists, or, sql } from 'drizzle-orm';
 
 import {
   coreReleases,
@@ -24,6 +24,7 @@ import type {
   Release,
   SourceGap,
 } from '@mondarth/fvtt-package-catalogue-contract';
+import type { SQL } from 'drizzle-orm';
 import type { Database } from '../db/database.js';
 import type { IndexEntry } from '../refresh.js';
 import type { CatalogueStore, PackageReleases } from './types.js';
@@ -130,8 +131,14 @@ function listingRow({ ref, lastUpdated, title, premium, details }: IndexEntry) {
   return { ...row, hash: createHash('sha256').update(JSON.stringify(row)).digest('hex') };
 }
 
-/** The worker crawls what was asked for first, then what closures need, then refreshes. */
-const CRAWL_PRIORITY = sql`case ${crawlRequests.reason} when 'request' then 0 when 'closure' then 1 else 2 end`;
+/**
+ * How pressing a reason to crawl is, the most pressing least: what was asked for, then what closures need, then
+ * refreshes, then warming.
+ */
+const priorityOf = (reason: SQL | typeof crawlRequests.reason) =>
+  sql`case ${reason} when 'request' then 0 when 'closure' then 1 when 'refresh' then 2 else 3 end`;
+
+const CRAWL_PRIORITY = priorityOf(crawlRequests.reason);
 
 function gapOf(row: GapRow): SourceGap {
   return {
@@ -342,18 +349,19 @@ export function drizzleStore(db: Database): CatalogueStore {
         .values(requests.map(({ package: ref, reason }) => ({ type: ref.type, packageId: ref.id, reason })))
         .onConflictDoUpdate({
           target: [crawlRequests.type, crawlRequests.packageId],
-          // Once asked for, a package stays asked for: the worker fetches those first.
+          // A package keeps the most pressing reason it was queued for: once asked for, it stays asked for, and one
+          // queued to warm that a closure needs is needed.
           set: {
-            reason: sql`case when excluded.reason = 'request' then excluded.reason else ${crawlRequests.reason} end`,
+            reason: sql`case when ${priorityOf(sql`excluded.reason`)} < ${CRAWL_PRIORITY} then excluded.reason else ${crawlRequests.reason} end`,
           },
         });
     },
 
-    async nextCrawl(now) {
+    async nextCrawl(now, { warm = true } = {}) {
       const [row] = await db
         .select()
         .from(crawlRequests)
-        .where(lte(crawlRequests.notBefore, now))
+        .where(and(lte(crawlRequests.notBefore, now), warm ? undefined : ne(crawlRequests.reason, 'warm')))
         .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
         .limit(1);
       return (
@@ -450,10 +458,37 @@ export function drizzleStore(db: Database): CatalogueStore {
       return rows.map(({ type, packageId, ...rest }) => ({ ref: { type, id: packageId }, ...rest }));
     },
 
-    async saveListings(listings) {
-      if (listings.length === 0) return;
+    async unwarmed() {
+      const rows = await db
+        .select({ type: listings.type, packageId: listings.packageId })
+        .from(listings)
+        .where(
+          and(
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+            ne(listings.type, 'world'),
+            notExists(
+              db
+                .select({ id: packages.id })
+                .from(packages)
+                .where(and(eq(packages.type, listings.type), eq(packages.packageId, listings.packageId))),
+            ),
+            notExists(
+              db
+                .select({ id: crawlRequests.id })
+                .from(crawlRequests)
+                .where(and(eq(crawlRequests.type, listings.type), eq(crawlRequests.packageId, listings.packageId))),
+            ),
+          ),
+        )
+        .orderBy(sql`${listings.lastUpdated} desc nulls last`, asc(listings.id));
+      return rows.map(({ type, packageId }) => ({ type, id: packageId }));
+    },
+
+    async saveListings(given) {
+      if (given.length === 0) return;
       await db.transaction(async tx => {
-        for (const { ref, listingUpdatedAt, title, premium } of listings) {
+        for (const { ref, listingUpdatedAt, title, premium } of given) {
           await tx
             .update(packages)
             .set({ listingUpdatedAt, title, premium })

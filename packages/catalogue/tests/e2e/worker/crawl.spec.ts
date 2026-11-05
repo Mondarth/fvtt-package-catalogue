@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
 import { connect } from '../../../src/lib/server/db/connect.js';
 import { E2E_ENV } from '../environment.js';
 import { SEEDED_CORE } from '../seed.js';
-import { CRAWLED, NEEDED, STUB_BUILDS, manifestPath, stubWeb } from './stub-web.js';
+import { CRAWLED, NEEDED, STUB_BUILDS, WARMED, manifestPath, stubWeb } from './stub-web.js';
 
 import type { APIRequestContext } from '@playwright/test';
 import type { StubWeb } from './stub-web.js';
@@ -26,9 +26,9 @@ async function drain(web: StubWeb): Promise<void> {
   });
 }
 
-/** The universe of the crawled package, as the API gives it. */
-async function universe(request: APIRequestContext) {
-  const response = await request.post(UNIVERSE_PATH, { data: { packages: [CRAWLED] } });
+/** The universe of a package, the crawled one by default, as the API gives it. */
+async function universe(request: APIRequestContext, ref: { readonly type: 'module'; readonly id: string } = CRAWLED) {
+  const response = await request.post(UNIVERSE_PATH, { data: { packages: [ref] } });
   return UniverseResponse.parse(await response.json());
 }
 
@@ -53,6 +53,10 @@ test('the worker crawls what was asked for and what that needs, then what change
     ]);
     expect(crawled.universe.releases[0]).toMatchObject({ listing: { minimum: '13', verified: '14' } });
     expect(crawled.universe.core).toEqual([...SEEDED_CORE, ...STUB_BUILDS]);
+    // Warmed: held before any client asked for it, as the index lists it.
+    const warmed = await universe(request, WARMED);
+    expect(warmed.pending).toEqual([]);
+    expect(versionsOf(warmed)).toEqual([[WARMED.id, '0.1.0', 'loaded']]);
 
     // Its author publishes 1.1.0 now, and an hour passes: the refresh is due again.
     web.publish('1.1.0', new Date().toISOString());
@@ -82,6 +86,7 @@ test('the worker crawls what was asked for and what that needs, then what change
       );
       expect(rows).toEqual([
         { package_id: CRAWLED.id, title: 'E2E crawled', last_updated: expect.anything() as unknown },
+        { package_id: WARMED.id, title: 'E2E warmed', last_updated: expect.anything() as unknown },
       ]);
     } finally {
       await kept.close();

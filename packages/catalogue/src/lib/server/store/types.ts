@@ -66,15 +66,17 @@ export interface CatalogueStore {
   gapsOf(keys: readonly string[]): Promise<SourceGap[]>;
   recordGaps(gaps: readonly SourceGap[]): Promise<void>;
   /**
-   * Queues packages for the worker to fetch. A package already queued stays queued once, as `request` if it was ever
-   * asked for.
+   * Queues packages for the worker to fetch. A package already queued stays queued once, for the most pressing reason
+   * it was ever queued for, in the order of {@link nextCrawl}.
    */
   requestCrawl(requests: readonly CrawlRequest[]): Promise<void>;
   /**
-   * The next package the worker may crawl at this time: asked for before needed, needed before due a refresh, oldest
-   * first within each. Undefined if none is due.
+   * The next package the worker may crawl at this time: asked for before needed, needed before due a refresh, due a
+   * refresh before warming, oldest first within each. Undefined if none is due.
+   *
+   * @param options.warm - Whether a package queued to warm may be given; true by default
    */
-  nextCrawl(now: Date): Promise<QueuedCrawl | undefined>;
+  nextCrawl(now: Date, options?: { readonly warm?: boolean }): Promise<QueuedCrawl | undefined>;
   /** Takes a crawled package off the queue. */
   finishCrawl(id: number): Promise<void>;
   /** Leaves a package on the queue after a failed crawl, counting the failure, not to be tried before `until`. */
@@ -93,6 +95,11 @@ export interface CatalogueStore {
   lastSuccess(job: string): Promise<Date | null>;
   /** Every package the catalogue holds, with when it was synced and its listing details. */
   heldPackages(): Promise<HeldPackage[]>;
+  /**
+   * The packages Foundry VTT's index lists, and has not archived, that the catalogue does not hold and has not queued,
+   * the most recently changed first: those to warm.
+   */
+  unwarmed(): Promise<PackageRef[]>;
   /** Saves Foundry VTT's index's details of packages held; a package not held is left out. */
   saveListings(listings: readonly Listing[]): Promise<void>;
   /**
@@ -130,8 +137,11 @@ export interface RunEnd {
 /** A package for the worker to fetch, and why. */
 export interface CrawlRequest {
   readonly package: PackageRef;
-  /** `request`: a client asked for it. `closure`: a package asked for needs it. `refresh`: it is due an update. */
-  readonly reason: 'request' | 'closure' | 'refresh';
+  /**
+   * `request`: a client asked for it. `closure`: a package asked for needs it. `refresh`: it is due an update. `warm`:
+   * the index lists it and no client has needed it yet, so that it is held before one does.
+   */
+  readonly reason: 'request' | 'closure' | 'refresh' | 'warm';
 }
 
 /** Where saved releases came from, and when. */

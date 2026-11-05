@@ -53,12 +53,16 @@ function setUp({
   index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [] }),
   overrides,
   send = vi.fn<typeof globalThis.fetch>(),
+  warmPerHour,
+  clock = () => NOW,
 }: {
   releases?: ReleaseSource['releases'];
   core?: () => Promise<SourceResult<CoreRelease[]>>;
   index?: () => Promise<SourceResult<IndexEntry[]>>;
   overrides?: PackageOverrides;
   send?: typeof globalThis.fetch;
+  warmPerHour?: number;
+  clock?: () => Date;
 } = {}) {
   const store = mockStore();
   const log = memoryLogger();
@@ -71,7 +75,8 @@ function setUp({
     coreReleases: core,
     index,
     ...(overrides !== undefined && { overrides }),
-    now: () => NOW,
+    ...(warmPerHour !== undefined && { warmPerHour }),
+    now: clock,
     sleep: ms => {
       sleeps.push(ms);
       return Promise.resolve();
@@ -328,6 +333,51 @@ describe("the worker, keeping Foundry VTT's builds", () => {
       }),
     );
     expect(log.lines).toContainEqual(expect.objectContaining({ level: 'warn' }));
+  });
+});
+
+describe('the worker, warming the catalogue', () => {
+  const DAE = { type: 'module', id: 'dae' } as const;
+
+  it('queues, to warm, the packages the index lists that it does not hold, after the refresh', async () => {
+    const { store, log, worker } = setUp();
+    store.unwarmed.mockResolvedValue([MIDI, DAE]);
+    await worker.drain();
+    expect(store.requestCrawl).toHaveBeenLastCalledWith([
+      { package: MIDI, reason: 'warm' },
+      { package: DAE, reason: 'warm' },
+    ]);
+    expect(log.lines).toContainEqual(expect.objectContaining({ job: 'refresh', warmQueued: 2 }));
+  });
+
+  it('queues none to warm when warming is off', async () => {
+    const { store, worker } = setUp({ warmPerHour: 0 });
+    store.unwarmed.mockResolvedValue([MIDI]);
+    await worker.drain();
+    expect(store.unwarmed).not.toHaveBeenCalled();
+    expect(store.requestCrawl).not.toHaveBeenCalledWith([{ package: MIDI, reason: 'warm' }]);
+  });
+
+  it('crawls at most so many packages an hour to warm, and any other as soon as it is due', async () => {
+    let time = NOW.getTime();
+    const { store, worker } = setUp({ warmPerHour: 2, clock: () => new Date(time) });
+    const warm = (id: number) => queued({ id, reason: 'warm' });
+    // The store gives a package to warm only while the worker says it may.
+    const queue = [warm(1), warm(2), warm(3), queued({ id: 4, reason: 'request' })];
+    store.nextCrawl.mockImplementation((_at, options) => {
+      const next = queue.find(item => options?.warm !== false || item.reason !== 'warm');
+      if (next !== undefined) queue.splice(queue.indexOf(next), 1);
+      return Promise.resolve(next);
+    });
+
+    expect(await worker.drain()).toEqual({ crawled: 3 });
+    expect(store.finishCrawl.mock.calls.map(([id]) => id)).toEqual([1, 2, 4]);
+    expect(queue).toEqual([warm(3)]);
+
+    // An hour after the first was taken, another may be.
+    time += 60 * 60 * 1000;
+    expect(await worker.drain()).toEqual({ crawled: 1 });
+    expect(store.finishCrawl).toHaveBeenLastCalledWith(3);
   });
 });
 
