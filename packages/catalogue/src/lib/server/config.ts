@@ -53,6 +53,11 @@ export const WorkerConfig = z.object({
    * yet. None turns warming off.
    */
   WARM_PER_HOUR: z.coerce.number().int().nonnegative().default(300),
+  /**
+   * How many answers the worker keeps in memory, such as manifests and Foundry VTT's index, letting go of the least
+   * recently used first. Most are a few kilobytes; the index is several megabytes.
+   */
+  CACHE_ENTRIES: Count.default(5000),
   /** How many packages the worker crawls at once. */
   CRAWL_CONCURRENCY: Count.default(4),
   /** The most requests made to any one host at once, across every crawl in hand. */
