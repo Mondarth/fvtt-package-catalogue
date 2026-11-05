@@ -54,8 +54,8 @@ test('the worker crawls what was asked for and what that needs, then what change
     expect(crawled.universe.releases[0]).toMatchObject({ listing: { minimum: '13', verified: '14' } });
     expect(crawled.universe.core).toEqual([...SEEDED_CORE, ...STUB_BUILDS]);
 
-    // Its author publishes 1.1.0 today, and an hour passes: the refresh is due again.
-    web.publish('1.1.0', new Date().toISOString().slice(0, 10));
+    // Its author publishes 1.1.0 now, and an hour passes: the refresh is due again.
+    web.publish('1.1.0', new Date().toISOString());
     const connection = connect(E2E_ENV.DATABASE_URL);
     try {
       await connection.db.execute("delete from sync_runs where job = 'refresh'");

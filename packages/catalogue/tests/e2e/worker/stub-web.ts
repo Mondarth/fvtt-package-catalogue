@@ -74,7 +74,7 @@ function files(base: string, versions: readonly string[], lastUpdated: string): 
 export async function stubWeb(): Promise<StubWeb> {
   let base = '';
   const versions = ['1.0.0'];
-  let lastUpdated = '2026-10-01';
+  let lastUpdated = '2026-10-01T09:00:00Z';
   const hits = new Map<string, number>();
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', base).pathname;
