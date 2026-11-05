@@ -20,7 +20,7 @@ import {
 
 import { sql } from 'drizzle-orm';
 
-import type { Compatibility } from '@mondarth/fvtt-package-catalogue-contract';
+import type { Compatibility, ConsistencyReport } from '@mondarth/fvtt-package-catalogue-contract';
 import type { ListedVersion } from '../refresh.js';
 
 export const packageType = pgEnum('package_type', ['module', 'system', 'world']);
@@ -215,6 +215,14 @@ export const crawlRequests = pgTable(
   },
   table => [unique().on(table.type, table.packageId), index().on(table.notBefore)],
 );
+
+/** Each check of how the catalogue compares with Foundry VTT's index, as `/status` gives the latest. */
+export const consistencyReports = pgTable('consistency_reports', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  at: timestamp({ withTimezone: true }).notNull(),
+  /** The report, but for its time. */
+  report: jsonb().$type<Omit<ConsistencyReport, 'at'>>().notNull(),
+});
 
 /** One run of a worker job. */
 export const syncRuns = pgTable('sync_runs', {

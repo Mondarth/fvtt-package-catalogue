@@ -563,6 +563,66 @@ describe("the worker, checking packages' own manifests", () => {
   });
 });
 
+describe("the worker, comparing the catalogue with Foundry VTT's index", () => {
+  const listedVersion = {
+    version: '13.0.5',
+    minimum: '13',
+    maximum: null,
+    verified: null,
+    manifest: null,
+    notes: null,
+  };
+
+  it('keeps the report, and queues the packages concerned to be crawled again', async () => {
+    const { store, log, worker } = setUp();
+    store.consistencyInputs.mockResolvedValue({
+      indexed: [{ ref: MIDI, archived: false, latestVersion: null, versions: [listedVersion] }],
+      held: [{ ref: MIDI, unavailable: null, ownVersion: null, releases: [{ version: '13.0.4' }] }],
+    });
+    await worker.drain();
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: MIDI, reason: 'refresh' }]);
+    const report = {
+      at: NOW.toISOString(),
+      listed: 1,
+      held: 1,
+      versionsMissing: 1,
+      latestMissing: 0,
+      listingsDiffer: 0,
+      archivedHeld: 0,
+      ownMissing: 0,
+      requeued: 1,
+    };
+    expect(store.saveConsistency).toHaveBeenCalledWith(report);
+    expect(log.lines).toContainEqual(expect.objectContaining({ job: 'consistency', versionsMissing: 1, requeued: 1 }));
+  });
+
+  it('queues at most five hundred, and none when nothing is wrong', async () => {
+    const refs = Array.from({ length: 501 }, (_, index) => ({ type: 'module', id: `pkg-${String(index)}` }) as const);
+    const { store, worker } = setUp();
+    store.consistencyInputs.mockResolvedValue({
+      indexed: refs.map(ref => ({ ref, archived: false, latestVersion: '2.0.0', versions: [] })),
+      held: refs.map(ref => ({ ref, unavailable: null, ownVersion: null, releases: [] })),
+    });
+    await worker.drain();
+    expect(store.saveConsistency).toHaveBeenCalledWith(expect.objectContaining({ latestMissing: 501, requeued: 500 }));
+    expect(store.requestCrawl.mock.calls.find(([requests]) => requests.length === 500)).toBeDefined();
+
+    const quiet = setUp();
+    await quiet.worker.drain();
+    expect(quiet.store.saveConsistency).toHaveBeenCalledWith(expect.objectContaining({ listed: 0, requeued: 0 }));
+    expect(quiet.store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0)).toEqual([]);
+  });
+
+  it('compares once a day', async () => {
+    const { store, worker } = setUp();
+    store.lastSuccess.mockImplementation(job =>
+      Promise.resolve(job === 'consistency' ? new Date(NOW.getTime() - 23 * 60 * 60 * 1000) : null),
+    );
+    await worker.drain();
+    expect(store.consistencyInputs).not.toHaveBeenCalled();
+  });
+});
+
 describe('the worker, crawling several packages at once', () => {
   /** Sources whose every listing waits until released, so that crawls stay in hand; and the queue they come from. */
   function held(count: number) {

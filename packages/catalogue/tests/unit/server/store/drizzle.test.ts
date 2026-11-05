@@ -82,7 +82,7 @@ describe('drizzleStore', () => {
   });
 
   it('knows nothing at first', async () => {
-    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null });
+    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null, consistency: null });
     expect(await store.releasesOf(MIDI)).toBeUndefined();
   });
 
@@ -137,7 +137,7 @@ describe('drizzleStore', () => {
     await store.saveReleases(dnd5e, [{ ...listed, package: dnd5e }], { source: 'foundry-index', at: later });
     expect((await store.releasesOf(MIDI))?.releases).toEqual([loaded]);
     expect(await store.releasesOf({ type: 'world', id: 'midi-qol' })).toBeUndefined();
-    expect(await store.status()).toEqual({ packages: 2, releases: 2, asOf: later });
+    expect(await store.status()).toEqual({ packages: 2, releases: 2, asOf: later, consistency: null });
   });
 
   it('refuses a release of another package, saving nothing', async () => {
@@ -145,7 +145,7 @@ describe('drizzleStore', () => {
     await expect(store.saveReleases(MIDI, [loaded, stranger], { source: 'x', at })).rejects.toThrow(
       'A release of module:dae is not of module:midi-qol',
     );
-    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null });
+    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null, consistency: null });
   });
 });
 
@@ -447,6 +447,77 @@ describe("drizzleStore, for checking packages' own manifests", () => {
       { packageId: 'dae', ownVersion: '1.0.0', ownCheckedAt: later, ownReadAt: at },
       { packageId: 'dnd5e', ownVersion: null, ownCheckedAt: later, ownReadAt: null },
     ]);
+  });
+});
+
+describe('drizzleStore, for consistency checks', () => {
+  const report = (at: Date, held: number) => ({
+    at: at.toISOString(),
+    listed: 3,
+    held,
+    versionsMissing: 1,
+    latestMissing: 0,
+    listingsDiffer: 2,
+    archivedHeld: 0,
+    ownMissing: 1,
+    requeued: 2,
+  });
+
+  it('gives the latest report with the status', async () => {
+    await store.saveConsistency(report(at, 1));
+    await store.saveConsistency(report(later, 2));
+    expect((await store.status()).consistency).toEqual(report(later, 2));
+  });
+
+  it("gives the index's copy, delisted entries and worlds left out, and every package held with its releases", async () => {
+    const versions = [
+      { version: '13.0.4', minimum: '13', maximum: null, verified: '13.351', manifest: null, notes: null },
+    ];
+    const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+      ref: { type: 'module', id },
+      lastUpdated: at,
+      title: id,
+      premium: false,
+      archived: false,
+      details: NO_DETAILS,
+      ...change,
+    });
+    await store.saveIndex(
+      [
+        entry('midi-qol', { details: { ...NO_DETAILS, latestVersion: '13.0.4', versions } }),
+        entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+        entry('world', { ref: { type: 'world', id: 'world' } }),
+        entry('delisted'),
+      ],
+      at,
+    );
+    await store.saveIndex(
+      [
+        entry('midi-qol', { details: { ...NO_DETAILS, latestVersion: '13.0.4', versions } }),
+        entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+        entry('world', { ref: { type: 'world', id: 'world' } }),
+      ],
+      later,
+    );
+    await store.saveReleases(MIDI, [loaded, listed], { source: 'crawl', at });
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'read', version: '13.0.6', changed: true }], at);
+    await store.saveUnavailable({ type: 'module', id: 'gone' }, { reason: 'gone' }, { source: 'crawl', at });
+
+    expect(await store.consistencyInputs()).toEqual({
+      indexed: [
+        { ref: MIDI, archived: false, latestVersion: '13.0.4', versions },
+        { ref: { type: 'module', id: 'old' }, archived: true, latestVersion: null, versions: [] },
+      ],
+      held: [
+        {
+          ref: MIDI,
+          unavailable: null,
+          ownVersion: '13.0.6',
+          releases: [{ version: '13.0.4', listing: { minimum: '13', verified: '13' } }, { version: '13.0.5' }],
+        },
+        { ref: { type: 'module', id: 'gone' }, unavailable: 'gone', ownVersion: null, releases: [] },
+      ],
+    });
   });
 });
 

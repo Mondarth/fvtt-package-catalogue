@@ -50,6 +50,13 @@
       "when": 1793887108863,
       "tag": "0006_own-manifest-checks",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793889297885,
+      "tag": "0007_consistency-reports",
+      "breakpoints": true
     }
   ]
 }

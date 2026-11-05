@@ -23,6 +23,7 @@ import {
 } from 'drizzle-orm';
 
 import {
+  consistencyReports,
   coreReleases,
   crawlRequests,
   listings,
@@ -237,7 +238,17 @@ export function drizzleStore(db: Database): CatalogueStore {
       const [released] = await db.select({ releases: count() }).from(releases);
       /* v8 ignore next -- an aggregate without GROUP BY always gives one row */
       if (held === undefined || released === undefined) throw new Error('The status could not be counted');
-      return { packages: held.packages, releases: released.releases, asOf: held.asOf };
+      const [latest] = await db
+        .select()
+        .from(consistencyReports)
+        .orderBy(desc(consistencyReports.at), desc(consistencyReports.id))
+        .limit(1);
+      return {
+        packages: held.packages,
+        releases: released.releases,
+        asOf: held.asOf,
+        consistency: latest === undefined ? null : { at: latest.at.toISOString(), ...latest.report },
+      };
     },
 
     async releasesOf(ref) {
@@ -509,6 +520,56 @@ export function drizzleStore(db: Database): CatalogueStore {
             .where(and(eq(packages.type, check.ref.type), eq(packages.packageId, check.ref.id)));
         }
       });
+    },
+
+    async consistencyInputs() {
+      const indexed = await db
+        .select({
+          type: listings.type,
+          packageId: listings.packageId,
+          status: listings.status,
+          latestVersion: listings.latestVersion,
+          versions: listings.versions,
+        })
+        .from(listings)
+        .where(and(isNull(listings.delistedAt), ne(listings.type, 'world')))
+        .orderBy(asc(listings.id));
+      const held = await db
+        .select({
+          id: packages.id,
+          type: packages.type,
+          packageId: packages.packageId,
+          unavailable: packages.unavailable,
+          ownVersion: packages.ownVersion,
+        })
+        .from(packages)
+        .orderBy(asc(packages.id));
+      const versions = await db
+        .select({ packageRef: releases.packageRef, version: releases.version, listing: releases.listing })
+        .from(releases)
+        .orderBy(asc(releases.id));
+      const releasesOf = Map.groupBy(versions, row => row.packageRef);
+      return {
+        indexed: indexed.map(row => ({
+          ref: { type: row.type, id: row.packageId },
+          archived: row.status === 'archived',
+          latestVersion: row.latestVersion,
+          versions: row.versions,
+        })),
+        held: held.map(row => ({
+          ref: { type: row.type, id: row.packageId },
+          unavailable: row.unavailable,
+          ownVersion: row.ownVersion,
+          releases: (releasesOf.get(row.id) ?? []).map(({ version, listing }) => ({
+            version,
+            ...(listing !== null && { listing }),
+          })),
+        })),
+      };
+    },
+
+    async saveConsistency({ at, ...report }) {
+      await db.insert(consistencyReports).values({ at: new Date(at), report });
     },
 
     async unwarmed() {

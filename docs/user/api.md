@@ -33,7 +33,14 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
   listing, so the resolver chooses one only when no listed version fits, and a client should say what it is.
 
 `GET /api/v1/status`
-: What the catalogue holds: `{ apiVersion, version, packages, releases, asOf }`.
+: What the catalogue holds: `{ apiVersion, version, packages, releases, asOf, consistency }`. `consistency` is how it
+  last compared with Foundry VTT's index, once a day, or `null` if it has not yet: `at`; `listed`, the packages the
+  index lists and has not archived, and `held`, how many of them the catalogue holds; then what is to be put right:
+  `versionsMissing` (versions the index lists of a package held that it does not hold), `latestMissing` (packages
+  whose newest version, where the index gives it, it does not hold), `listingsDiffer` (releases whose core
+  compatibility on the index is not what it holds), `archivedHeld` (packages the index archived that it holds as
+  available) and `ownMissing` (packages whose own manifest gave a version it does not hold); and `requeued`, how many
+  of the packages concerned it queued to crawl again, at most 500.
 
 `GET /healthz`
 : `{ "status": "ok" }` while the server is up. It needs no key and does not touch the database.
