@@ -31,6 +31,12 @@ export {
 export {
   API_V2_BASE,
   API_V2_VERSION,
+  CORE_PATH,
+  CoreResponse,
+  LISTING_PATH,
+  ListedPackage,
+  ListedVersion,
+  ListingResponse,
   LOOKUP_PATH,
   LookupPackage,
   LookupPackageRequest,

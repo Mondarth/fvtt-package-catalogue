@@ -18,6 +18,12 @@ export const API_V2_BASE = `/api/${API_V2_VERSION}`;
 /** The path of a lookup: a set of packages, everything they need, and how fresh each is. */
 export const LOOKUP_PATH = `${API_V2_BASE}/lookup`;
 
+/** The path of Foundry VTT's listing, as the catalogue keeps it: every package it offers to install. */
+export const LISTING_PATH = `${API_V2_BASE}/listing`;
+
+/** The path of Foundry VTT's builds. */
+export const CORE_PATH = `${API_V2_BASE}/core`;
+
 /** A time, as ISO 8601, or null for never. */
 const Time = z.iso.datetime().nullable();
 
@@ -103,3 +109,55 @@ export const LookupResponse = z.object({
   asOf: Time,
 });
 export type LookupResponse = z.infer<typeof LookupResponse>;
+
+/** A version as Foundry VTT's listing lists it, the newest of a line of builds, with the builds it runs on. */
+export const ListedVersion = z.object({
+  version: Version,
+  minimum: Version.nullable(),
+  maximum: Version.nullable(),
+  verified: Version.nullable(),
+  /** Its manifest's URL, as the listing gives it, which Foundry VTT installs it from. */
+  manifest: z.string().nullable(),
+  /** Where its release notes are, as the listing gives it. */
+  notes: z.string().nullable(),
+});
+export type ListedVersion = z.infer<typeof ListedVersion>;
+
+/** A package Foundry VTT's listing offers to install, as its Setup screen shows it. */
+export const ListedPackage = z.object({
+  package: PackageRef,
+  title: z.string(),
+  summary: z.string().nullable(),
+  author: z.string().nullable(),
+  /** Its project's web page, as the listing gives it. */
+  url: z.string().nullable(),
+  tags: z.array(z.string()),
+  /** The IDs of the game systems it is for; empty for any. */
+  systems: z.array(z.string()),
+  /** Premium content: installing it needs the user's licence. */
+  premium: z.boolean(),
+  exclusive: z.boolean(),
+  /** The newest version, where the listing gives it, which it does for few packages. */
+  latest: Version.nullable(),
+  /** A version for each line of builds, as the listing lists them. */
+  versions: z.array(ListedVersion),
+});
+export type ListedPackage = z.infer<typeof ListedPackage>;
+
+/**
+ * `GET /api/v2/listing`, or `?type=module` or `?type=system` for one type: every package Foundry VTT's listing offers,
+ * neither archived nor delisted. The same for every client, so it is given with an `ETag`, and answered `304` while it
+ * has not changed.
+ */
+export const ListingResponse = z.object({
+  packages: z.array(ListedPackage),
+  /** When the catalogue's copy of the listing last changed. */
+  asOf: Time,
+});
+export type ListingResponse = z.infer<typeof ListingResponse>;
+
+/** `GET /api/v2/core`: Foundry VTT's builds, oldest first, given with an `ETag` as the listing is. */
+export const CoreResponse = z.object({
+  core: z.array(CoreRelease),
+});
+export type CoreResponse = z.infer<typeof CoreResponse>;

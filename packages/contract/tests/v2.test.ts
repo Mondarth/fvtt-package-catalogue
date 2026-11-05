@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   API_V2_BASE,
+  CORE_PATH,
+  CoreResponse,
+  LISTING_PATH,
+  ListingResponse,
   LOOKUP_PATH,
   LookupRequest,
   LookupResponse,
@@ -14,6 +18,8 @@ describe('version 2', () => {
   it('is under its own base', () => {
     expect(API_V2_BASE).toBe('/api/v2');
     expect(LOOKUP_PATH).toBe('/api/v2/lookup');
+    expect(LISTING_PATH).toBe('/api/v2/listing');
+    expect(CORE_PATH).toBe('/api/v2/core');
   });
 });
 
@@ -76,5 +82,63 @@ describe('LookupResponse', () => {
     const empty = { core: [], packages: [], unavailable: [], unreached: [], asOf: null };
     expect(LookupResponse.safeParse({ ...empty, pending: [] }).success).toBe(true);
     expect(LookupResponse.safeParse({ ...empty, pending: [{ package: ref, retryAfter: 0 }] }).success).toBe(false);
+  });
+});
+
+describe('ListingResponse', () => {
+  it('gives each package the listing offers, with a version for each line of builds', () => {
+    const response = {
+      packages: [
+        {
+          package: { type: 'module', id: 'midi-qol' },
+          title: 'Midi QOL',
+          summary: 'Automation',
+          author: 'tim posney',
+          url: 'https://github.com/tposney/midi-qol',
+          tags: ['combat'],
+          systems: ['dnd5e'],
+          premium: false,
+          exclusive: false,
+          latest: null,
+          versions: [
+            {
+              version: '14.0.20',
+              minimum: '14.368',
+              maximum: '14.999',
+              verified: '14.368',
+              manifest: 'https://example.com/14.0.20/module.json',
+              notes: null,
+            },
+          ],
+        },
+      ],
+      asOf: '2026-11-05T09:00:00.000Z',
+    };
+    expect(ListingResponse.parse(response)).toEqual(response);
+  });
+
+  it('refuses a version with no version', () => {
+    const version = { version: '', minimum: null, maximum: null, verified: null, manifest: null, notes: null };
+    const pkg = {
+      package: { type: 'module', id: 'a' },
+      title: 'A',
+      summary: null,
+      author: null,
+      url: null,
+      tags: [],
+      systems: [],
+      premium: false,
+      exclusive: false,
+      latest: null,
+      versions: [version],
+    };
+    expect(ListingResponse.safeParse({ packages: [pkg], asOf: null }).success).toBe(false);
+  });
+});
+
+describe('CoreResponse', () => {
+  it("gives Foundry VTT's builds", () => {
+    const response = { core: [{ version: '14.368', generation: 14, channel: 'stable' }] };
+    expect(CoreResponse.parse(response)).toEqual(response);
   });
 });
