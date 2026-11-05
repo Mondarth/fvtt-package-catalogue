@@ -6,7 +6,9 @@ import type { CatalogueStore } from '../../../src/lib/server/store/types.js';
 export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi.fn<CatalogueStore[K]>> } {
   return {
     ping: vi.fn<CatalogueStore['ping']>().mockResolvedValue(undefined),
-    status: vi.fn<CatalogueStore['status']>().mockResolvedValue({ packages: 0, releases: 0, asOf: null }),
+    status: vi
+      .fn<CatalogueStore['status']>()
+      .mockResolvedValue({ packages: 0, releases: 0, asOf: null, consistency: null }),
     releasesOf: vi.fn<CatalogueStore['releasesOf']>().mockResolvedValue(undefined),
     releasesOfEach: vi.fn<CatalogueStore['releasesOfEach']>().mockResolvedValue(new Map()),
     saveReleases: vi.fn<CatalogueStore['saveReleases']>().mockResolvedValue(undefined),
@@ -28,6 +30,8 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     heldPackages: vi.fn<CatalogueStore['heldPackages']>().mockResolvedValue([]),
     ownChecksDue: vi.fn<CatalogueStore['ownChecksDue']>().mockResolvedValue([]),
     saveOwnChecks: vi.fn<CatalogueStore['saveOwnChecks']>().mockResolvedValue(undefined),
+    consistencyInputs: vi.fn<CatalogueStore['consistencyInputs']>().mockResolvedValue({ indexed: [], held: [] }),
+    saveConsistency: vi.fn<CatalogueStore['saveConsistency']>().mockResolvedValue(undefined),
     unwarmed: vi.fn<CatalogueStore['unwarmed']>().mockResolvedValue([]),
     saveListings: vi.fn<CatalogueStore['saveListings']>().mockResolvedValue(undefined),
     saveIndex: vi.fn<CatalogueStore['saveIndex']>().mockResolvedValue({ added: 0, changed: 0, delisted: 0 }),

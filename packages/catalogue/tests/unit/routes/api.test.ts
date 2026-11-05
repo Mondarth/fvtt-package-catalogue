@@ -114,7 +114,12 @@ describe('POST /api/v1/universe', () => {
 describe('GET /api/v1/status', () => {
   it('gives what the catalogue holds, and its version', async () => {
     const store = mockStore();
-    store.status.mockResolvedValue({ packages: 3, releases: 40, asOf: new Date('2026-10-24T09:00:00Z') });
+    store.status.mockResolvedValue({
+      packages: 3,
+      releases: 40,
+      asOf: new Date('2026-10-24T09:00:00Z'),
+      consistency: null,
+    });
     const response = await invoke(status, { locals: { store } });
     expect(await response.json()).toEqual({
       apiVersion: 'v1',
@@ -123,7 +128,25 @@ describe('GET /api/v1/status', () => {
       packages: 3,
       releases: 40,
       asOf: '2026-10-24T09:00:00.000Z',
+      consistency: null,
     });
+  });
+
+  it('gives how the catalogue last compared with the index', async () => {
+    const store = mockStore();
+    const consistency = {
+      at: '2026-11-05T03:00:00.000Z',
+      listed: 3,
+      held: 2,
+      versionsMissing: 1,
+      latestMissing: 0,
+      listingsDiffer: 0,
+      archivedHeld: 0,
+      ownMissing: 0,
+      requeued: 1,
+    };
+    store.status.mockResolvedValue({ packages: 2, releases: 5, asOf: null, consistency });
+    expect(await (await invoke(status, { locals: { store } })).json()).toMatchObject({ consistency });
   });
 
   it('gives no time when nothing was ever brought up to date', async () => {

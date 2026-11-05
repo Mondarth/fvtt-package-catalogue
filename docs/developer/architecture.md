@@ -79,6 +79,13 @@ is recorded in `sync_runs`.
   takes it off the queue, deferring sets its own time, and one neither, as when the worker is killed mid-crawl, is
   crawled again once the hour is over. Every crawl's client fetches through one `hostLimited` fetch, which makes at
   most `CRAWL_PER_HOST` requests to a host at once, across them all.
+- **Consistency** (`lib/server/consistency.ts`), once a day, in the job `consistency`: `checkConsistency`, a pure
+  function, compares the catalogue's copy of the index (`listings`, delisted entries and worlds left out) with every
+  package held, its releases' versions and listings, and the version its own manifest last gave
+  (`consistencyInputs`). It counts what is to be put right (see `ConsistencyReport` in the contract), leaving out
+  versions an override says are not releases, and queues the packages concerned, at most 500, as `refresh`. The report
+  is kept in `consistency_reports`, and `/status` gives the latest: so `listed` against `held` shows how far warming
+  has gone, and the rest how far the catalogue stands in for the index.
 - **The worker's cache** (`lib/server/lru-cache.ts`) is one for the process, so that Foundry VTT's index is fetched once
   in five minutes rather than once a crawl, and in memory, keeping at most `CACHE_ENTRIES` answers (5000 by default)
   and letting go of the least recently used: crawls keep each manifest they read for as long as they may, and warming

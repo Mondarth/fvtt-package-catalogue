@@ -4,6 +4,7 @@
  */
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
+import { checkConsistency } from '#lib/server/consistency.js';
 import { crawlPackage } from '#lib/server/crawl.js';
 import { unavailableOf } from '#lib/server/overrides.js';
 import { checkOwnManifests, ownManifest, planRefresh } from '#lib/server/refresh.js';
@@ -21,6 +22,9 @@ const DAY = 24 * HOUR;
 
 /** The most packages whose own manifests are checked in one run of the job. */
 const OWN_CHECK_BATCH = 1000;
+
+/** The most packages a consistency check queues to be crawled again. */
+const CONSISTENCY_REQUEUE = 500;
 
 /** What the worker works with. */
 export interface WorkerOptions {
@@ -64,6 +68,8 @@ export interface WorkerOptions {
   readonly ownCheckEveryMs?: number;
   /** How long after its last check a package's own manifest is due another; an hour by default. */
   readonly ownCheckStaleMs?: number;
+  /** How often what the catalogue holds is compared with Foundry VTT's index; daily by default. */
+  readonly consistencyEveryMs?: number;
 }
 
 /** The worker. */
@@ -143,6 +149,7 @@ export function createWorker({
   crawlConcurrency = 4,
   ownCheckEveryMs = 5 * MINUTE,
   ownCheckStaleMs = HOUR,
+  consistencyEveryMs = DAY,
 }: WorkerOptions): Worker {
   /**
    * Runs a job with a client of its own, from `clientFor`, recording the run; whatever it throws is rethrown once
@@ -249,6 +256,20 @@ export function createWorker({
       },
       ownHttp,
     );
+
+  /**
+   * Compares what the catalogue holds with its copy of Foundry VTT's index (see `consistency.ts`), keeps the report for
+   * `/status`, and queues the packages concerned, as many as `CONSISTENCY_REQUEUE`, to be crawled again.
+   */
+  const checkIndex = () =>
+    periodic('consistency', consistencyEveryMs, 'The catalogue was not compared with the index', async () => {
+      const { indexed, held } = await store.consistencyInputs();
+      const { concerned, ...counts } = checkConsistency(indexed, held, overrides);
+      const requeued = concerned.slice(0, CONSISTENCY_REQUEUE);
+      if (requeued.length > 0) await store.requestCrawl(requeued.map(ref => ({ package: ref, reason: 'refresh' })));
+      await store.saveConsistency({ at: now().toISOString(), ...counts, requeued: requeued.length });
+      return { ...counts, requeued: requeued.length };
+    });
 
   /** Whether the packages held with overrides were queued, which is done once, when the worker starts. */
   let overridesQueued = false;
@@ -388,6 +409,7 @@ export function createWorker({
         crawlConcurrency,
         ownCheckEveryMs,
         ownCheckStaleMs,
+        consistencyEveryMs,
         overrides: Object.keys(overrides).length,
       });
       while (!signal.aborted) {
@@ -396,6 +418,7 @@ export function createWorker({
           await syncCore();
           await refresh();
           await checkOwn();
+          await checkIndex();
           await startCrawls();
         } catch (error) {
           // The database, most likely: wait, and try again.
@@ -415,6 +438,7 @@ export function createWorker({
       await syncCore();
       await refresh();
       await checkOwn();
+      await checkIndex();
       let crawled = 0;
       // A crawl done may queue more, as a closure: the queue is drained once none is due and none is in hand.
       for (;;) {

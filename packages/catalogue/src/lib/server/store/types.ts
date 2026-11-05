@@ -3,12 +3,14 @@
  * Drizzle, so that the database can change behind it and tests can stand in for it.
  */
 import type {
+  ConsistencyReport,
   CoreRelease,
   PackageRef,
   Release,
   SourceGap,
   UnavailableReason,
 } from '@mondarth/fvtt-package-catalogue-contract';
+import type { CheckedPackage, IndexedPackage } from '../consistency.js';
 import type { HeldPackage, IndexEntry, Listing, OwnCheck } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
@@ -17,6 +19,8 @@ export interface CatalogueStatus {
   readonly releases: number;
   /** When a package's releases were last brought up to date; null if none ever were. */
   readonly asOf: Date | null;
+  /** How it last compared with Foundry VTT's index; null if it never has. */
+  readonly consistency: ConsistencyReport | null;
 }
 
 /** A package's releases, as known when they were last brought up to date. */
@@ -107,6 +111,13 @@ export interface CatalogueStore {
    * with no manifest of its own keeps none; one whose manifest could not be read keeps what it last gave.
    */
   saveOwnChecks(checks: readonly OwnCheck[], at: Date): Promise<void>;
+  /**
+   * What the consistency check compares: the catalogue's copy of Foundry VTT's index, delisted entries and worlds left
+   * out, and every package held, with its releases' versions and listings.
+   */
+  consistencyInputs(): Promise<{ indexed: IndexedPackage[]; held: CheckedPackage[] }>;
+  /** Keeps a consistency check's report; the latest is the status's. */
+  saveConsistency(report: ConsistencyReport): Promise<void>;
   /**
    * The packages Foundry VTT's index lists, and has not archived, that the catalogue does not hold and has not queued,
    * the most recently changed first: those to warm.
