@@ -29,7 +29,7 @@ export interface HeldPackage {
 /** A package Foundry VTT's index lists. */
 export interface IndexEntry {
   readonly ref: PackageRef;
-  /** When the package last changed on the index, to the day; null if the index does not say. */
+  /** When the package last changed on the index; null if the index does not say. */
   readonly lastUpdated: Date | null;
   readonly title: string | null;
   readonly premium: boolean;
@@ -66,11 +66,24 @@ const indexSchema = z.object({
   ),
 });
 
-/** A day, `2026-05-03`, as the start of it in UTC; null if it is not one. */
-function dayOf(text: string | null | undefined): Date | null {
-  if (text == null || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
-  const day = new Date(`${text}T00:00:00.000Z`);
-  return Number.isNaN(day.getTime()) ? null : day;
+/** A time with its offset, `2026-11-02T12:04:25Z`, as the index gives `last_updated` now. */
+const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * When the index says a package last changed: a time, as it gives it now, or a day, `2026-05-03`, as it once gave it,
+ * as the start of that day in UTC.
+ *
+ * @param text - The index's `last_updated`
+ * @returns The time, or null if it is neither
+ */
+function timeOf(text: string | null | undefined): Date | null {
+  if (text == null) return null;
+  let read: string;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) read = `${text}T00:00:00.000Z`;
+  else if (TIMESTAMP.test(text)) read = text;
+  else return null;
+  const time = new Date(read);
+  return Number.isNaN(time.getTime()) ? null : time;
 }
 
 /**
@@ -88,7 +101,7 @@ export function readIndex(value: unknown): IndexEntry[] | undefined {
     return [
       {
         ref: { type: type.data, id: entry.id },
-        lastUpdated: dayOf(entry.last_updated),
+        lastUpdated: timeOf(entry.last_updated),
         title: entry.title ?? null,
         premium: entry.premium === true,
         archived: entry.status === 'archived',
@@ -121,8 +134,8 @@ const sameTime = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === 
  * Plans a refresh.
  *
  * A package on the index is due when the index's `last_updated` is newer than the one read before, or, never read
- * before, when it is not older than the day the package was synced: the index gives only the day, so a change on the
- * day of the sync may be after it. Every package is due once it was last synced `staleMs` ago, on the index or not,
+ * before, when it is not older than the day the package was synced: an index that gives only the day, as it once did,
+ * may give a change on the day of the sync that was after it. Every package is due once it was last synced `staleMs` ago, on the index or not,
  * as a package's own manifest can give a version the index does not, and leave its date as it was.
  *
  * @param held - The packages held
