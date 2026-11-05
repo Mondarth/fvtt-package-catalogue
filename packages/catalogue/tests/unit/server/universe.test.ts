@@ -179,3 +179,47 @@ describe('gatherUniverse', () => {
     expect(store.releasesOfEach).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('gatherUniverse, with options', () => {
+  it('gives only the releases kept, and follows only what they need', async () => {
+    const store = storeOf({
+      'module:a': {
+        releases: [
+          release('module:a', '1.0.0', { requires: ['module:old'] }),
+          release('module:a', '2.0.0', { requires: ['module:new'] }),
+        ],
+        asOf: LATE,
+      },
+      'module:old': { releases: [release('module:old', '1.0.0')], asOf: LATE },
+      'module:new': { releases: [release('module:new', '1.0.0')], asOf: LATE },
+    });
+    const found = await gatherUniverse(store, [ref('module:a')], {
+      keep: r => r.version !== '1.0.0' || r.package.id === 'new',
+    });
+    expect(keysOf(found.universe.releases)).toEqual(['module:a@2.0.0', 'module:new@1.0.0']);
+    expect(found.held).toEqual([ref('module:a'), ref('module:new')]);
+  });
+
+  it('gives the packages held, available, in the order met, though none of their releases is kept', async () => {
+    const store = storeOf({
+      'module:a': { releases: [release('module:a', '1.0.0')], asOf: LATE },
+      'module:gone': { releases: [], asOf: LATE, unavailable: { reason: 'gone' } },
+    });
+    const found = await gatherUniverse(store, [ref('module:a'), ref('module:gone'), ref('module:new')], {
+      keep: () => false,
+    });
+    expect(found.held).toEqual([ref('module:a')]);
+    expect(found.universe.releases).toEqual([]);
+  });
+
+  it('queues a package not held with the manifest URL a client gave for it', async () => {
+    const store = storeOf({});
+    await gatherUniverse(store, [ref('module:new'), ref('module:other')], {
+      hints: new Map([['module:new', 'https://example.com/new/module.json']]),
+    });
+    expect(store.requestCrawl).toHaveBeenCalledWith([
+      { package: ref('module:new'), reason: 'request', manifest: 'https://example.com/new/module.json' },
+      { package: ref('module:other'), reason: 'request' },
+    ]);
+  });
+});

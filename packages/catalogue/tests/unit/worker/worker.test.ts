@@ -433,6 +433,18 @@ describe('the worker, refreshing the packages held', () => {
     expect(order).toEqual(['queued', 'crawled']);
   });
 
+  it('crawls with the manifest URL a client gave declared, once, so that a package off every listing is found', async () => {
+    const releases = vi.fn<ReleaseSource['releases']>(() => Promise.resolve({ ok: true, value: [] }));
+    const { store, worker } = setUp({ releases });
+    store.nextCrawl.mockResolvedValueOnce(queued({ manifest: 'https://files.test/declared.json' }));
+    store.declaredManifests.mockResolvedValue(['https://files.test/declared.json']);
+    await worker.drain();
+    expect(releases).toHaveBeenCalledWith(
+      MIDI,
+      expect.objectContaining({ declared: ['https://files.test/declared.json'] }),
+    );
+  });
+
   it("crawls with the package's own manifest declared, so that what it gives now is read", async () => {
     const releases = vi.fn<ReleaseSource['releases']>(() => Promise.resolve({ ok: true, value: [] }));
     const { store, worker } = setUp({ releases });

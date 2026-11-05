@@ -320,7 +320,8 @@ export function createWorker({
           sources: sources(client),
           core,
           held: held?.releases ?? [],
-          manifests: own === undefined || manifests.includes(own) ? manifests : [...manifests, own],
+          // And one a client gave, by which a package installed by its manifest alone is found.
+          manifests: [...new Set([...manifests, ...[own, item.manifest].filter(url => url !== undefined)])],
           override: overrides[key],
         });
         // Saved even when none was found, so that the package is known, and not asked for again until it is due.

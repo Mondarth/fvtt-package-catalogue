@@ -1,0 +1,1 @@
+ALTER TABLE "crawl_requests" ADD COLUMN "manifest" text;

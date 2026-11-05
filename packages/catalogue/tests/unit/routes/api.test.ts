@@ -5,6 +5,7 @@ import manifest from '../../../package.json';
 import { GET as releases } from '../../../src/routes/api/v1/packages/[type=packageType]/[id]/releases/+server.js';
 import { GET as status } from '../../../src/routes/api/v1/status/+server.js';
 import { POST as universe } from '../../../src/routes/api/v1/universe/+server.js';
+import { POST as lookup } from '../../../src/routes/api/v2/lookup/+server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
 import { invoke } from '../support/event.js';
 import { mockStore } from '../support/store.js';
@@ -108,6 +109,66 @@ describe('POST /api/v1/universe', () => {
   it('says what is wrong with the request', async () => {
     const response = await post({ packages: [] });
     expect(((await response.json()) as { error: { message: string } }).error.message).toContain('packages');
+  });
+});
+
+describe('POST /api/v2/lookup', () => {
+  const post = (body: unknown, store = mockStore()) =>
+    invoke(lookup, {
+      method: 'POST',
+      url: 'http://catalogue.test/api/v2/lookup',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+      locals: { store },
+    });
+
+  it('gives each package once with its releases, and what it does not hold yet', async () => {
+    const store = mockStore();
+    const asOf = new Date('2026-10-24T09:00:00Z');
+    store.releasesOfEach.mockResolvedValue(
+      new Map([['module:midi-qol', { releases: [release], asOf, unavailable: null }]]),
+    );
+    const response = await post(
+      {
+        packages: [
+          { ...release.package, installed: release.version },
+          { type: 'module', id: 'nobody' },
+        ],
+      },
+      store,
+    );
+    expect(response.status).toBe(200);
+    const { package: ref, ...given } = release;
+    expect(await response.json()).toEqual({
+      core: [],
+      packages: [
+        {
+          package: ref,
+          title: null,
+          latest: null,
+          premium: false,
+          syncedAt: null,
+          own: { version: null, readAt: null, checkedAt: null },
+          releases: [given],
+        },
+      ],
+      pending: [{ package: { type: 'module', id: 'nobody' }, retryAfter: 30 }],
+      unavailable: [],
+      unreached: [],
+      asOf: '2026-10-24T09:00:00.000Z',
+    });
+  });
+
+  it.each([
+    ['a body that is not JSON', '{'],
+    ['no packages', { packages: [] }],
+    ['a manifest that is not a URL', { packages: [{ type: 'module', id: 'a', manifest: 'module.json' }] }],
+    ['a generation that is not one', { packages: [{ type: 'module', id: 'a' }], fromGeneration: 0 }],
+  ])('answers bad-request for %s, without asking the store', async (_, body) => {
+    const store = mockStore();
+    const response = await post(body, store);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'bad-request' } });
+    expect(store.releasesOfEach).not.toHaveBeenCalled();
   });
 });
 

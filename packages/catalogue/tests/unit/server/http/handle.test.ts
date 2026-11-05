@@ -90,11 +90,18 @@ describe('createHandle', () => {
     expect(await response.json()).toEqual({ ok: true });
   });
 
-  it('treats only paths under the API base as the API', async () => {
+  it('treats only paths under /api as the API', async () => {
     const { resolve, run } = setUp();
-    const response = await run('/api/v1beta').response;
+    const response = await run('/apis').response;
     expect(response.status).toBe(200);
     expect(resolve).toHaveBeenCalledOnce();
+  });
+
+  it('checks the key of every version of the API', async () => {
+    const { resolve, run } = setUp();
+    expect((await run('/api/v2/lookup', { method: 'POST' }).response).status).toBe(401);
+    expect((await run('/api/v9/nothing').response).status).toBe(401);
+    expect(resolve).not.toHaveBeenCalled();
   });
 
   // Regression: SvelteKit answered an API path no route matches with its HTML error page.
