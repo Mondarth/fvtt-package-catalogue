@@ -71,11 +71,13 @@ describe('the production deployment', () => {
     expect(readFileSync('Dockerfile', 'utf8')).toMatch(/^HEALTHCHECK .*\/healthz/m);
   });
 
-  // The worker fetches from Foundry VTT, GitHub and GitLab; nothing else needs a way out.
-  it('gives only the worker a way out, beside the database', () => {
+  // The worker fetches from Foundry VTT, GitHub and GitLab, and the server packages' own manifests, for rechecks;
+  // nothing else needs a way out.
+  it('gives only the worker and the server a way out, beside the database', () => {
     expect(networksOf(worker).toSorted()).toEqual(['database', 'egress']);
+    expect(networksOf(app).toSorted()).toEqual(['database', 'egress', 'swag']);
     expect(compose.networks?.egress?.internal).toBeUndefined();
-    const others = Object.entries(compose.services).filter(([name]) => name !== 'worker');
+    const others = Object.entries(compose.services).filter(([name]) => name !== 'worker' && name !== 'app');
     expect(others.filter(([, service]) => networksOf(service).includes('egress'))).toEqual([]);
   });
 

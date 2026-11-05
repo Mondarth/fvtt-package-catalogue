@@ -24,6 +24,18 @@ export const LISTING_PATH = `${API_V2_BASE}/listing`;
 /** The path of Foundry VTT's builds. */
 export const CORE_PATH = `${API_V2_BASE}/core`;
 
+/** The path that has packages' own manifests checked again now, as a client's "check live" asks. */
+export const RECHECK_PATH = `${API_V2_BASE}/recheck`;
+
+/** The most packages one recheck may ask for: those a user means to see fresh, not every package installed. */
+export const MAX_RECHECK_PACKAGES = 50;
+
+/**
+ * How long after a package's own manifest was last checked it may be checked again, in seconds: one checked since is
+ * given as it was, however many clients ask.
+ */
+export const RECHECK_MIN_SECONDS = 300;
+
 /** A time, as ISO 8601, or null for never. */
 const Time = z.iso.datetime().nullable();
 
@@ -161,3 +173,30 @@ export const CoreResponse = z.object({
   core: z.array(CoreRelease),
 });
 export type CoreResponse = z.infer<typeof CoreResponse>;
+
+/** `POST /api/v2/recheck`: the packages whose own manifests to check again now. */
+export const RecheckRequest = z.object({
+  packages: z.array(PackageRef).min(1).max(MAX_RECHECK_PACKAGES),
+});
+export type RecheckRequest = z.infer<typeof RecheckRequest>;
+
+/** A package rechecked: what its own manifest gives now, and whether that is a version the catalogue does not hold. */
+export const RecheckedPackage = z.object({
+  package: PackageRef,
+  own: OwnManifest,
+  /** Whether it gave a version not held: the package is queued, and given as pending. */
+  changed: z.boolean(),
+});
+export type RecheckedPackage = z.infer<typeof RecheckedPackage>;
+
+/**
+ * `POST /api/v2/recheck`: each package asked for that the catalogue holds, once, with what its own manifest gives now;
+ * one checked in the last {@link RECHECK_MIN_SECONDS} is given as it was then. A package not held is left out: look it
+ * up, and it is queued.
+ */
+export const RecheckResponse = z.object({
+  packages: z.array(RecheckedPackage),
+  /** The packages that gave a version not held, queued to be crawled: look them up again after `retryAfter`. */
+  pending: z.array(PendingPackage),
+});
+export type RecheckResponse = z.infer<typeof RecheckResponse>;

@@ -10,6 +10,7 @@ import { keyMatcher } from './auth.js';
 import { isApiPath } from './paths.js';
 import { apiError } from './respond.js';
 
+import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '../log.js';
 import type { CatalogueStore } from '../store/types.js';
 
@@ -18,6 +19,8 @@ export interface HandleOptions {
   readonly store: CatalogueStore;
   readonly apiKeys: readonly string[];
   readonly log: Logger;
+  /** A client for a request that fetches, such as a recheck, with a budget of its own. */
+  readonly http: () => HttpClient;
   /** A new request id; a random UUID by default. */
   readonly requestId?: () => string;
   /** Milliseconds since some fixed point, for timing requests; `performance.now` by default. */
@@ -72,6 +75,7 @@ export function createHandle({
   store,
   apiKeys,
   log,
+  http,
   requestId = () => crypto.randomUUID(),
   clock = () => performance.now(),
 }: HandleOptions): Handle {
@@ -83,6 +87,7 @@ export function createHandle({
     event.locals.requestId = id;
     event.locals.store = store;
     event.locals.log = log.child({ requestId: id });
+    event.locals.http = http;
 
     const { pathname } = event.url;
     let response: Response;

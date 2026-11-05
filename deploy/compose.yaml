@@ -71,6 +71,8 @@ services:
         condition: service_completed_successfully
     networks:
       database:
+      # Rechecks fetch packages' own manifests from the server.
+      egress:
       swag:
         # The name SWAG's proxy configuration reaches the server by.
         aliases: [fvtt-package-catalogue]

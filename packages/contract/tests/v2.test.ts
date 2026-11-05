@@ -10,7 +10,11 @@ import {
   LookupRequest,
   LookupResponse,
   MAX_UNIVERSE_PACKAGES,
+  MAX_RECHECK_PACKAGES,
   PackageRelease,
+  RECHECK_PATH,
+  RecheckRequest,
+  RecheckResponse,
 } from '../src/index.js';
 import { loaded } from './fixtures.js';
 
@@ -20,6 +24,7 @@ describe('version 2', () => {
     expect(LOOKUP_PATH).toBe('/api/v2/lookup');
     expect(LISTING_PATH).toBe('/api/v2/listing');
     expect(CORE_PATH).toBe('/api/v2/core');
+    expect(RECHECK_PATH).toBe('/api/v2/recheck');
   });
 });
 
@@ -140,5 +145,31 @@ describe('CoreResponse', () => {
   it("gives Foundry VTT's builds", () => {
     const response = { core: [{ version: '14.368', generation: 14, channel: 'stable' }] };
     expect(CoreResponse.parse(response)).toEqual(response);
+  });
+});
+
+describe('rechecks', () => {
+  const midi = { type: 'module', id: 'midi-qol' } as const;
+
+  it('take some packages, and no more than a user means to see fresh', () => {
+    expect(RecheckRequest.parse({ packages: [midi] })).toEqual({ packages: [midi] });
+    expect(RecheckRequest.safeParse({ packages: [] }).success).toBe(false);
+    expect(
+      RecheckRequest.safeParse({ packages: Array.from({ length: MAX_RECHECK_PACKAGES + 1 }, () => midi) }).success,
+    ).toBe(false);
+  });
+
+  it('give what each own manifest gives now, and what is queued for it', () => {
+    const response = {
+      packages: [
+        {
+          package: midi,
+          own: { version: '14.0.21', readAt: '2026-11-05T10:00:00.000Z', checkedAt: '2026-11-05T10:00:00.000Z' },
+          changed: true,
+        },
+      ],
+      pending: [{ package: midi, retryAfter: 30 }],
+    };
+    expect(RecheckResponse.parse(response)).toEqual(response);
   });
 });
