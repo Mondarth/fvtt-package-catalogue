@@ -9,7 +9,7 @@ import type {
   SourceGap,
   UnavailableReason,
 } from '@mondarth/fvtt-package-catalogue-contract';
-import type { HeldPackage, Listing } from '../refresh.js';
+import type { HeldPackage, IndexEntry, Listing } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
 export interface CatalogueStatus {
@@ -95,6 +95,20 @@ export interface CatalogueStore {
   heldPackages(): Promise<HeldPackage[]>;
   /** Saves Foundry VTT's index's details of packages held; a package not held is left out. */
   saveListings(listings: readonly Listing[]): Promise<void>;
+  /**
+   * Keeps the catalogue's copy of Foundry VTT's index, held or not: an entry new or changed is written, one the index
+   * lists again is no longer delisted, and one it no longer lists is marked delisted at `at`. An index that lists fewer
+   * than half the entries kept delists none, as it is more likely cut short than so many packages gone.
+   */
+  saveIndex(entries: readonly IndexEntry[], at: Date): Promise<IndexSaved>;
+}
+
+/** What saving Foundry VTT's index changed. */
+export interface IndexSaved {
+  readonly added: number;
+  /** Entries that changed, among them those listed again. */
+  readonly changed: number;
+  readonly delisted: number;
 }
 
 /** A package on the worker's queue. */

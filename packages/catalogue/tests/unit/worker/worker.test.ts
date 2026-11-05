@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { manifestCheckDue } from '../../../src/lib/server/refresh.js';
 import { backoff, createWorker, sleep } from '../../../src/worker/worker.js';
+import { NO_DETAILS } from '../support/index-entry.js';
 import { memoryLogger } from '../support/logger.js';
 import { mockStore } from '../support/store.js';
 
@@ -229,7 +230,14 @@ describe('the worker, with package overrides', () => {
   });
 
   it('marks a package archived, as the index says, without crawling it', async () => {
-    const archived: IndexEntry = { ref: MIDI, lastUpdated: null, title: null, premium: false, archived: true };
+    const archived: IndexEntry = {
+      ref: MIDI,
+      lastUpdated: null,
+      title: null,
+      premium: false,
+      archived: true,
+      details: NO_DETAILS,
+    };
     const other: IndexEntry = { ...archived, ref: { type: 'module', id: 'other' } };
     const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [other, archived] }) });
     store.nextCrawl.mockResolvedValueOnce(queued());
@@ -331,7 +339,18 @@ describe('the worker, refreshing the packages held', () => {
     title: 'Midi QOL',
     premium: false,
     archived: false,
+    details: NO_DETAILS,
   };
+
+  it("keeps the catalogue's copy of Foundry VTT's index, and logs what changed in it", async () => {
+    const { store, log, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [changed] }) });
+    store.saveIndex.mockResolvedValue({ added: 1, changed: 2, delisted: 3 });
+    await worker.drain();
+    expect(store.saveIndex).toHaveBeenCalledWith([changed], NOW);
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({ job: 'refresh', indexAdded: 1, indexChanged: 2, indexDelisted: 3 }),
+    );
+  });
 
   it("queues what Foundry VTT's index says changed, and keeps its details, before crawling", async () => {
     const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [changed] }) });

@@ -27,5 +27,6 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     lastSuccess: vi.fn<CatalogueStore['lastSuccess']>().mockResolvedValue(null),
     heldPackages: vi.fn<CatalogueStore['heldPackages']>().mockResolvedValue([]),
     saveListings: vi.fn<CatalogueStore['saveListings']>().mockResolvedValue(undefined),
+    saveIndex: vi.fn<CatalogueStore['saveIndex']>().mockResolvedValue({ added: 0, changed: 0, delisted: 0 }),
   };
 }
