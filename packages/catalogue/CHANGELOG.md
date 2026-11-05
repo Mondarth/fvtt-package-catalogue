@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.6.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.0...@mondarth/fvtt-package-catalogue-v0.6.1) (2026-11-05)
+
+### Bug Fixes
+
+* **worker:** compare with the index only once its copy holds it ([e8f7074](https://github.com/Mondarth/fvtt-package-catalogue/commit/e8f70749f35cb8f9ba0ba24582adcaf8b1ecd278))
+
 ## [@mondarth/fvtt-package-catalogue-v0.6.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.3...@mondarth/fvtt-package-catalogue-v0.6.0) (2026-11-05)
 
 ### Features
