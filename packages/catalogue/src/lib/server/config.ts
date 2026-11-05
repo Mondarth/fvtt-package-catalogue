@@ -48,6 +48,22 @@ export const WorkerConfig = z.object({
   REFRESH_MINUTES: Count.default(60),
   /** How long a package the index does not list waits to be crawled again. */
   REFRESH_STALE_DAYS: Count.default(7),
+  /**
+   * The most packages crawled each hour to warm the catalogue: those Foundry VTT's index lists that no client has needed
+   * yet. None turns warming off.
+   */
+  WARM_PER_HOUR: z.coerce.number().int().nonnegative().default(300),
+  /**
+   * How many answers the worker keeps in memory, such as manifests and Foundry VTT's index, letting go of the least
+   * recently used first. Most are a few kilobytes; the index is several megabytes.
+   */
+  CACHE_ENTRIES: Count.default(5000),
+  /** How long after its last check a package's own manifest is due another. */
+  OWN_MANIFEST_CHECK_MINUTES: Count.default(60),
+  /** How many packages the worker crawls at once. */
+  CRAWL_CONCURRENCY: Count.default(4),
+  /** The most requests made to any one host at once, across every crawl in hand. */
+  CRAWL_PER_HOST: Count.default(4),
   /** The package overrides: what the catalogue is told of packages whose sources mislead it. */
   PACKAGE_OVERRIDES_FILE: z.string().min(1).default('overrides.json'),
   /** Foundry VTT's package index; another only to test against. */

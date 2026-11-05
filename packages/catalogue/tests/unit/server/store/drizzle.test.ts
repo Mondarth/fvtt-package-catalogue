@@ -9,12 +9,14 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../../../../src/lib/server/db/schema.js';
-import { crawlRequests, releases } from '../../../../src/lib/server/db/schema.js';
+import { crawlRequests, listings, packages, releases } from '../../../../src/lib/server/db/schema.js';
 import { drizzleStore } from '../../../../src/lib/server/store/drizzle.js';
+import { NO_DETAILS } from '../../support/index-entry.js';
 import { testDatabase } from '../../support/pglite.js';
 
 import type { CoreRelease, Release, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 import type { Database } from '../../../../src/lib/server/db/database.js';
+import type { IndexEntry } from '../../../../src/lib/server/refresh.js';
 import type { CatalogueStore } from '../../../../src/lib/server/store/types.js';
 
 const MIDI = { type: 'module', id: 'midi-qol' } as const;
@@ -80,7 +82,7 @@ describe('drizzleStore', () => {
   });
 
   it('knows nothing at first', async () => {
-    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null });
+    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null, consistency: null });
     expect(await store.releasesOf(MIDI)).toBeUndefined();
   });
 
@@ -135,7 +137,7 @@ describe('drizzleStore', () => {
     await store.saveReleases(dnd5e, [{ ...listed, package: dnd5e }], { source: 'foundry-index', at: later });
     expect((await store.releasesOf(MIDI))?.releases).toEqual([loaded]);
     expect(await store.releasesOf({ type: 'world', id: 'midi-qol' })).toBeUndefined();
-    expect(await store.status()).toEqual({ packages: 2, releases: 2, asOf: later });
+    expect(await store.status()).toEqual({ packages: 2, releases: 2, asOf: later, consistency: null });
   });
 
   it('refuses a release of another package, saving nothing', async () => {
@@ -143,7 +145,7 @@ describe('drizzleStore', () => {
     await expect(store.saveReleases(MIDI, [loaded, stranger], { source: 'x', at })).rejects.toThrow(
       'A release of module:dae is not of module:midi-qol',
     );
-    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null });
+    expect(await store.status()).toEqual({ packages: 0, releases: 0, asOf: null, consistency: null });
   });
 });
 
@@ -224,6 +226,21 @@ describe('drizzleStore, for universes', () => {
     expect(await store.gapsOf([])).toEqual([]);
   });
 
+  it('queues a package for the most pressing reason it was queued for', async () => {
+    await store.requestCrawl([
+      { package: MIDI, reason: 'warm' },
+      { package: DND5E, reason: 'refresh' },
+    ]);
+    await store.requestCrawl([
+      { package: MIDI, reason: 'closure' },
+      { package: DND5E, reason: 'warm' },
+    ]);
+    expect(await queue()).toEqual([
+      { type: 'module', packageId: 'midi-qol', reason: 'closure' },
+      { type: 'system', packageId: 'dnd5e', reason: 'refresh' },
+    ]);
+  });
+
   it('queues each package once, as asked for if it ever was', async () => {
     await store.requestCrawl([
       { package: MIDI, reason: 'request' },
@@ -258,8 +275,9 @@ describe('drizzleStore, for the worker', () => {
   // these tests are slow enough, under coverage, for a time taken once to fall behind.
   const soon = () => new Date(Date.now() + 60_000);
 
-  it('gives the next package to crawl: asked for first, then needed, then due a refresh, oldest first', async () => {
+  it('gives the next package to crawl: asked for first, then needed, then due a refresh, then to warm', async () => {
     await store.requestCrawl([
+      { package: { type: 'module', id: 'socketlib' }, reason: 'warm' },
       { package: DAE, reason: 'refresh' },
       { package: DND5E, reason: 'closure' },
     ]);
@@ -269,7 +287,40 @@ describe('drizzleStore, for the worker', () => {
       order.push(`${next.reason} ${next.package.type}:${next.package.id} ${String(next.attempts)}`);
       await store.finishCrawl(next.id);
     }
-    expect(order).toEqual(['request module:midi-qol 0', 'closure system:dnd5e 0', 'refresh module:dae 0']);
+    expect(order).toEqual([
+      'request module:midi-qol 0',
+      'closure system:dnd5e 0',
+      'refresh module:dae 0',
+      'warm module:socketlib 0',
+    ]);
+  });
+
+  it('gives no package to warm when told not to', async () => {
+    await store.requestCrawl([
+      { package: DAE, reason: 'warm' },
+      { package: DND5E, reason: 'refresh' },
+    ]);
+    expect(await store.nextCrawl(soon(), { warm: false })).toMatchObject({ package: DND5E });
+    expect(await store.nextCrawl(soon(), { warm: false })).toBeUndefined();
+    expect(await store.nextCrawl(soon())).toMatchObject({ package: DAE, reason: 'warm' });
+  });
+
+  it('holds a package taken from other crawls for an hour, unless it is finished first', async () => {
+    await store.requestCrawl([
+      { package: MIDI, reason: 'request' },
+      { package: DAE, reason: 'request' },
+    ]);
+    const now = soon();
+    const first = await store.nextCrawl(now);
+    const second = await store.nextCrawl(now);
+    expect([first?.package, second?.package]).toEqual([MIDI, DAE]);
+    expect(await store.nextCrawl(now)).toBeUndefined();
+    if (second === undefined) throw new Error('nothing queued');
+    await store.finishCrawl(second.id);
+    // Never finished, as when the worker stopped mid-crawl: given again once the hour is over.
+    const hourOn = new Date(now.getTime() + 60 * 60 * 1000);
+    expect(await store.nextCrawl(new Date(hourOn.getTime() - 1))).toBeUndefined();
+    expect(await store.nextCrawl(hourOn)).toMatchObject({ package: MIDI, attempts: 0 });
   });
 
   it('gives nothing when the queue is empty', async () => {
@@ -350,6 +401,397 @@ describe('drizzleStore, for refreshing', () => {
   });
 });
 
+describe('drizzleStore, for lookups', () => {
+  const DAE = { type: 'module', id: 'dae' } as const;
+  const soon = () => new Date(Date.now() + 60_000);
+
+  it("gives what is known of each package held, the index's title and premium flag over those kept with it", async () => {
+    await store.saveReleases(MIDI, [loaded], { source: 'crawl', at });
+    await store.saveReleases(DAE, [], { source: 'crawl', at: later });
+    await store.saveListings([{ ref: DAE, listingUpdatedAt: at, title: 'DAE (held)', premium: true }]);
+    await store.saveIndex(
+      [
+        {
+          ref: MIDI,
+          lastUpdated: at,
+          title: 'Midi QOL',
+          premium: false,
+          archived: false,
+          details: { ...NO_DETAILS, latestVersion: '13.0.4' },
+        },
+      ],
+      at,
+    );
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'read', version: '13.0.4', changed: false }], later);
+    const details = await store.detailsOf([MIDI, DAE, { type: 'module', id: 'nobody' }]);
+    expect(Object.fromEntries(details)).toEqual({
+      'module:midi-qol': {
+        title: 'Midi QOL',
+        latest: '13.0.4',
+        premium: false,
+        syncedAt: at,
+        ownVersion: '13.0.4',
+        ownReadAt: later,
+        ownCheckedAt: later,
+      },
+      'module:dae': {
+        title: 'DAE (held)',
+        latest: null,
+        premium: true,
+        syncedAt: later,
+        ownVersion: null,
+        ownReadAt: null,
+        ownCheckedAt: null,
+      },
+    });
+    expect((await store.detailsOf([])).size).toBe(0);
+  });
+
+  it('keeps the manifest URL a client gave with a package queued, until it is crawled', async () => {
+    await store.requestCrawl([{ package: MIDI, reason: 'warm' }]);
+    await store.requestCrawl([{ package: MIDI, reason: 'request', manifest: 'https://example.com/a.json' }]);
+    // Asked for again without one: the one given is kept.
+    await store.requestCrawl([{ package: MIDI, reason: 'request' }]);
+    await store.requestCrawl([{ package: DAE, reason: 'request' }]);
+    expect(await store.nextCrawl(soon())).toMatchObject({ package: MIDI, manifest: 'https://example.com/a.json' });
+    expect(await store.nextCrawl(soon())).not.toHaveProperty('manifest');
+  });
+});
+
+describe("drizzleStore, giving Foundry VTT's listing", () => {
+  const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+    ref: { type: 'module', id },
+    lastUpdated: at,
+    title: id,
+    premium: false,
+    archived: false,
+    details: NO_DETAILS,
+    ...change,
+  });
+  const index = [
+    entry('midi-qol', {
+      premium: true,
+      details: {
+        ...NO_DETAILS,
+        summary: 'Automation',
+        author: { name: 'tim posney', username: 'tim-posney' },
+        url: 'https://github.com/tposney/midi-qol',
+        tags: ['combat'],
+        systems: ['dnd5e'],
+        exclusive: true,
+        status: 'approved',
+        latestVersion: '14.0.20',
+        versions: [
+          { version: '14.0.20', minimum: '14.368', maximum: null, verified: '14.368', manifest: null, notes: null },
+        ],
+      },
+    }),
+    entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+    entry('dnd5e', { ref: { type: 'system', id: 'dnd5e' } }),
+    entry('world', { ref: { type: 'world', id: 'world' } }),
+  ];
+
+  it('gives the packages of a type, or of both, neither archived nor delisted nor worlds', async () => {
+    await store.saveIndex([...index, entry('delisted')], at);
+    await store.saveIndex(index, later);
+    expect(await store.listing('module')).toEqual([
+      {
+        ref: MIDI,
+        title: 'midi-qol',
+        summary: 'Automation',
+        author: 'tim posney',
+        url: 'https://github.com/tposney/midi-qol',
+        tags: ['combat'],
+        systems: ['dnd5e'],
+        premium: true,
+        exclusive: true,
+        latest: '14.0.20',
+        versions: index[0]?.details.versions,
+      },
+    ]);
+    expect((await store.listing('system')).map(row => row.ref)).toEqual([{ type: 'system', id: 'dnd5e' }]);
+    expect((await store.listing()).map(row => row.ref.id)).toEqual(['midi-qol', 'dnd5e']);
+  });
+
+  it('gives a stamp that changes whenever the copy of the listing does', async () => {
+    expect(await store.listingStamp()).toEqual({ count: 0, changedAt: null });
+    await store.saveIndex(index, at);
+    expect(await store.listingStamp('module')).toEqual({ count: 1, changedAt: at });
+    expect(await store.listingStamp()).toEqual({ count: 2, changedAt: at });
+    // Archived later: one fewer offered, and changed then.
+    await store.saveIndex(
+      [entry('midi-qol', { details: { ...NO_DETAILS, status: 'archived' } }), ...index.slice(1)],
+      later,
+    );
+    expect(await store.listingStamp('module')).toEqual({ count: 0, changedAt: later });
+  });
+});
+
+describe("drizzleStore, for checking packages' own manifests", () => {
+  const DAE = { type: 'module', id: 'dae' } as const;
+  const DND5E = { type: 'system', id: 'dnd5e' } as const;
+  const own = () =>
+    db
+      .select({
+        packageId: packages.packageId,
+        ownVersion: packages.ownVersion,
+        ownCheckedAt: packages.ownCheckedAt,
+        ownReadAt: packages.ownReadAt,
+      })
+      .from(packages)
+      .orderBy(packages.id);
+
+  it('gives those due: never checked first, then the least recently checked, of the available, at most so many', async () => {
+    for (const ref of [MIDI, DAE, DND5E]) await store.saveReleases(ref, [], { source: 'crawl', at });
+    await store.saveUnavailable({ type: 'module', id: 'gone' }, { reason: 'gone' }, { source: 'crawl', at });
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'none', changed: false }], later);
+    await store.saveOwnChecks([{ ref: DAE, outcome: 'none', changed: false }], at);
+    expect(await store.ownChecksDue(new Date(later.getTime() + 1), 10)).toEqual([DND5E, DAE, MIDI]);
+    expect(await store.ownChecksDue(later, 10)).toEqual([DND5E, DAE]);
+    expect(await store.ownChecksDue(later, 1)).toEqual([DND5E]);
+  });
+
+  it('keeps what each check found: the version read, none, or what was last read when it fails', async () => {
+    for (const ref of [MIDI, DAE, DND5E]) await store.saveReleases(ref, [], { source: 'crawl', at });
+    await store.saveOwnChecks(
+      [
+        { ref: MIDI, outcome: 'read', version: '13.0.5', changed: true },
+        { ref: DAE, outcome: 'read', version: '1.0.0', changed: false },
+      ],
+      at,
+    );
+    await store.saveOwnChecks(
+      [
+        { ref: DAE, outcome: 'failed', changed: false },
+        { ref: DND5E, outcome: 'none', changed: false },
+      ],
+      later,
+    );
+    await store.saveOwnChecks([], later);
+    expect(await own()).toEqual([
+      { packageId: 'midi-qol', ownVersion: '13.0.5', ownCheckedAt: at, ownReadAt: at },
+      { packageId: 'dae', ownVersion: '1.0.0', ownCheckedAt: later, ownReadAt: at },
+      { packageId: 'dnd5e', ownVersion: null, ownCheckedAt: later, ownReadAt: null },
+    ]);
+  });
+});
+
+describe('drizzleStore, for consistency checks', () => {
+  const report = (at: Date, held: number) => ({
+    at: at.toISOString(),
+    listed: 3,
+    held,
+    versionsMissing: 1,
+    latestMissing: 0,
+    listingsDiffer: 2,
+    archivedHeld: 0,
+    ownMissing: 1,
+    requeued: 2,
+  });
+
+  it('gives the latest report with the status', async () => {
+    await store.saveConsistency(report(at, 1));
+    await store.saveConsistency(report(later, 2));
+    expect((await store.status()).consistency).toEqual(report(later, 2));
+  });
+
+  it("gives the index's copy, delisted entries and worlds left out, and every package held with its releases", async () => {
+    const versions = [
+      { version: '13.0.4', minimum: '13', maximum: null, verified: '13.351', manifest: null, notes: null },
+    ];
+    const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+      ref: { type: 'module', id },
+      lastUpdated: at,
+      title: id,
+      premium: false,
+      archived: false,
+      details: NO_DETAILS,
+      ...change,
+    });
+    await store.saveIndex(
+      [
+        entry('midi-qol', { details: { ...NO_DETAILS, latestVersion: '13.0.4', versions } }),
+        entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+        entry('world', { ref: { type: 'world', id: 'world' } }),
+        entry('delisted'),
+      ],
+      at,
+    );
+    await store.saveIndex(
+      [
+        entry('midi-qol', { details: { ...NO_DETAILS, latestVersion: '13.0.4', versions } }),
+        entry('old', { details: { ...NO_DETAILS, status: 'archived' } }),
+        entry('world', { ref: { type: 'world', id: 'world' } }),
+      ],
+      later,
+    );
+    await store.saveReleases(MIDI, [loaded, listed], { source: 'crawl', at });
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'read', version: '13.0.6', changed: true }], at);
+    await store.saveUnavailable({ type: 'module', id: 'gone' }, { reason: 'gone' }, { source: 'crawl', at });
+
+    expect(await store.consistencyInputs()).toEqual({
+      indexed: [
+        { ref: MIDI, archived: false, latestVersion: '13.0.4', versions },
+        { ref: { type: 'module', id: 'old' }, archived: true, latestVersion: null, versions: [] },
+      ],
+      held: [
+        {
+          ref: MIDI,
+          unavailable: null,
+          ownVersion: '13.0.6',
+          releases: [{ version: '13.0.4', listing: { minimum: '13', verified: '13' } }, { version: '13.0.5' }],
+        },
+        { ref: { type: 'module', id: 'gone' }, unavailable: 'gone', ownVersion: null, releases: [] },
+      ],
+    });
+  });
+});
+
+describe("drizzleStore, keeping Foundry VTT's index", () => {
+  const entry = (id: string, change: Partial<IndexEntry> = {}): IndexEntry => ({
+    ref: { type: 'module', id },
+    lastUpdated: at,
+    title: id,
+    premium: false,
+    archived: false,
+    details: NO_DETAILS,
+    ...change,
+  });
+  const kept = () =>
+    db
+      .select({
+        packageId: listings.packageId,
+        title: listings.title,
+        delistedAt: listings.delistedAt,
+        updatedAt: listings.updatedAt,
+      })
+      .from(listings)
+      .orderBy(listings.packageId);
+
+  it('keeps every entry, held or not, with what its listing shows', async () => {
+    const details = {
+      ...NO_DETAILS,
+      summary: 'Automation',
+      author: { name: 'tim posney', username: 'tim-posney' },
+      provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      exclusive: true,
+      status: 'approved',
+      latestVersion: '14.0.20',
+      versions: [
+        { version: '14.0.20', minimum: '14.368', maximum: '14.999', verified: '14.368', manifest: null, notes: null },
+      ],
+    };
+    expect(await store.saveIndex([entry('midi-qol', { premium: true, details }), entry('dae')], at)).toEqual({
+      added: 2,
+      changed: 0,
+      delisted: 0,
+    });
+    const [midi] = await db
+      .select()
+      .from(listings)
+      .where(sql`${listings.packageId} = 'midi-qol'`);
+    expect(midi).toMatchObject({
+      type: 'module',
+      title: 'midi-qol',
+      summary: 'Automation',
+      authorName: 'tim posney',
+      authorUsername: 'tim-posney',
+      providerId: 'pelgrane',
+      providerName: 'Pelgrane Press',
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      premium: true,
+      exclusive: true,
+      status: 'approved',
+      lastUpdated: at,
+      latestVersion: '14.0.20',
+      versions: details.versions,
+      delistedAt: null,
+      updatedAt: at,
+    });
+    expect(await store.heldPackages()).toEqual([]);
+  });
+
+  it('writes only the entries that changed', async () => {
+    await store.saveIndex([entry('midi-qol'), entry('dae')], at);
+    expect(await store.saveIndex([entry('midi-qol', { title: 'Midi QOL' }), entry('dae')], later)).toEqual({
+      added: 0,
+      changed: 1,
+      delisted: 0,
+    });
+    expect(await kept()).toEqual([
+      { packageId: 'dae', title: 'dae', delistedAt: null, updatedAt: at },
+      { packageId: 'midi-qol', title: 'Midi QOL', delistedAt: null, updatedAt: later },
+    ]);
+  });
+
+  it('marks an entry the index no longer lists delisted, and not when it is listed again', async () => {
+    await store.saveIndex([entry('midi-qol'), entry('dae'), entry('socketlib')], at);
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae')], later)).toEqual({
+      added: 0,
+      changed: 0,
+      delisted: 1,
+    });
+    expect((await kept()).find(row => row.packageId === 'socketlib')).toMatchObject({ delistedAt: later });
+    // Delisted once: not again.
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae')], later)).toMatchObject({ delisted: 0 });
+
+    const again = new Date('2026-10-24T11:00:00.000Z');
+    expect(await store.saveIndex([entry('midi-qol'), entry('dae'), entry('socketlib')], again)).toEqual({
+      added: 0,
+      changed: 1,
+      delisted: 0,
+    });
+    expect((await kept()).find(row => row.packageId === 'socketlib')).toMatchObject({
+      delistedAt: null,
+      updatedAt: again,
+    });
+  });
+
+  it('delists none when the index lists fewer than half the entries kept', async () => {
+    await store.saveIndex([entry('a'), entry('b'), entry('c'), entry('d'), entry('e')], at);
+    expect(await store.saveIndex([entry('a'), entry('b')], later)).toEqual({ added: 0, changed: 0, delisted: 0 });
+    expect(await store.saveIndex([], later)).toMatchObject({ delisted: 0 });
+    expect((await kept()).every(row => row.delistedAt === null)).toBe(true);
+  });
+
+  it('tells apart packages of two types with one id', async () => {
+    await store.saveIndex([entry('dnd5e'), entry('dnd5e', { ref: { type: 'system', id: 'dnd5e' } })], at);
+    expect(await kept()).toHaveLength(2);
+  });
+
+  it('gives the packages to warm: listed, not archived, not held and not queued, the most recently changed first', async () => {
+    const day = (text: string) => new Date(`${text}T00:00:00.000Z`);
+    const index = [
+      entry('old', { lastUpdated: day('2026-01-01') }),
+      entry('new', { lastUpdated: day('2026-10-01') }),
+      entry('undated', { lastUpdated: null }),
+      entry('archived', { details: { ...NO_DETAILS, status: 'archived' } }),
+      entry('approved', { lastUpdated: day('2026-05-01'), details: { ...NO_DETAILS, status: 'approved' } }),
+      entry('held'),
+      entry('queued'),
+      entry('world', { ref: { type: 'world', id: 'world' } }),
+    ];
+    await store.saveIndex([...index, entry('delisted')], at);
+    await store.saveIndex(index, later);
+    await store.saveReleases({ type: 'module', id: 'held' }, [], { source: 'crawl', at });
+    await store.requestCrawl([{ package: { type: 'module', id: 'queued' }, reason: 'request' }]);
+    expect((await store.unwarmed()).map(ref => ref.id)).toEqual(['new', 'approved', 'old', 'undated']);
+  });
+
+  it('writes the entries of a large index in batches', async () => {
+    const many = Array.from({ length: 1201 }, (_, index) => entry(`pkg-${String(index)}`));
+    expect(await store.saveIndex(many, at)).toMatchObject({ added: 1201 });
+    expect(await kept()).toHaveLength(1201);
+  });
+});
+
 describe('the migration that keeps unlisted releases', () => {
   it('queues every package held for one crawl, keeping why a queued one was asked for', async () => {
     const MIGRATION = '0002_recrawl-for-unlisted';
@@ -374,7 +816,9 @@ describe('the migration that keeps unlisted releases', () => {
       await old.execute(
         sql`insert into packages (type, package_id, synced_at) values ('module', 'midi-qol', ${at.toISOString()}), ('system', 'dnd5e', ${at.toISOString()})`,
       );
-      await drizzleStore(old).requestCrawl([{ package: MIDI, reason: 'request' }]);
+      await old.execute(
+        sql`insert into crawl_requests (type, package_id, reason) values ('module', 'midi-qol', 'request')`,
+      );
 
       await migrate(old, { migrationsFolder: source });
       const queued = await old

@@ -3,13 +3,15 @@
  * Drizzle, so that the database can change behind it and tests can stand in for it.
  */
 import type {
+  ConsistencyReport,
   CoreRelease,
   PackageRef,
   Release,
   SourceGap,
   UnavailableReason,
 } from '@mondarth/fvtt-package-catalogue-contract';
-import type { HeldPackage, Listing } from '../refresh.js';
+import type { CheckedPackage, IndexedPackage } from '../consistency.js';
+import type { HeldPackage, IndexEntry, ListedVersion, Listing, OwnCheck } from '../refresh.js';
 
 /** What the catalogue holds, for the status endpoint. */
 export interface CatalogueStatus {
@@ -17,6 +19,8 @@ export interface CatalogueStatus {
   readonly releases: number;
   /** When a package's releases were last brought up to date; null if none ever were. */
   readonly asOf: Date | null;
+  /** How it last compared with Foundry VTT's index; null if it never has. */
+  readonly consistency: ConsistencyReport | null;
 }
 
 /** A package's releases, as known when they were last brought up to date. */
@@ -66,15 +70,19 @@ export interface CatalogueStore {
   gapsOf(keys: readonly string[]): Promise<SourceGap[]>;
   recordGaps(gaps: readonly SourceGap[]): Promise<void>;
   /**
-   * Queues packages for the worker to fetch. A package already queued stays queued once, as `request` if it was ever
-   * asked for.
+   * Queues packages for the worker to fetch. A package already queued stays queued once, for the most pressing reason
+   * it was ever queued for, in the order of {@link nextCrawl}.
    */
   requestCrawl(requests: readonly CrawlRequest[]): Promise<void>;
   /**
-   * The next package the worker may crawl at this time: asked for before needed, needed before due a refresh, oldest
-   * first within each. Undefined if none is due.
+   * Takes the next package the worker may crawl at this time: asked for before needed, needed before due a refresh, due
+   * a refresh before warming, oldest first within each. Undefined if none is due. It is held for an hour, so that no
+   * other crawl takes it, until it is finished or deferred; one neither, as when the worker stops mid-crawl, is given
+   * again once the hour is over.
+   *
+   * @param options.warm - Whether a package queued to warm may be given; true by default
    */
-  nextCrawl(now: Date): Promise<QueuedCrawl | undefined>;
+  nextCrawl(now: Date, options?: { readonly warm?: boolean }): Promise<QueuedCrawl | undefined>;
   /** Takes a crawled package off the queue. */
   finishCrawl(id: number): Promise<void>;
   /** Leaves a package on the queue after a failed crawl, counting the failure, not to be tried before `until`. */
@@ -83,6 +91,21 @@ export interface CatalogueStore {
   replaceGaps(key: string, gaps: readonly SourceGap[]): Promise<void>;
   /** The manifest URLs that held releases' relationships give for a package, which a crawl may find it by. */
   declaredManifests(ref: PackageRef): Promise<string[]>;
+  /**
+   * What a lookup gives of each package held, by package key, beside its releases: its listing's title, newest version
+   * and premium flag, when it was synced, and what its own manifest last gave. A package not held is left out.
+   */
+  detailsOf(refs: readonly PackageRef[]): Promise<ReadonlyMap<string, PackageDetails>>;
+  /**
+   * The packages of a type, or of both, that the catalogue's copy of Foundry VTT's listing offers: neither archived nor
+   * delisted, in the order first listed.
+   */
+  listing(type?: ListingType): Promise<ListedEntry[]>;
+  /**
+   * What changes whenever the copy of the listing does: how many packages of the type it offers, and when an entry last
+   * changed, delisted and archived ones too. A response made from the listing is the same while this is.
+   */
+  listingStamp(type?: ListingType): Promise<{ readonly count: number; readonly changedAt: Date | null }>;
   /** Which of these packages the catalogue does not know, in the order given. */
   unknownOf(refs: readonly PackageRef[]): Promise<PackageRef[]>;
   /** Records that a run of a worker job started, and returns its id. */
@@ -93,8 +116,74 @@ export interface CatalogueStore {
   lastSuccess(job: string): Promise<Date | null>;
   /** Every package the catalogue holds, with when it was synced and its listing details. */
   heldPackages(): Promise<HeldPackage[]>;
+  /**
+   * The packages held, and available, whose own manifest was last checked before `before`, or never, the least recently
+   * checked first, never checked first of all; at most `limit`.
+   */
+  ownChecksDue(before: Date, limit: number): Promise<PackageRef[]>;
+  /**
+   * Records checks of packages' own manifests, made at `at`: a package read keeps the version its manifest gave; one
+   * with no manifest of its own keeps none; one whose manifest could not be read keeps what it last gave.
+   */
+  saveOwnChecks(checks: readonly OwnCheck[], at: Date): Promise<void>;
+  /**
+   * What the consistency check compares: the catalogue's copy of Foundry VTT's index, delisted entries and worlds left
+   * out, and every package held, with its releases' versions and listings.
+   */
+  consistencyInputs(): Promise<{ indexed: IndexedPackage[]; held: CheckedPackage[] }>;
+  /** Keeps a consistency check's report; the latest is the status's. */
+  saveConsistency(report: ConsistencyReport): Promise<void>;
+  /**
+   * The packages Foundry VTT's index lists, and has not archived, that the catalogue does not hold and has not queued,
+   * the most recently changed first: those to warm.
+   */
+  unwarmed(): Promise<PackageRef[]>;
   /** Saves Foundry VTT's index's details of packages held; a package not held is left out. */
   saveListings(listings: readonly Listing[]): Promise<void>;
+  /**
+   * Keeps the catalogue's copy of Foundry VTT's index, held or not: an entry new or changed is written, one the index
+   * lists again is no longer delisted, and one it no longer lists is marked delisted at `at`. An index that lists fewer
+   * than half the entries kept delists none, as it is more likely cut short than so many packages gone.
+   */
+  saveIndex(entries: readonly IndexEntry[], at: Date): Promise<IndexSaved>;
+}
+
+/** What saving Foundry VTT's index changed. */
+export interface IndexSaved {
+  readonly added: number;
+  /** Entries that changed, among them those listed again. */
+  readonly changed: number;
+  readonly delisted: number;
+}
+
+/** The types of package Foundry VTT's listing offers to install. */
+export type ListingType = 'module' | 'system';
+
+/** A package the catalogue's copy of Foundry VTT's listing offers. */
+export interface ListedEntry {
+  readonly ref: PackageRef;
+  readonly title: string | null;
+  readonly summary: string | null;
+  readonly author: string | null;
+  readonly url: string | null;
+  readonly tags: readonly string[];
+  readonly systems: readonly string[];
+  readonly premium: boolean;
+  readonly exclusive: boolean;
+  readonly latest: string | null;
+  readonly versions: readonly ListedVersion[];
+}
+
+/** What a lookup gives of a package held, beside its releases. */
+export interface PackageDetails {
+  /** As Foundry VTT's index lists it, or as last saved from it; null if neither. */
+  readonly title: string | null;
+  readonly latest: string | null;
+  readonly premium: boolean;
+  readonly syncedAt: Date | null;
+  readonly ownVersion: string | null;
+  readonly ownReadAt: Date | null;
+  readonly ownCheckedAt: Date | null;
 }
 
 /** A package on the worker's queue. */
@@ -116,8 +205,16 @@ export interface RunEnd {
 /** A package for the worker to fetch, and why. */
 export interface CrawlRequest {
   readonly package: PackageRef;
-  /** `request`: a client asked for it. `closure`: a package asked for needs it. `refresh`: it is due an update. */
-  readonly reason: 'request' | 'closure' | 'refresh';
+  /**
+   * `request`: a client asked for it. `closure`: a package asked for needs it. `refresh`: it is due an update. `warm`:
+   * the index lists it and no client has needed it yet, so that it is held before one does.
+   */
+  readonly reason: 'request' | 'closure' | 'refresh' | 'warm';
+  /**
+   * A manifest URL a client gave for it, which a crawl declares: a package installed by its manifest alone, on no
+   * listing, is found by nothing else. Kept once given, until the package is crawled.
+   */
+  readonly manifest?: string;
 }
 
 /** Where saved releases came from, and when. */

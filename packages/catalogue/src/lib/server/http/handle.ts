@@ -10,7 +10,9 @@ import { keyMatcher } from './auth.js';
 import { isApiPath } from './paths.js';
 import { apiError } from './respond.js';
 
+import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '../log.js';
+import type { SafeFetched } from '../safe-fetch.js';
 import type { CatalogueStore } from '../store/types.js';
 
 /** What the `handle` hook works with. */
@@ -18,6 +20,10 @@ export interface HandleOptions {
   readonly store: CatalogueStore;
   readonly apiKeys: readonly string[];
   readonly log: Logger;
+  /** A client for a request that fetches, such as a recheck, with a budget of its own. */
+  readonly http: () => HttpClient;
+  /** Fetches a URL a client gave, refusing what only the server may reach. */
+  readonly fetchGiven: (url: string) => Promise<SafeFetched>;
   /** A new request id; a random UUID by default. */
   readonly requestId?: () => string;
   /** Milliseconds since some fixed point, for timing requests; `performance.now` by default. */
@@ -31,7 +37,9 @@ export interface HandleOptions {
 export const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${CLIENT_HEADER}, Content-Type`,
+  // A client may revalidate what it keeps, such as the listing, by its ETag.
+  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${CLIENT_HEADER}, Content-Type, If-None-Match`,
+  'Access-Control-Expose-Headers': 'ETag',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -54,7 +62,9 @@ function codeFor(status: number): ErrorCode {
  * as its 404 for a path no route matches, is HTML, so it is replaced by the contract's error.
  */
 function inContract(response: Response, requestId: string): Response {
-  if (response.ok || response.headers.get('Content-Type')?.startsWith('application/json') === true) return response;
+  // A 304 has no body: the client keeps what it had.
+  const json = response.headers.get('Content-Type')?.startsWith('application/json') === true;
+  if (response.ok || response.status === 304 || json) return response;
   return apiError(codeFor(response.status), `The API answered ${String(response.status)}`, requestId);
 }
 
@@ -68,6 +78,8 @@ export function createHandle({
   store,
   apiKeys,
   log,
+  http,
+  fetchGiven,
   requestId = () => crypto.randomUUID(),
   clock = () => performance.now(),
 }: HandleOptions): Handle {
@@ -79,6 +91,8 @@ export function createHandle({
     event.locals.requestId = id;
     event.locals.store = store;
     event.locals.log = log.child({ requestId: id });
+    event.locals.http = http;
+    event.locals.fetchGiven = fetchGiven;
 
     const { pathname } = event.url;
     let response: Response;

@@ -1,3 +1,4 @@
+import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CORS_HEADERS, createHandle } from '../../../../src/lib/server/http/handle.js';
@@ -9,10 +10,24 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 const store = mockStore();
 
+/** The client a request that fetches is given. */
+const http = () => httpClient({ fetch: vi.fn<typeof fetch>() });
+
+/** What fetches a URL a client gave. */
+const fetchGiven = vi.fn(() => Promise.resolve({ ok: false, reason: 'refused' } as const));
+
 function setUp() {
   const log = memoryLogger();
   let tick = 0;
-  const handle = createHandle({ store, apiKeys: ['secret'], log, requestId: () => 'id-1', clock: () => (tick += 5) });
+  const handle = createHandle({
+    store,
+    apiKeys: ['secret'],
+    log,
+    http,
+    fetchGiven,
+    requestId: () => 'id-1',
+    clock: () => (tick += 5),
+  });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(Response.json({ ok: true })));
   const run = (url: string, options: { method?: string; headers?: Record<string, string> } = {}) => {
     const event = fakeEvent({ url: `http://catalogue.test${url}`, ...options });
@@ -22,12 +37,14 @@ function setUp() {
 }
 
 describe('createHandle', () => {
-  it('gives every request an id, the store and a logger', async () => {
+  it('gives every request an id, the store, a logger and the client to fetch with', async () => {
     const { run } = setUp();
     const { event, response } = run('/');
     await response;
     expect(event.locals.requestId).toBe('id-1');
     expect(event.locals.store).toBe(store);
+    expect(event.locals.http).toBe(http);
+    expect(event.locals.fetchGiven).toBe(fetchGiven);
   });
 
   it('logs each request once, with its id, status and time', async () => {
@@ -90,11 +107,18 @@ describe('createHandle', () => {
     expect(await response.json()).toEqual({ ok: true });
   });
 
-  it('treats only paths under the API base as the API', async () => {
+  it('treats only paths under /api as the API', async () => {
     const { resolve, run } = setUp();
-    const response = await run('/api/v1beta').response;
+    const response = await run('/apis').response;
     expect(response.status).toBe(200);
     expect(resolve).toHaveBeenCalledOnce();
+  });
+
+  it('checks the key of every version of the API', async () => {
+    const { resolve, run } = setUp();
+    expect((await run('/api/v2/lookup', { method: 'POST' }).response).status).toBe(401);
+    expect((await run('/api/v9/nothing').response).status).toBe(401);
+    expect(resolve).not.toHaveBeenCalled();
   });
 
   // Regression: SvelteKit answered an API path no route matches with its HTML error page.
@@ -114,8 +138,19 @@ describe('createHandle', () => {
     expect(await response.json()).toMatchObject({ error: { code, requestId: 'id-1' } });
   });
 
+  it('passes a 304 through as it is, with the CORS headers, and lets a client revalidate and read the ETag', async () => {
+    const { resolve, run } = setUp();
+    resolve.mockResolvedValueOnce(new Response(null, { status: 304, headers: { ETag: '"a"' } }));
+    const response = await run('/api/v2/listing', { headers: { 'X-API-Key': 'secret' } }).response;
+    expect(response.status).toBe(304);
+    expect(response.headers.get('ETag')).toBe('"a"');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(CORS_HEADERS['Access-Control-Allow-Headers']).toContain('If-None-Match');
+    expect(CORS_HEADERS['Access-Control-Expose-Headers']).toBe('ETag');
+  });
+
   it('makes a new random id for each request by default', async () => {
-    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger() });
+    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger(), http, fetchGiven });
     const ids = await Promise.all(
       [1, 2].map(async () => {
         const event = fakeEvent();

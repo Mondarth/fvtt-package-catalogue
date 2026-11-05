@@ -1,10 +1,38 @@
 /**
  * The store, in PostgreSQL through Drizzle.
  */
-import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { and, asc, count, desc, eq, inArray, isNotNull, lte, max, or, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
-import { coreReleases, crawlRequests, packages, relationships, releases, sourceGaps, syncRuns } from '../db/schema.js';
+import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  max,
+  ne,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm';
+
+import {
+  consistencyReports,
+  coreReleases,
+  crawlRequests,
+  listings,
+  packages,
+  relationships,
+  releases,
+  sourceGaps,
+  syncRuns,
+} from '../db/schema.js';
 
 import type {
   Compatibility,
@@ -13,8 +41,10 @@ import type {
   Release,
   SourceGap,
 } from '@mondarth/fvtt-package-catalogue-contract';
+import type { SQL } from 'drizzle-orm';
 import type { Database } from '../db/database.js';
-import type { CatalogueStore, PackageReleases } from './types.js';
+import type { IndexEntry } from '../refresh.js';
+import type { CatalogueStore, ListingType, PackageDetails, PackageReleases } from './types.js';
 
 type ReleaseRow = typeof releases.$inferSelect;
 type GapRow = typeof sourceGaps.$inferSelect;
@@ -90,8 +120,49 @@ const gapRow = (gap: SourceGap) => ({
   version: gap.version ?? null,
 });
 
-/** The worker crawls what was asked for first, then what closures need, then refreshes. */
-const CRAWL_PRIORITY = sql`case ${crawlRequests.reason} when 'request' then 0 when 'closure' then 1 else 2 end`;
+/** The listing's entries of a type, or of both types it offers. */
+const ofListingType = (type: ListingType | undefined) =>
+  type === undefined ? inArray(listings.type, ['module', 'system']) : eq(listings.type, type);
+
+/** How long a package taken to crawl is held from other crawls, unless it is finished or deferred first. */
+const CRAWL_HOLD_MS = 60 * 60 * 1000;
+
+/** How many index entries are written in one statement. */
+const INDEX_BATCH = 500;
+
+/** An index entry as a row of `listings`, with the hash of what the index gave. */
+function listingRow({ ref, lastUpdated, title, premium, details }: IndexEntry) {
+  const row = {
+    type: ref.type,
+    packageId: ref.id,
+    title,
+    summary: details.summary,
+    authorName: details.author?.name ?? null,
+    authorUsername: details.author?.username ?? null,
+    providerId: details.provider?.id ?? null,
+    providerName: details.provider?.name ?? null,
+    url: details.url,
+    marketplaceUrl: details.marketplaceUrl,
+    tags: [...details.tags],
+    systems: [...details.systems],
+    premium,
+    exclusive: details.exclusive,
+    status: details.status,
+    lastUpdated,
+    latestVersion: details.latestVersion,
+    versions: [...details.versions],
+  };
+  return { ...row, hash: createHash('sha256').update(JSON.stringify(row)).digest('hex') };
+}
+
+/**
+ * How pressing a reason to crawl is, the most pressing least: what was asked for, then what closures need, then
+ * refreshes, then warming.
+ */
+const priorityOf = (reason: SQL | typeof crawlRequests.reason) =>
+  sql`case ${reason} when 'request' then 0 when 'closure' then 1 when 'refresh' then 2 else 3 end`;
+
+const CRAWL_PRIORITY = priorityOf(crawlRequests.reason);
 
 function gapOf(row: GapRow): SourceGap {
   return {
@@ -171,7 +242,17 @@ export function drizzleStore(db: Database): CatalogueStore {
       const [released] = await db.select({ releases: count() }).from(releases);
       /* v8 ignore next -- an aggregate without GROUP BY always gives one row */
       if (held === undefined || released === undefined) throw new Error('The status could not be counted');
-      return { packages: held.packages, releases: released.releases, asOf: held.asOf };
+      const [latest] = await db
+        .select()
+        .from(consistencyReports)
+        .orderBy(desc(consistencyReports.at), desc(consistencyReports.id))
+        .limit(1);
+      return {
+        packages: held.packages,
+        releases: released.releases,
+        asOf: held.asOf,
+        consistency: latest === undefined ? null : { at: latest.at.toISOString(), ...latest.report },
+      };
     },
 
     async releasesOf(ref) {
@@ -299,31 +380,49 @@ export function drizzleStore(db: Database): CatalogueStore {
       if (requests.length === 0) return;
       await db
         .insert(crawlRequests)
-        .values(requests.map(({ package: ref, reason }) => ({ type: ref.type, packageId: ref.id, reason })))
+        .values(
+          requests.map(({ package: ref, reason, manifest }) => ({
+            type: ref.type,
+            packageId: ref.id,
+            reason,
+            manifest: manifest ?? null,
+          })),
+        )
         .onConflictDoUpdate({
           target: [crawlRequests.type, crawlRequests.packageId],
-          // Once asked for, a package stays asked for: the worker fetches those first.
+          // A package keeps the most pressing reason it was queued for: once asked for, it stays asked for, and one
+          // queued to warm that a closure needs is needed.
           set: {
-            reason: sql`case when excluded.reason = 'request' then excluded.reason else ${crawlRequests.reason} end`,
+            reason: sql`case when ${priorityOf(sql`excluded.reason`)} < ${CRAWL_PRIORITY} then excluded.reason else ${crawlRequests.reason} end`,
+            // A manifest URL given is kept until the package is crawled.
+            manifest: sql`coalesce(excluded.manifest, ${crawlRequests.manifest})`,
           },
         });
     },
 
-    async nextCrawl(now) {
-      const [row] = await db
-        .select()
-        .from(crawlRequests)
-        .where(lte(crawlRequests.notBefore, now))
-        .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
-        .limit(1);
-      return (
-        row && {
+    async nextCrawl(now, { warm = true } = {}) {
+      return db.transaction(async tx => {
+        // Locked, and one locked already passed over, so that two workers never take one package.
+        const [row] = await tx
+          .select()
+          .from(crawlRequests)
+          .where(and(lte(crawlRequests.notBefore, now), warm ? undefined : ne(crawlRequests.reason, 'warm')))
+          .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
+          .limit(1)
+          .for('update', { skipLocked: true });
+        if (row === undefined) return undefined;
+        await tx
+          .update(crawlRequests)
+          .set({ notBefore: new Date(now.getTime() + CRAWL_HOLD_MS) })
+          .where(eq(crawlRequests.id, row.id));
+        return {
           id: row.id,
           package: { type: row.type, id: row.packageId },
           reason: row.reason,
           attempts: row.attempts,
-        }
-      );
+          ...(row.manifest !== null && { manifest: row.manifest }),
+        };
+      });
     },
 
     async finishCrawl(id) {
@@ -358,6 +457,87 @@ export function drizzleStore(db: Database): CatalogueStore {
         )
         .orderBy(asc(relationships.manifest));
       return rows.map(row => row.manifest);
+    },
+
+    async detailsOf(refs) {
+      const found = new Map<string, PackageDetails>();
+      if (refs.length === 0) return found;
+      const rows = await db
+        .select({
+          type: packages.type,
+          packageId: packages.packageId,
+          heldTitle: packages.title,
+          heldPremium: packages.premium,
+          syncedAt: packages.syncedAt,
+          ownVersion: packages.ownVersion,
+          ownReadAt: packages.ownReadAt,
+          ownCheckedAt: packages.ownCheckedAt,
+          listedTitle: listings.title,
+          latest: listings.latestVersion,
+          listedPremium: listings.premium,
+        })
+        .from(packages)
+        .leftJoin(listings, and(eq(listings.type, packages.type), eq(listings.packageId, packages.packageId)))
+        .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
+      for (const row of rows) {
+        found.set(packageKey({ type: row.type, id: row.packageId }), {
+          title: row.listedTitle ?? row.heldTitle,
+          latest: row.latest,
+          premium: row.listedPremium ?? row.heldPremium,
+          syncedAt: row.syncedAt,
+          ownVersion: row.ownVersion,
+          ownReadAt: row.ownReadAt,
+          ownCheckedAt: row.ownCheckedAt,
+        });
+      }
+      return found;
+    },
+
+    async listing(type) {
+      const rows = await db
+        .select()
+        .from(listings)
+        .where(
+          and(
+            ofListingType(type),
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+          ),
+        )
+        .orderBy(asc(listings.id));
+      return rows.map(row => ({
+        ref: { type: row.type, id: row.packageId },
+        title: row.title,
+        summary: row.summary,
+        author: row.authorName,
+        url: row.url,
+        tags: row.tags,
+        systems: row.systems,
+        premium: row.premium,
+        exclusive: row.exclusive,
+        latest: row.latestVersion,
+        versions: row.versions,
+      }));
+    },
+
+    async listingStamp(type) {
+      const [row] = await db
+        .select({ changedAt: max(listings.updatedAt) })
+        .from(listings)
+        .where(ofListingType(type));
+      const [offered] = await db
+        .select({ count: count() })
+        .from(listings)
+        .where(
+          and(
+            ofListingType(type),
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+          ),
+        );
+      /* v8 ignore next -- an aggregate without GROUP BY always gives one row */
+      if (row === undefined || offered === undefined) throw new Error('The listing could not be counted');
+      return { count: offered.count, changedAt: row.changedAt };
     },
 
     async unknownOf(refs) {
@@ -410,16 +590,162 @@ export function drizzleStore(db: Database): CatalogueStore {
       return rows.map(({ type, packageId, ...rest }) => ({ ref: { type, id: packageId }, ...rest }));
     },
 
-    async saveListings(listings) {
-      if (listings.length === 0) return;
+    async ownChecksDue(before, limit) {
+      const rows = await db
+        .select({ type: packages.type, packageId: packages.packageId })
+        .from(packages)
+        .where(and(isNull(packages.unavailable), or(isNull(packages.ownCheckedAt), lt(packages.ownCheckedAt, before))))
+        .orderBy(sql`${packages.ownCheckedAt} asc nulls first`, asc(packages.id))
+        .limit(limit);
+      return rows.map(({ type, packageId }) => ({ type, id: packageId }));
+    },
+
+    async saveOwnChecks(checks, at) {
+      if (checks.length === 0) return;
       await db.transaction(async tx => {
-        for (const { ref, listingUpdatedAt, title, premium } of listings) {
+        for (const check of checks) {
+          // One that failed keeps what was last read.
+          const found =
+            check.outcome === 'read'
+              ? { ownVersion: check.version, ownReadAt: at }
+              : check.outcome === 'none' && { ownVersion: null, ownReadAt: null };
+          await tx
+            .update(packages)
+            .set({ ownCheckedAt: at, ...found })
+            .where(and(eq(packages.type, check.ref.type), eq(packages.packageId, check.ref.id)));
+        }
+      });
+    },
+
+    async consistencyInputs() {
+      const indexed = await db
+        .select({
+          type: listings.type,
+          packageId: listings.packageId,
+          status: listings.status,
+          latestVersion: listings.latestVersion,
+          versions: listings.versions,
+        })
+        .from(listings)
+        .where(and(isNull(listings.delistedAt), ne(listings.type, 'world')))
+        .orderBy(asc(listings.id));
+      const held = await db
+        .select({
+          id: packages.id,
+          type: packages.type,
+          packageId: packages.packageId,
+          unavailable: packages.unavailable,
+          ownVersion: packages.ownVersion,
+        })
+        .from(packages)
+        .orderBy(asc(packages.id));
+      const versions = await db
+        .select({ packageRef: releases.packageRef, version: releases.version, listing: releases.listing })
+        .from(releases)
+        .orderBy(asc(releases.id));
+      const releasesOf = Map.groupBy(versions, row => row.packageRef);
+      return {
+        indexed: indexed.map(row => ({
+          ref: { type: row.type, id: row.packageId },
+          archived: row.status === 'archived',
+          latestVersion: row.latestVersion,
+          versions: row.versions,
+        })),
+        held: held.map(row => ({
+          ref: { type: row.type, id: row.packageId },
+          unavailable: row.unavailable,
+          ownVersion: row.ownVersion,
+          releases: (releasesOf.get(row.id) ?? []).map(({ version, listing }) => ({
+            version,
+            ...(listing !== null && { listing }),
+          })),
+        })),
+      };
+    },
+
+    async saveConsistency({ at, ...report }) {
+      await db.insert(consistencyReports).values({ at: new Date(at), report });
+    },
+
+    async unwarmed() {
+      const rows = await db
+        .select({ type: listings.type, packageId: listings.packageId })
+        .from(listings)
+        .where(
+          and(
+            isNull(listings.delistedAt),
+            or(isNull(listings.status), ne(listings.status, 'archived')),
+            ne(listings.type, 'world'),
+            notExists(
+              db
+                .select({ id: packages.id })
+                .from(packages)
+                .where(and(eq(packages.type, listings.type), eq(packages.packageId, listings.packageId))),
+            ),
+            notExists(
+              db
+                .select({ id: crawlRequests.id })
+                .from(crawlRequests)
+                .where(and(eq(crawlRequests.type, listings.type), eq(crawlRequests.packageId, listings.packageId))),
+            ),
+          ),
+        )
+        .orderBy(sql`${listings.lastUpdated} desc nulls last`, asc(listings.id));
+      return rows.map(({ type, packageId }) => ({ type, id: packageId }));
+    },
+
+    async saveListings(given) {
+      if (given.length === 0) return;
+      await db.transaction(async tx => {
+        for (const { ref, listingUpdatedAt, title, premium } of given) {
           await tx
             .update(packages)
             .set({ listingUpdatedAt, title, premium })
             .where(and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)));
         }
       });
+    },
+
+    async saveIndex(entries, at) {
+      const kept = await db
+        .select({
+          id: listings.id,
+          type: listings.type,
+          packageId: listings.packageId,
+          hash: listings.hash,
+          delistedAt: listings.delistedAt,
+        })
+        .from(listings);
+      const byKey = new Map(kept.map(row => [packageKey({ type: row.type, id: row.packageId }), row]));
+      const rows = new Map(entries.map(entry => [packageKey(entry.ref), listingRow(entry)]));
+      const added = [...rows].filter(([key]) => !byKey.has(key)).map(([, row]) => ({ ...row, updatedAt: at }));
+      const changed = [...rows].flatMap(([key, row]) => {
+        const held = byKey.get(key);
+        return held !== undefined && (held.hash !== row.hash || held.delistedAt !== null) ? [{ id: held.id, row }] : [];
+      });
+      const listed = kept.filter(row => row.delistedAt === null);
+      const gone =
+        rows.size * 2 < listed.length
+          ? []
+          : listed.filter(row => !rows.has(packageKey({ type: row.type, id: row.packageId }))).map(row => row.id);
+      await db.transaction(async tx => {
+        for (let start = 0; start < added.length; start += INDEX_BATCH) {
+          await tx.insert(listings).values(added.slice(start, start + INDEX_BATCH));
+        }
+        for (const { id, row } of changed) {
+          await tx
+            .update(listings)
+            .set({ ...row, delistedAt: null, updatedAt: at })
+            .where(eq(listings.id, id));
+        }
+        for (let start = 0; start < gone.length; start += INDEX_BATCH) {
+          await tx
+            .update(listings)
+            .set({ delistedAt: at, updatedAt: at })
+            .where(and(inArray(listings.id, gone.slice(start, start + INDEX_BATCH)), isNull(listings.delistedAt)));
+        }
+      });
+      return { added: added.length, changed: changed.length, delisted: gone.length };
     },
   };
 }

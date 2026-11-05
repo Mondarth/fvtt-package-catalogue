@@ -35,6 +35,42 @@ export interface IndexEntry {
   readonly premium: boolean;
   /** Whether its listing is archived, so that Foundry VTT's Setup screen no longer offers it. */
   readonly archived: boolean;
+  /** The rest of what the index says of it, as its listing shows it. */
+  readonly details: ListingDetails;
+}
+
+/** What Foundry VTT's index says of a package, beyond its title, premium flag and when it changed. */
+export interface ListingDetails {
+  readonly summary: string | null;
+  readonly author: { readonly name: string; readonly username: string | null } | null;
+  /** Who sells it, for premium content. */
+  readonly provider: { readonly id: string; readonly name: string } | null;
+  /** Its project's web page. */
+  readonly url: string | null;
+  /** Where it is sold, for premium content. */
+  readonly marketplaceUrl: string | null;
+  readonly tags: readonly string[];
+  /** The IDs of the game systems it is for, as the index's `requires` gives them; empty for any. */
+  readonly systems: readonly string[];
+  /** Exclusive content. */
+  readonly exclusive: boolean;
+  /** Its listing's status, such as `approved` or `archived`. */
+  readonly status: string | null;
+  /** The newest version, where the index gives it, which it does for few packages. */
+  readonly latestVersion: string | null;
+  /** A version for each line of Foundry VTT builds, as the index lists them, the newest of each. */
+  readonly versions: readonly ListedVersion[];
+}
+
+/** A version on Foundry VTT's index, with the builds it says the version runs on. */
+export interface ListedVersion {
+  readonly version: string;
+  readonly minimum: string | null;
+  readonly maximum: string | null;
+  readonly verified: string | null;
+  readonly manifest: string | null;
+  /** Where its release notes are. */
+  readonly notes: string | null;
 }
 
 /** The index's details of a package, to keep with it. */
@@ -53,18 +89,64 @@ export interface RefreshPlan {
   readonly listings: Listing[];
 }
 
+/**
+ * A field of an entry that may be missing or of another shape: read as null, rather than the entry, or the index, left
+ * unread.
+ */
+const lenient = <T extends z.ZodType>(schema: T) =>
+  schema
+    .nullish()
+    .catch(null)
+    .transform(value => value ?? null);
+
+/** Text the index may give as a number, such as a version or a build. */
+const text = z.union([z.string(), z.number()]).transform(String);
+
 const indexSchema = z.object({
   packages: z.array(
     z.looseObject({
       id: z.string(),
       type: z.string(),
-      title: z.string().optional(),
-      last_updated: z.string().nullish(),
-      premium: z.boolean().optional(),
-      status: z.string().optional(),
+      title: lenient(z.string()),
+      last_updated: lenient(z.string()),
+      premium: lenient(z.boolean()),
+      status: lenient(z.string()),
+      summary: lenient(z.string()),
+      author: lenient(z.object({ name: z.string(), username: z.string().nullish() })),
+      provider: lenient(z.object({ id: z.string(), name: z.string() })),
+      url: lenient(z.string()),
+      marketplace_url: lenient(z.string()),
+      tags: lenient(z.array(z.unknown())),
+      requires: lenient(z.array(z.unknown())),
+      exclusive: lenient(z.boolean()),
+      latest_version: lenient(text),
+      compatibility: lenient(z.array(z.unknown())),
     }),
   ),
 });
+
+const versionSchema = z.object({
+  version: text,
+  from: lenient(text),
+  to: lenient(text),
+  verified: lenient(text),
+  manifest: lenient(z.string()),
+  notes: lenient(z.string()),
+});
+
+/** The strings of a list, leaving out whatever else it holds. */
+const strings = (list: readonly unknown[] | null) =>
+  (list ?? []).filter((item): item is string => typeof item === 'string');
+
+/** The versions an entry lists, leaving out any it gives no version of. */
+function versionsOf(list: readonly unknown[] | null): ListedVersion[] {
+  return (list ?? []).flatMap(item => {
+    const read = versionSchema.safeParse(item);
+    if (!read.success) return [];
+    const { version, from, to, verified, manifest, notes } = read.data;
+    return [{ version, minimum: from, maximum: to, verified, manifest, notes }];
+  });
+}
 
 /** A time with its offset, `2026-11-02T12:04:25Z`, as the index gives `last_updated` now. */
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -102,9 +184,22 @@ export function readIndex(value: unknown): IndexEntry[] | undefined {
       {
         ref: { type: type.data, id: entry.id },
         lastUpdated: timeOf(entry.last_updated),
-        title: entry.title ?? null,
+        title: entry.title,
         premium: entry.premium === true,
         archived: entry.status === 'archived',
+        details: {
+          summary: entry.summary,
+          author: entry.author === null ? null : { name: entry.author.name, username: entry.author.username ?? null },
+          provider: entry.provider,
+          url: entry.url,
+          marketplaceUrl: entry.marketplace_url,
+          tags: strings(entry.tags),
+          systems: strings(entry.requires),
+          exclusive: entry.exclusive === true,
+          status: entry.status,
+          latestVersion: entry.latest_version,
+          versions: versionsOf(entry.compatibility),
+        },
       },
     ];
   });
@@ -179,20 +274,6 @@ export function planRefresh(
 }
 
 /**
- * Whether a package's own manifest is to be checked this hour: each package's once a day, a 24th of them each hour, by
- * its key, so that the requests are spread through the day.
- *
- * @param ref - The package
- * @param now - The time now
- * @returns Whether it is due
- */
-export function manifestCheckDue(ref: PackageRef, now: Date): boolean {
-  let hash = 0;
-  for (const char of packageKey(ref)) hash = (hash * 31 + char.charCodeAt(0)) % 2_147_483_647;
-  return hash % 24 === now.getUTCHours();
-}
-
-/**
  * The manifest a package's releases say is its own, as Foundry VTT's updater reads it to update the package: that of
  * its newest listed release, or, if none is listed, of its newest. One that names that release's version is that
  * release's alone, and never gives a newer one, so it is none: reading it again would only load what is held.
@@ -208,26 +289,43 @@ export function ownManifest(releases: readonly Release[]): string | undefined {
 }
 
 /**
- * The packages whose own manifest gives a version the catalogue does not hold, as one its author published by the
- * manifest alone, so that Foundry VTT's index, and its date, are as they were. Each manifest is asked through the
- * client's cache; one that cannot be read, or gives no version, changes nothing.
+ * What reading a package's own manifest found. `read`: it gave `version`. `none`: the package has no manifest of its
+ * own that may give a newer version (see {@link ownManifest}). `failed`: it could not be fetched, or gave no version.
+ */
+export type OwnCheck = {
+  readonly ref: PackageRef;
+  /** Whether it gave a version the catalogue does not hold, so that the package is to be crawled again. */
+  readonly changed: boolean;
+} & ({ readonly outcome: 'read'; readonly version: string } | { readonly outcome: 'none' | 'failed' });
+
+/**
+ * Reads each package's own manifest, as Foundry VTT's updater reads it, for a version the catalogue does not hold: one
+ * its author published by the manifest alone, so that Foundry VTT's index, and its date, are as they were. Each is
+ * asked of its server every time, through the client's cache, so that one that has not changed costs only its ETag's
+ * answer; they are asked together, as many at once as the client allows.
  *
  * @param http - The client
  * @param held - The packages to check, each with its releases held
- * @returns Those to crawl again
+ * @returns What each check found, in the order given
  */
-export async function manifestChanges(
+export async function checkOwnManifests(
   http: HttpClient,
   held: readonly { readonly ref: PackageRef; readonly releases: readonly Release[] }[],
-): Promise<PackageRef[]> {
-  const changed: PackageRef[] = [];
-  for (const { ref, releases } of held) {
-    const url = ownManifest(releases);
-    if (url === undefined) continue;
-    const fetched = await http.getJson(url, { maxAge: FIVE_MINUTES });
-    const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
-    if (typeof version !== 'string' && typeof version !== 'number') continue;
-    if (!releases.some(release => sameVersion(release.version, String(version)))) changed.push(ref);
-  }
-  return changed;
+): Promise<OwnCheck[]> {
+  return Promise.all(
+    held.map(async ({ ref, releases }): Promise<OwnCheck> => {
+      const url = ownManifest(releases);
+      if (url === undefined) return { ref, outcome: 'none', changed: false };
+      const fetched = await http.getJson(url, { maxAge: 0 });
+      const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
+      if (typeof version !== 'string' && typeof version !== 'number') return { ref, outcome: 'failed', changed: false };
+      const given = String(version);
+      return {
+        ref,
+        outcome: 'read',
+        version: given,
+        changed: !releases.some(release => sameVersion(release.version, given)),
+      };
+    }),
+  );
 }

@@ -3,16 +3,18 @@
 PostgreSQL 18, through [Drizzle ORM](https://orm.drizzle.team). The schema is in
 `packages/catalogue/src/lib/server/db/schema.ts`; tables and columns are snake_case in the database.
 
-| Table            | Holds                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| `packages`       | Each package known, with its listing details and when its releases were last updated     |
-| `releases`       | Each version of a package, as the API gives it                                           |
-| `relationships`  | What each release requires, runs in, conflicts with or recommends, in manifest order     |
-| `raw_manifests`  | Manifests as fetched, by hash, so releases can be normalised again without fetching      |
-| `core_releases`  | Foundry VTT's builds                                                                     |
-| `source_gaps`    | What a source could not fetch or read                                                    |
-| `crawl_requests` | Packages waiting for the worker, asked for or needed by a closure, and their retries     |
-| `sync_runs`      | Each run of a worker job                                                                 |
+| Table                 | Holds                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `packages`            | Each package known, with its listing details and when its releases were last updated   |
+| `listings`            | Foundry VTT's index: every entry, crawled or not, with its listing; delisted ones kept |
+| `releases`            | Each version of a package, as the API gives it                                         |
+| `relationships`       | What each release requires, runs in, conflicts with or recommends, in manifest order   |
+| `raw_manifests`       | Manifests as fetched, by hash, so releases can be normalised again without fetching    |
+| `core_releases`       | Foundry VTT's builds                                                                   |
+| `source_gaps`         | What a source could not fetch or read                                                  |
+| `crawl_requests`      | Packages waiting for the worker, asked for or needed by a closure, and their retries   |
+| `sync_runs`           | Each run of a worker job                                                               |
+| `consistency_reports` | Each daily comparison with Foundry VTT's index; `/status` gives the latest             |
 
 ## Changing the schema
 

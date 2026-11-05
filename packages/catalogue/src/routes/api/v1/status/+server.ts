@@ -7,12 +7,13 @@ import type { RequestHandler } from './$types';
 
 /** What the catalogue holds. */
 export const GET: RequestHandler = endpoint(async ({ locals }) => {
-  const { packages, releases, asOf } = await locals.store.status();
+  const { packages, releases, asOf, consistency } = await locals.store.status();
   return respond(StatusResponse, {
     apiVersion: API_VERSION,
     version: __CATALOGUE_VERSION__,
     packages,
     releases,
     asOf: asOf?.toISOString() ?? null,
+    consistency,
   });
 });

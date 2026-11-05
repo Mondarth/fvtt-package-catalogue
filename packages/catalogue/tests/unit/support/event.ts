@@ -1,3 +1,4 @@
+import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import type { RequestEvent } from '@sveltejs/kit';
 
 import { mockStore } from './store.js';
@@ -29,7 +30,14 @@ export function fakeEvent<E extends RequestEvent = RequestEvent>({
     params: params ?? {},
     url: new URL(url),
     request: new Request(url, { method, headers, ...(body !== undefined && { body }) }),
-    locals: { requestId: 'request-1', store: mockStore(), log: memoryLogger(), ...locals },
+    locals: {
+      requestId: 'request-1',
+      store: mockStore(),
+      log: memoryLogger(),
+      http: () => httpClient({ fetch: () => Promise.reject(new TypeError('No fetching in a test')) }),
+      fetchGiven: () => Promise.resolve({ ok: false, reason: 'network' }),
+      ...locals,
+    },
   };
   return event as unknown as E;
 }

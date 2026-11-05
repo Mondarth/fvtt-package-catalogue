@@ -73,7 +73,25 @@ manifest URLs that relationships declare. Each job has an HTTP client with a bud
 is recorded in `sync_runs`.
 
 - **Crawling** (`lib/server/crawl.ts`) takes the next package from `crawl_requests`: asked for before needed, needed
-  before due a refresh. The resolver's `sourceSet` lists every release the sources know, then loads each from its own
+  before due a refresh, due a refresh before warming. A package queued again keeps the most pressing of its reasons.
+  The worker keeps up to `CRAWL_CONCURRENCY` crawls in hand. `nextCrawl` takes a package in a transaction, locking its
+  row (`FOR UPDATE SKIP LOCKED`) and moving its `not_before` an hour on, so that no other crawl takes it: finishing
+  takes it off the queue, deferring sets its own time, and one neither, as when the worker is killed mid-crawl, is
+  crawled again once the hour is over. Every crawl's client fetches through one `hostLimited` fetch, which makes at
+  most `CRAWL_PER_HOST` requests to a host at once, across them all.
+- **Consistency** (`lib/server/consistency.ts`), once a day, in the job `consistency`: `checkConsistency`, a pure
+  function, compares the catalogue's copy of the index (`listings`, delisted entries and worlds left out) with every
+  package held, its releases' versions and listings, and the version its own manifest last gave
+  (`consistencyInputs`). It counts what is to be put right (see `ConsistencyReport` in the contract), leaving out
+  versions an override says are not releases, and queues the packages concerned, at most 500, as `refresh`. The report
+  is kept in `consistency_reports`, and `/status` gives the latest: so `listed` against `held` shows how far warming
+  has gone, and the rest how far the catalogue stands in for the index.
+- **The worker's cache** (`lib/server/lru-cache.ts`) is one for the process, so that Foundry VTT's index is fetched once
+  in five minutes rather than once a crawl, and in memory, keeping at most `CACHE_ENTRIES` answers (5000 by default)
+  and letting go of the least recently used: crawls keep each manifest they read for as long as they may, and warming
+  reads tens of thousands, so a cache without a bound would grow until the worker stopped. A manifest let go of costs
+  nothing more: a release loaded is kept in the database, and not loaded again.
+  The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
   when no listed version fits. The package's own manifest, that of its newest listed release held, is declared to the
@@ -104,12 +122,33 @@ is recorded in `sync_runs`.
   `last_updated`; a held package is queued as `refresh` when that is newer than the one read before, which is kept in
   `packages.listing_updated_at` with the title and premium flag. The index gives the time of the change; it once gave
   only the day, which is still read, as the start of that day in UTC. Never read before, a package is queued when the
-  date is not older than the day it was synced, as a change given only by its day may be after the sync. A package the index does not list, or lists
-  with no date, is queued once it was synced a week ago, and so is every package, on the index or not, as its own
-  manifest may give a version the index does not, leaving its date as it was. The rules are `planRefresh`'s, a pure
-  function. Each hour, a 24th of the packages held, by key (`manifestCheckDue`), so each once a day, have their own
-  manifest read, and are queued if it gives a version not held (`manifestChanges`). A refresh costs little: releases
-  held as loaded are kept, so only new versions' manifests are fetched.
+  date is not older than the day it was synced, as a change given only by its day may be after the sync. A package the
+  index does not list, or lists with no date, is queued once it was synced a week ago, and so is every package, on the
+  index or not, as its own manifest may give a version the index does not, leaving its date as it was. The rules are
+  `planRefresh`'s, a pure function. A refresh costs little: releases held as loaded are kept, so only new versions'
+  manifests are fetched.
+- **Own manifests** (`checkOwnManifests`), every five minutes, in the job `own-manifests`: the packages held whose own
+  manifest (`ownManifest`) was last checked an hour ago (`OWN_MANIFEST_CHECK_MINUTES`) or never, at most a thousand,
+  the least recently checked first (`ownChecksDue`), so each about once an hour. Each is asked of its server every
+  time, revalidating with the ETag it gave, so one unchanged costs a `304`; they are asked together, within the client's
+  and the host limit. The job's client has a cache of its own (`versionsOnly`), keeping only each manifest's version
+  and ETag, a few hundred bytes, for up to 20,000 packages, so that the crawls passing through the worker's cache in
+  the hour between do not push them out of it. A package whose manifest gives a version not held is queued as `refresh`, as one its author
+  published by the manifest alone leaves the index as it was. What each check found is kept with the package
+  (`saveOwnChecks`): `own_version`, `own_read_at` (when it was last read) and `own_checked_at` (when it was last tried),
+  so that a client can be told how fresh what the catalogue holds is.
+- **The index's copy** (`listings`, written by `saveIndex`) is kept from the same read: every entry, held or not, with
+  its summary, author, tags, the systems it is for, the version it lists for each line of builds, and so on. A field of
+  an entry the index gives in another shape is left out, not the entry. An entry is written only when what the index
+  gives of it changes (by a hash). One the index stops listing is kept, marked `delisted_at`, unless the index lists
+  fewer than half of those kept, which is more likely an index cut short. Nothing reads `listings` yet: it is the start
+  of the catalogue standing in for the index.
+- **Warming**: each refresh, once the index's copy is kept, queues as `warm` every package it lists, not archived or
+  delisted, that the catalogue neither holds nor has queued (`unwarmed`), the most recently changed first. So the
+  catalogue comes to hold the whole index before clients ask for it, and a package newly listed is warmed within the
+  hour. Packages to warm are crawled last, and at most `WARM_PER_HOUR` an hour (300 by default; 0 turns warming off),
+  counted by the worker as it takes them from the queue (`nextCrawl`'s `warm` option), so that the first warming of
+  the whole index, about 6,700 packages, is spread over about a day rather than made at once.
 
 ## SvelteKit 3
 

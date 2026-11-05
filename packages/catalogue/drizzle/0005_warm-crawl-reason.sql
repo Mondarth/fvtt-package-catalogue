@@ -1,0 +1,1 @@
+ALTER TYPE "public"."crawl_reason" ADD VALUE 'warm';

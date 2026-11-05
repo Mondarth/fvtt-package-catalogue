@@ -1,14 +1,8 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  fetchIndex,
-  manifestChanges,
-  manifestCheckDue,
-  ownManifest,
-  planRefresh,
-  readIndex,
-} from '../../../src/lib/server/refresh.js';
+import { fetchIndex, checkOwnManifests, ownManifest, planRefresh, readIndex } from '../../../src/lib/server/refresh.js';
+import { NO_DETAILS } from '../support/index-entry.js';
 
 import type { Release } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HeldPackage, IndexEntry } from '../../../src/lib/server/refresh.js';
@@ -34,6 +28,7 @@ const entry = (overrides: Partial<IndexEntry> = {}): IndexEntry => ({
   title: 'Midi QOL',
   premium: false,
   archived: false,
+  details: NO_DETAILS,
   ...overrides,
 });
 
@@ -52,8 +47,104 @@ describe('readIndex', () => {
       }),
     ).toEqual([
       entry(),
-      { ref: { type: 'system', id: 'pf2e' }, lastUpdated: null, title: null, premium: true, archived: true },
+      {
+        ref: { type: 'system', id: 'pf2e' },
+        lastUpdated: null,
+        title: null,
+        premium: true,
+        archived: true,
+        details: { ...NO_DETAILS, status: 'archived' },
+      },
     ]);
+  });
+
+  it('reads what its listing shows, as the index gives it', () => {
+    const [read] =
+      readIndex({
+        packages: [
+          {
+            id: 'midi-qol',
+            type: 'module',
+            title: 'Midi QOL',
+            summary: 'Automation',
+            author: { name: 'tim posney', username: 'tim-posney' },
+            provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+            url: 'https://github.com/tposney/midi-qol',
+            marketplace_url: 'https://store.test/midi',
+            tags: ['combat', 7],
+            requires: ['dnd5e'],
+            exclusive: true,
+            status: 'approved',
+            latest_version: 14,
+            compatibility: [
+              {
+                from: '14.368',
+                to: '14.999',
+                verified: 14.368,
+                version: '14.0.20',
+                manifest: 'https://files.test/14.0.20/module.json',
+                notes: 'https://files.test/notes',
+              },
+              { from: '13', to: null, verified: null, version: '13.0.4', manifest: null, notes: null },
+              { from: '12', notes: 'no version' },
+            ],
+          },
+        ],
+      }) ?? [];
+    expect(read?.details).toEqual({
+      summary: 'Automation',
+      author: { name: 'tim posney', username: 'tim-posney' },
+      provider: { id: 'pelgrane', name: 'Pelgrane Press' },
+      url: 'https://github.com/tposney/midi-qol',
+      marketplaceUrl: 'https://store.test/midi',
+      tags: ['combat'],
+      systems: ['dnd5e'],
+      exclusive: true,
+      status: 'approved',
+      latestVersion: '14',
+      versions: [
+        {
+          version: '14.0.20',
+          minimum: '14.368',
+          maximum: '14.999',
+          verified: '14.368',
+          manifest: 'https://files.test/14.0.20/module.json',
+          notes: 'https://files.test/notes',
+        },
+        { version: '13.0.4', minimum: '13', maximum: null, verified: null, manifest: null, notes: null },
+      ],
+    });
+  });
+
+  it('reads an entry with a field of another shape, leaving that field out', () => {
+    // Foundry VTT's own index gives many entries a null author; an entry of another shape leaves the index readable.
+    const [read] =
+      readIndex({
+        packages: [
+          {
+            id: 'odd',
+            type: 'module',
+            title: null,
+            author: { username: 'no-name' },
+            tags: 'combat',
+            premium: 'yes',
+            compatibility: { version: '1.0.0' },
+          },
+        ],
+      }) ?? [];
+    expect(read).toEqual({
+      ref: { type: 'module', id: 'odd' },
+      lastUpdated: null,
+      title: null,
+      premium: false,
+      archived: false,
+      details: NO_DETAILS,
+    });
+  });
+
+  it('reads an author with no username', () => {
+    const [read] = readIndex({ packages: [{ id: 'a', type: 'module', author: { name: 'Ann' } }] }) ?? [];
+    expect(read?.details.author).toEqual({ name: 'Ann', username: null });
   });
 
   it('reads the time it last changed, as the index gives it now', () => {
@@ -230,17 +321,6 @@ describe("a package's own manifest", () => {
     ...change,
   });
 
-  it('is checked once a day for each package, a 24th of them each hour', () => {
-    const refs = Array.from(
-      { length: 200 },
-      (_, index) => ({ type: 'module', id: `module-${String(index)}` }) as const,
-    );
-    const hours = Array.from({ length: 24 }, (_, hour) => new Date(Date.UTC(2026, 9, 24, hour, 30)));
-    for (const ref of refs) expect(hours.filter(hour => manifestCheckDue(ref, hour))).toHaveLength(1);
-    const busiest = Math.max(...hours.map(hour => refs.filter(ref => manifestCheckDue(ref, hour)).length));
-    expect(busiest).toBeLessThan(30);
-  });
-
   it("is the newest listed release's, or else the newest's, unless it names that release's version", () => {
     expect(
       ownManifest([
@@ -257,7 +337,7 @@ describe("a package's own manifest", () => {
     expect(ownManifest([{ ...release('1.0.0'), manifest: undefined } as unknown as Release])).toBeUndefined();
   });
 
-  it('queues a package whose manifest gives a version not held, and none whose does not, or cannot be read', async () => {
+  it('is read for a version not held, and says so of one whose is held, cannot be read, or has none', async () => {
     const answers: Record<string, () => Response> = {
       [MANIFEST]: () => Response.json({ id: 'midi-qol', version: '1.0.36' }),
       'https://files.test/same/module.json': () => Response.json({ id: 'same', version: 'v1.0.0' }),
@@ -273,7 +353,7 @@ describe("a package's own manifest", () => {
     const of = (id: string) => ({ type: 'module', id }) as const;
     const at = (id: string) => [release('1.0.0', { manifest: `https://files.test/${id}/module.json` })];
 
-    const changed = await manifestChanges(http, [
+    const checks = await checkOwnManifests(http, [
       { ref: MIDI, releases: [release('1.0.35')] },
       { ref: of('same'), releases: at('same') },
       { ref: of('odd'), releases: at('odd') },
@@ -281,6 +361,31 @@ describe("a package's own manifest", () => {
       { ref: of('none'), releases: [] },
     ]);
 
-    expect(changed).toEqual([MIDI]);
+    expect(checks).toEqual([
+      { ref: MIDI, outcome: 'read', version: '1.0.36', changed: true },
+      // A leading "v" aside, the version held.
+      { ref: of('same'), outcome: 'read', version: 'v1.0.0', changed: false },
+      { ref: of('odd'), outcome: 'failed', changed: false },
+      { ref: of('gone'), outcome: 'failed', changed: false },
+      { ref: of('none'), outcome: 'none', changed: false },
+    ]);
+  });
+
+  it('is asked of its server every time, revalidating with the ETag it gave', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>((_input, init) =>
+      Promise.resolve(
+        new Headers(init?.headers).get('If-None-Match') === '"v1"'
+          ? new Response(null, { status: 304 })
+          : Response.json({ version: '1.0.36' }, { headers: { ETag: '"v1"' } }),
+      ),
+    );
+    const http = httpClient({ fetch });
+    const held = [{ ref: MIDI, releases: [release('1.0.35')] }];
+    await checkOwnManifests(http, held);
+    expect(await checkOwnManifests(http, held)).toEqual([
+      { ref: MIDI, outcome: 'read', version: '1.0.36', changed: true },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).get('If-None-Match')).toBe('"v1"');
   });
 });
