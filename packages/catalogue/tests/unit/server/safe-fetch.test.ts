@@ -76,8 +76,9 @@ describe('safeFetch', () => {
   beforeAll(async () => {
     server = createServer((request, response) => {
       const route = routes.get(request.url ?? '');
-      if (route === undefined) response.writeHead(500).end();
-      else route(response);
+      // Checked to be one of the routes' handlers before it is called, as a path names it.
+      if (typeof route === 'function') route(response);
+      else response.writeHead(500).end();
     });
     // On both stacks: the system's resolver may give localhost as ::1 first.
     await new Promise<void>(resolve => server.listen(0, '::', resolve));
