@@ -174,8 +174,8 @@ export function createWorker({
   }
 
   /**
-   * Runs a job unless it last ended well within `everyMs`. A failure is logged, not thrown: what the job keeps up to
-   * date is still good, and the next pass tries again.
+   * Runs a job unless it last ended well within `everyMs`, or is not `ready` to. A failure is logged, not thrown: what
+   * the job keeps up to date is still good, and the next pass tries again.
    */
   async function periodic(
     name: string,
@@ -183,9 +183,12 @@ export function createWorker({
     failed: string,
     work: (client: HttpClient) => Promise<Record<string, unknown> | undefined>,
     clientFor: () => HttpClient = http,
+    ready: () => Promise<boolean> = () => Promise.resolve(true),
   ): Promise<void> {
     const last = await store.lastSuccess(name);
     if (last !== null && now().getTime() - last.getTime() < everyMs) return;
+    // Not yet: it is not run, so not recorded, and is asked again on the next pass.
+    if (!(await ready())) return;
     try {
       await job(name, {}, work, clientFor);
     } catch (error) {
@@ -259,17 +262,25 @@ export function createWorker({
 
   /**
    * Compares what the catalogue holds with its copy of Foundry VTT's index (see `consistency.ts`), keeps the report for
-   * `/status`, and queues the packages concerned, as many as `CONSISTENCY_REQUEUE`, to be crawled again.
+   * `/status`, and queues the packages concerned, as many as `CONSISTENCY_REQUEUE`, to be crawled again. Not until the
+   * copy holds the index: compared with none, everything would be consistent, and the day's report would say so.
    */
   const checkIndex = () =>
-    periodic('consistency', consistencyEveryMs, 'The catalogue was not compared with the index', async () => {
-      const { indexed, held } = await store.consistencyInputs();
-      const { concerned, ...counts } = checkConsistency(indexed, held, overrides);
-      const requeued = concerned.slice(0, CONSISTENCY_REQUEUE);
-      if (requeued.length > 0) await store.requestCrawl(requeued.map(ref => ({ package: ref, reason: 'refresh' })));
-      await store.saveConsistency({ at: now().toISOString(), ...counts, requeued: requeued.length });
-      return { ...counts, requeued: requeued.length };
-    });
+    periodic(
+      'consistency',
+      consistencyEveryMs,
+      'The catalogue was not compared with the index',
+      async () => {
+        const { indexed, held } = await store.consistencyInputs();
+        const { concerned, ...counts } = checkConsistency(indexed, held, overrides);
+        const requeued = concerned.slice(0, CONSISTENCY_REQUEUE);
+        if (requeued.length > 0) await store.requestCrawl(requeued.map(ref => ({ package: ref, reason: 'refresh' })));
+        await store.saveConsistency({ at: now().toISOString(), ...counts, requeued: requeued.length });
+        return { ...counts, requeued: requeued.length };
+      },
+      http,
+      async () => (await store.listingStamp()).count > 0,
+    );
 
   /** Whether the packages held with overrides were queued, which is done once, when the worker starts. */
   let overridesQueued = false;

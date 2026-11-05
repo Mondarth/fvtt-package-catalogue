@@ -83,7 +83,9 @@ is recorded in `sync_runs`.
   function, compares the catalogue's copy of the index (`listings`, delisted entries and worlds left out) with every
   package held, its releases' versions and listings, and the version its own manifest last gave
   (`consistencyInputs`). It counts what is to be put right (see `ConsistencyReport` in the contract), leaving out
-  versions an override says are not releases, and queues the packages concerned, at most 500, as `refresh`. The report
+  versions an override says are not releases, and queues the packages concerned, at most 500, as `refresh`. It waits
+  until the copy holds the index (the refresh keeps it), without recording a run, as compared with none, everything
+  would be consistent, and that day's report would say so. The report
   is kept in `consistency_reports`, and `/status` gives the latest: so `listed` against `held` shows how far warming
   has gone, and the rest how far the catalogue stands in for the index.
 - **The worker's cache** (`lib/server/lru-cache.ts`) is one for the process, so that Foundry VTT's index is fetched once
