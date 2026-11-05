@@ -23,6 +23,7 @@ export function mockStore(): { [K in keyof CatalogueStore]: ReturnType<typeof vi
     deferCrawl: vi.fn<CatalogueStore['deferCrawl']>().mockResolvedValue(undefined),
     replaceGaps: vi.fn<CatalogueStore['replaceGaps']>().mockResolvedValue(undefined),
     declaredManifests: vi.fn<CatalogueStore['declaredManifests']>().mockResolvedValue([]),
+    detailsOf: vi.fn<CatalogueStore['detailsOf']>().mockResolvedValue(new Map()),
     unknownOf: vi.fn<CatalogueStore['unknownOf']>().mockImplementation(refs => Promise.resolve([...refs])),
     startRun: vi.fn<CatalogueStore['startRun']>().mockResolvedValue(1),
     finishRun: vi.fn<CatalogueStore['finishRun']>().mockResolvedValue(undefined),

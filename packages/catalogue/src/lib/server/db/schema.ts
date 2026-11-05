@@ -207,6 +207,8 @@ export const crawlRequests = pgTable(
     type: packageType().notNull(),
     packageId: text().notNull(),
     reason: crawlReason().notNull(),
+    /** A manifest URL a client gave for the package, which it may be found by, as one installed by its manifest. */
+    manifest: text(),
     requestedAt: createdAt,
     /** How many times the worker has failed to crawl it. */
     attempts: integer().notNull().default(0),

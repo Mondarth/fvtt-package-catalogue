@@ -44,7 +44,7 @@ import type {
 import type { SQL } from 'drizzle-orm';
 import type { Database } from '../db/database.js';
 import type { IndexEntry } from '../refresh.js';
-import type { CatalogueStore, PackageReleases } from './types.js';
+import type { CatalogueStore, PackageDetails, PackageReleases } from './types.js';
 
 type ReleaseRow = typeof releases.$inferSelect;
 type GapRow = typeof sourceGaps.$inferSelect;
@@ -376,13 +376,22 @@ export function drizzleStore(db: Database): CatalogueStore {
       if (requests.length === 0) return;
       await db
         .insert(crawlRequests)
-        .values(requests.map(({ package: ref, reason }) => ({ type: ref.type, packageId: ref.id, reason })))
+        .values(
+          requests.map(({ package: ref, reason, manifest }) => ({
+            type: ref.type,
+            packageId: ref.id,
+            reason,
+            manifest: manifest ?? null,
+          })),
+        )
         .onConflictDoUpdate({
           target: [crawlRequests.type, crawlRequests.packageId],
           // A package keeps the most pressing reason it was queued for: once asked for, it stays asked for, and one
           // queued to warm that a closure needs is needed.
           set: {
             reason: sql`case when ${priorityOf(sql`excluded.reason`)} < ${CRAWL_PRIORITY} then excluded.reason else ${crawlRequests.reason} end`,
+            // A manifest URL given is kept until the package is crawled.
+            manifest: sql`coalesce(excluded.manifest, ${crawlRequests.manifest})`,
           },
         });
     },
@@ -407,6 +416,7 @@ export function drizzleStore(db: Database): CatalogueStore {
           package: { type: row.type, id: row.packageId },
           reason: row.reason,
           attempts: row.attempts,
+          ...(row.manifest !== null && { manifest: row.manifest }),
         };
       });
     },
@@ -443,6 +453,40 @@ export function drizzleStore(db: Database): CatalogueStore {
         )
         .orderBy(asc(relationships.manifest));
       return rows.map(row => row.manifest);
+    },
+
+    async detailsOf(refs) {
+      const found = new Map<string, PackageDetails>();
+      if (refs.length === 0) return found;
+      const rows = await db
+        .select({
+          type: packages.type,
+          packageId: packages.packageId,
+          heldTitle: packages.title,
+          heldPremium: packages.premium,
+          syncedAt: packages.syncedAt,
+          ownVersion: packages.ownVersion,
+          ownReadAt: packages.ownReadAt,
+          ownCheckedAt: packages.ownCheckedAt,
+          listedTitle: listings.title,
+          latest: listings.latestVersion,
+          listedPremium: listings.premium,
+        })
+        .from(packages)
+        .leftJoin(listings, and(eq(listings.type, packages.type), eq(listings.packageId, packages.packageId)))
+        .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
+      for (const row of rows) {
+        found.set(packageKey({ type: row.type, id: row.packageId }), {
+          title: row.listedTitle ?? row.heldTitle,
+          latest: row.latest,
+          premium: row.listedPremium ?? row.heldPremium,
+          syncedAt: row.syncedAt,
+          ownVersion: row.ownVersion,
+          ownReadAt: row.ownReadAt,
+          ownCheckedAt: row.ownCheckedAt,
+        });
+      }
+      return found;
     },
 
     async unknownOf(refs) {

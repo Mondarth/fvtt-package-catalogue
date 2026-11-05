@@ -1,6 +1,8 @@
 # The API
 
-Every endpoint is under `/api/v1`, and answers in JSON. The schema of every request and response is in the
+Every endpoint is under `/api/v1` or, for version 2, `/api/v2`, and answers in JSON. Version 2 is for clients that
+ask the catalogue alone, such as EMMA, as few times as they can; version 1 stays until every Mondarth client asks
+version 2. The schema of every request and response is in the
 [contract](https://www.npmjs.com/package/@mondarth/fvtt-package-catalogue-contract), as zod schemas a client can
 validate with.
 
@@ -24,6 +26,28 @@ Any origin may call the API, since Foundry VTT runs wherever its users host it. 
 (`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `X-Catalogue-Client` and `Content-Type` headers.
 
 ## Endpoints
+
+### Version 2
+
+`POST /api/v2/lookup`
+: A set of packages, such as those installed, and every package their releases require or run in, all the way down,
+  each once: `{ packages: [{ type, id, installed?, manifest? }], fromGeneration? }`, at most 1000 packages. The answer
+  is `{ core, packages, pending, unavailable, unreached, asOf }`:
+
+  - `packages`: each package held, those asked for first, as `{ package, title, latest, premium, syncedAt, own,
+    releases }`. Its releases are those of version 1, without their `package`. `title`, `latest` (the newest version,
+    where Foundry VTT's listing gives it) and `premium` are the listing's. `syncedAt` is when its releases were last
+    brought up to date; `own` is what its own manifest last gave, `{ version, readAt, checkedAt }`, checked about
+    hourly, so a client can say how fresh it is.
+  - `fromGeneration`, if given, leaves out releases whose declared `maximum` is of an older generation of Foundry VTT,
+    so cannot run on a build of that generation or later, and so what only they need, but for the version `installed`.
+  - `pending`: packages the catalogue does not hold yet, each `{ package, retryAfter }`: it queues them, found by the
+    `manifest` given, if any, so a package installed by its manifest alone is found too; asking again after
+    `retryAfter` seconds may find them.
+  - `unavailable`: packages that cannot be had, as in version 1. `unreached`: packages whose sources could not all be
+    listed when they were last brought up to date, so may have newer versions not held.
+
+### Version 1
 
 `GET /api/v1/packages/{type}/{id}/releases`
 : Every release of a package that the catalogue knows: `{ package, releases, asOf }`. Each release is what

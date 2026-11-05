@@ -401,6 +401,63 @@ describe('drizzleStore, for refreshing', () => {
   });
 });
 
+describe('drizzleStore, for lookups', () => {
+  const DAE = { type: 'module', id: 'dae' } as const;
+  const soon = () => new Date(Date.now() + 60_000);
+
+  it("gives what is known of each package held, the index's title and premium flag over those kept with it", async () => {
+    await store.saveReleases(MIDI, [loaded], { source: 'crawl', at });
+    await store.saveReleases(DAE, [], { source: 'crawl', at: later });
+    await store.saveListings([{ ref: DAE, listingUpdatedAt: at, title: 'DAE (held)', premium: true }]);
+    await store.saveIndex(
+      [
+        {
+          ref: MIDI,
+          lastUpdated: at,
+          title: 'Midi QOL',
+          premium: false,
+          archived: false,
+          details: { ...NO_DETAILS, latestVersion: '13.0.4' },
+        },
+      ],
+      at,
+    );
+    await store.saveOwnChecks([{ ref: MIDI, outcome: 'read', version: '13.0.4', changed: false }], later);
+    const details = await store.detailsOf([MIDI, DAE, { type: 'module', id: 'nobody' }]);
+    expect(Object.fromEntries(details)).toEqual({
+      'module:midi-qol': {
+        title: 'Midi QOL',
+        latest: '13.0.4',
+        premium: false,
+        syncedAt: at,
+        ownVersion: '13.0.4',
+        ownReadAt: later,
+        ownCheckedAt: later,
+      },
+      'module:dae': {
+        title: 'DAE (held)',
+        latest: null,
+        premium: true,
+        syncedAt: later,
+        ownVersion: null,
+        ownReadAt: null,
+        ownCheckedAt: null,
+      },
+    });
+    expect((await store.detailsOf([])).size).toBe(0);
+  });
+
+  it('keeps the manifest URL a client gave with a package queued, until it is crawled', async () => {
+    await store.requestCrawl([{ package: MIDI, reason: 'warm' }]);
+    await store.requestCrawl([{ package: MIDI, reason: 'request', manifest: 'https://example.com/a.json' }]);
+    // Asked for again without one: the one given is kept.
+    await store.requestCrawl([{ package: MIDI, reason: 'request' }]);
+    await store.requestCrawl([{ package: DAE, reason: 'request' }]);
+    expect(await store.nextCrawl(soon())).toMatchObject({ package: MIDI, manifest: 'https://example.com/a.json' });
+    expect(await store.nextCrawl(soon())).not.toHaveProperty('manifest');
+  });
+});
+
 describe("drizzleStore, for checking packages' own manifests", () => {
   const DAE = { type: 'module', id: 'dae' } as const;
   const DND5E = { type: 'system', id: 'dnd5e' } as const;
@@ -690,7 +747,9 @@ describe('the migration that keeps unlisted releases', () => {
       await old.execute(
         sql`insert into packages (type, package_id, synced_at) values ('module', 'midi-qol', ${at.toISOString()}), ('system', 'dnd5e', ${at.toISOString()})`,
       );
-      await drizzleStore(old).requestCrawl([{ package: MIDI, reason: 'request' }]);
+      await old.execute(
+        sql`insert into crawl_requests (type, package_id, reason) values ('module', 'midi-qol', 'request')`,
+      );
 
       await migrate(old, { migrationsFolder: source });
       const queued = await old

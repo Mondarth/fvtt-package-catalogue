@@ -91,6 +91,11 @@ export interface CatalogueStore {
   replaceGaps(key: string, gaps: readonly SourceGap[]): Promise<void>;
   /** The manifest URLs that held releases' relationships give for a package, which a crawl may find it by. */
   declaredManifests(ref: PackageRef): Promise<string[]>;
+  /**
+   * What a lookup gives of each package held, by package key, beside its releases: its listing's title, newest version
+   * and premium flag, when it was synced, and what its own manifest last gave. A package not held is left out.
+   */
+  detailsOf(refs: readonly PackageRef[]): Promise<ReadonlyMap<string, PackageDetails>>;
   /** Which of these packages the catalogue does not know, in the order given. */
   unknownOf(refs: readonly PackageRef[]): Promise<PackageRef[]>;
   /** Records that a run of a worker job started, and returns its id. */
@@ -141,6 +146,18 @@ export interface IndexSaved {
   readonly delisted: number;
 }
 
+/** What a lookup gives of a package held, beside its releases. */
+export interface PackageDetails {
+  /** As Foundry VTT's index lists it, or as last saved from it; null if neither. */
+  readonly title: string | null;
+  readonly latest: string | null;
+  readonly premium: boolean;
+  readonly syncedAt: Date | null;
+  readonly ownVersion: string | null;
+  readonly ownReadAt: Date | null;
+  readonly ownCheckedAt: Date | null;
+}
+
 /** A package on the worker's queue. */
 export interface QueuedCrawl extends CrawlRequest {
   readonly id: number;
@@ -165,6 +182,11 @@ export interface CrawlRequest {
    * the index lists it and no client has needed it yet, so that it is held before one does.
    */
   readonly reason: 'request' | 'closure' | 'refresh' | 'warm';
+  /**
+   * A manifest URL a client gave for it, which a crawl declares: a package installed by its manifest alone, on no
+   * listing, is found by nothing else. Kept once given, until the package is crawled.
+   */
+  readonly manifest?: string;
 }
 
 /** Where saved releases came from, and when. */
