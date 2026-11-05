@@ -45,34 +45,37 @@ describe('safeFetch', () => {
   let server: Server;
   let base = '';
   const loopback = { allow: (address: string) => address === '127.0.0.1' || address === '::1' };
-  const routes: Record<string, (response: ServerResponse) => void> = {
-    '/module.json': response => response.writeHead(200, { 'Content-Type': 'application/json' }).end('{"id":"a"}'),
-    '/moved': response => response.writeHead(302, { Location: '/module.json' }).end(),
-    '/loop': response => response.writeHead(301, { Location: '/loop' }).end(),
-    '/away': response => response.writeHead(307, { Location: 'http://10.0.0.1/module.json' }).end(),
-    '/odd-redirect': response => response.writeHead(302, { Location: 'http://[::1' }).end(),
-    '/gone': response => response.writeHead(404).end(),
-    '/declared-large': response => response.writeHead(200, { 'Content-Length': '2048' }).end('x'.repeat(2048)),
-    '/large': response => {
-      response.writeHead(200);
-      response.write('x'.repeat(600));
-      response.end('x'.repeat(600));
-    },
-    '/cut': response => {
-      response.writeHead(200);
-      response.write('{"id":');
-      setTimeout(() => response.socket?.destroy(), 20);
-    },
-    '/slow': response => {
-      response.writeHead(200);
-      response.write('{');
-      // Never ends.
-    },
-  };
+  // A Map, not an object: a path such as /constructor names no route.
+  const routes = new Map<string, (response: ServerResponse) => void>(
+    Object.entries({
+      '/module.json': response => response.writeHead(200, { 'Content-Type': 'application/json' }).end('{"id":"a"}'),
+      '/moved': response => response.writeHead(302, { Location: '/module.json' }).end(),
+      '/loop': response => response.writeHead(301, { Location: '/loop' }).end(),
+      '/away': response => response.writeHead(307, { Location: 'http://10.0.0.1/module.json' }).end(),
+      '/odd-redirect': response => response.writeHead(302, { Location: 'http://[::1' }).end(),
+      '/gone': response => response.writeHead(404).end(),
+      '/declared-large': response => response.writeHead(200, { 'Content-Length': '2048' }).end('x'.repeat(2048)),
+      '/large': response => {
+        response.writeHead(200);
+        response.write('x'.repeat(600));
+        response.end('x'.repeat(600));
+      },
+      '/cut': response => {
+        response.writeHead(200);
+        response.write('{"id":');
+        setTimeout(() => response.socket?.destroy(), 20);
+      },
+      '/slow': response => {
+        response.writeHead(200);
+        response.write('{');
+        // Never ends.
+      },
+    }),
+  );
 
   beforeAll(async () => {
     server = createServer((request, response) => {
-      const route = routes[request.url ?? ''];
+      const route = routes.get(request.url ?? '');
       if (route === undefined) response.writeHead(500).end();
       else route(response);
     });
