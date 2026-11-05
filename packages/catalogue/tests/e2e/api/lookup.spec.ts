@@ -39,7 +39,8 @@ test('refuses a request that names no packages', async ({ request }) => {
 });
 
 test('needs a key, as version 1 does', async ({ playwright, baseURL }) => {
-  const anonymous = await playwright.request.newContext({ baseURL: baseURL ?? '' });
+  // The project's key is sent unless the context's headers say otherwise.
+  const anonymous = await playwright.request.newContext({ baseURL: baseURL ?? '', extraHTTPHeaders: {} });
   const response = await anonymous.post(LOOKUP_PATH, { data: { packages: [SEEDED] } });
   expect(response.status()).toBe(401);
   expect(ErrorResponse.parse(await response.json()).error.code).toBe('unauthorised');
