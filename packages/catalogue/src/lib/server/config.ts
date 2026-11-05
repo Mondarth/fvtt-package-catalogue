@@ -58,6 +58,8 @@ export const WorkerConfig = z.object({
    * recently used first. Most are a few kilobytes; the index is several megabytes.
    */
   CACHE_ENTRIES: Count.default(5000),
+  /** How long after its last check a package's own manifest is due another. */
+  OWN_MANIFEST_CHECK_MINUTES: Count.default(60),
   /** How many packages the worker crawls at once. */
   CRAWL_CONCURRENCY: Count.default(4),
   /** The most requests made to any one host at once, across every crawl in hand. */

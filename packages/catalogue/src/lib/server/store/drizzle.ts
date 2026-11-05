@@ -4,7 +4,23 @@
 import { createHash } from 'node:crypto';
 
 import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, max, ne, notExists, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  max,
+  ne,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import {
   coreReleases,
@@ -466,6 +482,33 @@ export function drizzleStore(db: Database): CatalogueStore {
         .from(packages)
         .orderBy(asc(packages.id));
       return rows.map(({ type, packageId, ...rest }) => ({ ref: { type, id: packageId }, ...rest }));
+    },
+
+    async ownChecksDue(before, limit) {
+      const rows = await db
+        .select({ type: packages.type, packageId: packages.packageId })
+        .from(packages)
+        .where(and(isNull(packages.unavailable), or(isNull(packages.ownCheckedAt), lt(packages.ownCheckedAt, before))))
+        .orderBy(sql`${packages.ownCheckedAt} asc nulls first`, asc(packages.id))
+        .limit(limit);
+      return rows.map(({ type, packageId }) => ({ type, id: packageId }));
+    },
+
+    async saveOwnChecks(checks, at) {
+      if (checks.length === 0) return;
+      await db.transaction(async tx => {
+        for (const check of checks) {
+          // One that failed keeps what was last read.
+          const found =
+            check.outcome === 'read'
+              ? { ownVersion: check.version, ownReadAt: at }
+              : check.outcome === 'none' && { ownVersion: null, ownReadAt: null };
+          await tx
+            .update(packages)
+            .set({ ownCheckedAt: at, ...found })
+            .where(and(eq(packages.type, check.ref.type), eq(packages.packageId, check.ref.id)));
+        }
+      });
     },
 
     async unwarmed() {

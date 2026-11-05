@@ -118,9 +118,18 @@ is recorded in `sync_runs`.
   date is not older than the day it was synced, as a change given only by its day may be after the sync. A package the
   index does not list, or lists with no date, is queued once it was synced a week ago, and so is every package, on the
   index or not, as its own manifest may give a version the index does not, leaving its date as it was. The rules are
-  `planRefresh`'s, a pure function. Each hour, a 24th of the packages held, by key (`manifestCheckDue`), so each once a
-  day, have their own manifest read, and are queued if it gives a version not held (`manifestChanges`). A refresh costs
-  little: releases held as loaded are kept, so only new versions' manifests are fetched.
+  `planRefresh`'s, a pure function. A refresh costs little: releases held as loaded are kept, so only new versions'
+  manifests are fetched.
+- **Own manifests** (`checkOwnManifests`), every five minutes, in the job `own-manifests`: the packages held whose own
+  manifest (`ownManifest`) was last checked an hour ago (`OWN_MANIFEST_CHECK_MINUTES`) or never, at most a thousand,
+  the least recently checked first (`ownChecksDue`), so each about once an hour. Each is asked of its server every
+  time, revalidating with the ETag it gave, so one unchanged costs a `304`; they are asked together, within the client's
+  and the host limit. The job's client has a cache of its own (`versionsOnly`), keeping only each manifest's version
+  and ETag, a few hundred bytes, for up to 20,000 packages, so that the crawls passing through the worker's cache in
+  the hour between do not push them out of it. A package whose manifest gives a version not held is queued as `refresh`, as one its author
+  published by the manifest alone leaves the index as it was. What each check found is kept with the package
+  (`saveOwnChecks`): `own_version`, `own_read_at` (when it was last read) and `own_checked_at` (when it was last tried),
+  so that a client can be told how fresh what the catalogue holds is.
 - **The index's copy** (`listings`, written by `saveIndex`) is kept from the same read: every entry, held or not, with
   its summary, author, tags, the systems it is for, the version it lists for each line of builds, and so on. A field of
   an entry the index gives in another shape is left out, not the entry. An entry is written only when what the index

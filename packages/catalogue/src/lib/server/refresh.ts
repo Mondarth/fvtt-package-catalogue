@@ -274,20 +274,6 @@ export function planRefresh(
 }
 
 /**
- * Whether a package's own manifest is to be checked this hour: each package's once a day, a 24th of them each hour, by
- * its key, so that the requests are spread through the day.
- *
- * @param ref - The package
- * @param now - The time now
- * @returns Whether it is due
- */
-export function manifestCheckDue(ref: PackageRef, now: Date): boolean {
-  let hash = 0;
-  for (const char of packageKey(ref)) hash = (hash * 31 + char.charCodeAt(0)) % 2_147_483_647;
-  return hash % 24 === now.getUTCHours();
-}
-
-/**
  * The manifest a package's releases say is its own, as Foundry VTT's updater reads it to update the package: that of
  * its newest listed release, or, if none is listed, of its newest. One that names that release's version is that
  * release's alone, and never gives a newer one, so it is none: reading it again would only load what is held.
@@ -303,26 +289,43 @@ export function ownManifest(releases: readonly Release[]): string | undefined {
 }
 
 /**
- * The packages whose own manifest gives a version the catalogue does not hold, as one its author published by the
- * manifest alone, so that Foundry VTT's index, and its date, are as they were. Each manifest is asked through the
- * client's cache; one that cannot be read, or gives no version, changes nothing.
+ * What reading a package's own manifest found. `read`: it gave `version`. `none`: the package has no manifest of its
+ * own that may give a newer version (see {@link ownManifest}). `failed`: it could not be fetched, or gave no version.
+ */
+export type OwnCheck = {
+  readonly ref: PackageRef;
+  /** Whether it gave a version the catalogue does not hold, so that the package is to be crawled again. */
+  readonly changed: boolean;
+} & ({ readonly outcome: 'read'; readonly version: string } | { readonly outcome: 'none' | 'failed' });
+
+/**
+ * Reads each package's own manifest, as Foundry VTT's updater reads it, for a version the catalogue does not hold: one
+ * its author published by the manifest alone, so that Foundry VTT's index, and its date, are as they were. Each is
+ * asked of its server every time, through the client's cache, so that one that has not changed costs only its ETag's
+ * answer; they are asked together, as many at once as the client allows.
  *
  * @param http - The client
  * @param held - The packages to check, each with its releases held
- * @returns Those to crawl again
+ * @returns What each check found, in the order given
  */
-export async function manifestChanges(
+export async function checkOwnManifests(
   http: HttpClient,
   held: readonly { readonly ref: PackageRef; readonly releases: readonly Release[] }[],
-): Promise<PackageRef[]> {
-  const changed: PackageRef[] = [];
-  for (const { ref, releases } of held) {
-    const url = ownManifest(releases);
-    if (url === undefined) continue;
-    const fetched = await http.getJson(url, { maxAge: FIVE_MINUTES });
-    const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
-    if (typeof version !== 'string' && typeof version !== 'number') continue;
-    if (!releases.some(release => sameVersion(release.version, String(version)))) changed.push(ref);
-  }
-  return changed;
+): Promise<OwnCheck[]> {
+  return Promise.all(
+    held.map(async ({ ref, releases }): Promise<OwnCheck> => {
+      const url = ownManifest(releases);
+      if (url === undefined) return { ref, outcome: 'none', changed: false };
+      const fetched = await http.getJson(url, { maxAge: 0 });
+      const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
+      if (typeof version !== 'string' && typeof version !== 'number') return { ref, outcome: 'failed', changed: false };
+      const given = String(version);
+      return {
+        ref,
+        outcome: 'read',
+        version: given,
+        changed: !releases.some(release => sameVersion(release.version, given)),
+      };
+    }),
+  );
 }

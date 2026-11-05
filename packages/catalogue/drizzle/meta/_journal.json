@@ -43,6 +43,13 @@
       "when": 1793881136295,
       "tag": "0005_warm-crawl-reason",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793887108863,
+      "tag": "0006_own-manifest-checks",
+      "breakpoints": true
     }
   ]
 }

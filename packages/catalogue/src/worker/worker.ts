@@ -6,7 +6,7 @@ import { packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { crawlPackage } from '#lib/server/crawl.js';
 import { unavailableOf } from '#lib/server/overrides.js';
-import { manifestChanges, manifestCheckDue, ownManifest, planRefresh } from '#lib/server/refresh.js';
+import { checkOwnManifests, ownManifest, planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
@@ -19,12 +19,20 @@ const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/** The most packages whose own manifests are checked in one run of the job. */
+const OWN_CHECK_BATCH = 1000;
+
 /** What the worker works with. */
 export interface WorkerOptions {
   readonly store: CatalogueStore;
   readonly log: Logger;
   /** A client for one job, with a budget of its own. */
   readonly http: () => HttpClient;
+  /**
+   * A client for one run of the checks of packages' own manifests, with a cache of their versions of its own, so that
+   * crawls do not push them out of it (see `lru-cache.ts`); `http` by default.
+   */
+  readonly ownHttp?: () => HttpClient;
   /** The sources of releases, in order, fetching through a job's client. */
   readonly sources: (http: HttpClient) => ReleaseSource[];
   /** Foundry VTT's builds, fetched through a job's client. */
@@ -52,6 +60,10 @@ export interface WorkerOptions {
   readonly warmPerHour?: number;
   /** How many packages are crawled at once; four by default. */
   readonly crawlConcurrency?: number;
+  /** How often the packages' own manifests due a check are checked; every five minutes by default. */
+  readonly ownCheckEveryMs?: number;
+  /** How long after its last check a package's own manifest is due another; an hour by default. */
+  readonly ownCheckStaleMs?: number;
 }
 
 /** The worker. */
@@ -116,6 +128,7 @@ export function createWorker({
   store,
   log,
   http,
+  ownHttp = http,
   sources,
   coreReleases,
   index,
@@ -128,17 +141,20 @@ export function createWorker({
   staleMs = 7 * DAY,
   warmPerHour = 300,
   crawlConcurrency = 4,
+  ownCheckEveryMs = 5 * MINUTE,
+  ownCheckStaleMs = HOUR,
 }: WorkerOptions): Worker {
   /**
-   * Runs a job with a client of its own, recording the run; whatever it throws is rethrown once recorded. What the work
-   * returns is logged with the job.
+   * Runs a job with a client of its own, from `clientFor`, recording the run; whatever it throws is rethrown once
+   * recorded. What the work returns is logged with the job.
    */
   async function job(
     name: string,
     fields: Record<string, unknown>,
     work: (client: HttpClient) => Promise<Record<string, unknown> | undefined>,
+    clientFor: () => HttpClient = http,
   ) {
-    const client = http();
+    const client = clientFor();
     const id = await store.startRun(name, now());
     try {
       const done = await work(client);
@@ -159,11 +175,12 @@ export function createWorker({
     everyMs: number,
     failed: string,
     work: (client: HttpClient) => Promise<Record<string, unknown> | undefined>,
+    clientFor: () => HttpClient = http,
   ): Promise<void> {
     const last = await store.lastSuccess(name);
     if (last !== null && now().getTime() - last.getTime() < everyMs) return;
     try {
-      await job(name, {}, work);
+      await job(name, {}, work, clientFor);
     } catch (error) {
       log.warn(failed, { error });
     }
@@ -180,8 +197,8 @@ export function createWorker({
 
   /**
    * Keeps the catalogue's copy of Foundry VTT's index, and queues the packages held that changed, or that are old
-   * enough, to be crawled again: as the index says, and, a 24th of them each hour, as their own manifests say, giving a
-   * version not held. Then queues, to warm, the packages the index lists that the catalogue does not hold.
+   * enough, to be crawled again, as the index says. Then queues, to warm, the packages the index lists that the
+   * catalogue does not hold.
    */
   const refresh = () =>
     periodic('refresh', refreshEveryMs, 'The packages held were not checked for changes', async client => {
@@ -190,23 +207,12 @@ export function createWorker({
       const indexed = await store.saveIndex(found.value, now());
       const held = await store.heldPackages();
       const plan = planRefresh(held, found.value, { now: now(), staleMs });
-      const planned = new Set(plan.refresh.map(packageKey));
-      const due = held
-        .filter(({ ref, unavailable }) => unavailable === null && !planned.has(packageKey(ref)))
-        .filter(({ ref }) => manifestCheckDue(ref, now()));
-      const releases = await store.releasesOfEach(due.map(({ ref }) => ref));
-      const changed = await manifestChanges(
-        client,
-        due.map(({ ref }) => ({ ref, releases: releases.get(packageKey(ref))?.releases ?? [] })),
-      );
       await store.saveListings(plan.listings);
-      await store.requestCrawl([...plan.refresh, ...changed].map(ref => ({ package: ref, reason: 'refresh' })));
+      await store.requestCrawl(plan.refresh.map(ref => ({ package: ref, reason: 'refresh' })));
       const unwarmed = warmPerHour > 0 ? await store.unwarmed() : [];
       if (unwarmed.length > 0) await store.requestCrawl(unwarmed.map(ref => ({ package: ref, reason: 'warm' })));
       return {
         refreshed: plan.refresh.length,
-        manifestsChecked: due.length,
-        manifestsChanged: changed.length,
         listings: plan.listings.length,
         indexAdded: indexed.added,
         indexChanged: indexed.changed,
@@ -214,6 +220,35 @@ export function createWorker({
         warmQueued: unwarmed.length,
       };
     });
+
+  /**
+   * Checks the own manifests of the packages due a check, those last checked `ownCheckStaleMs` ago or never, so each
+   * about once an hour, and queues those that give a version not held to be crawled again.
+   */
+  const checkOwn = () =>
+    periodic(
+      'own-manifests',
+      ownCheckEveryMs,
+      "The packages' own manifests were not checked",
+      async client => {
+        const due = await store.ownChecksDue(new Date(now().getTime() - ownCheckStaleMs), OWN_CHECK_BATCH);
+        const held = await store.releasesOfEach(due);
+        const checks = await checkOwnManifests(
+          client,
+          due.map(ref => ({ ref, releases: held.get(packageKey(ref))?.releases ?? [] })),
+        );
+        await store.saveOwnChecks(checks, now());
+        const changed = checks.filter(check => check.changed).map(check => check.ref);
+        if (changed.length > 0) await store.requestCrawl(changed.map(ref => ({ package: ref, reason: 'refresh' })));
+        return {
+          checked: checks.length,
+          read: checks.filter(check => check.outcome === 'read').length,
+          failed: checks.filter(check => check.outcome === 'failed').length,
+          changed: changed.length,
+        };
+      },
+      ownHttp,
+    );
 
   /** Whether the packages held with overrides were queued, which is done once, when the worker starts. */
   let overridesQueued = false;
@@ -351,6 +386,8 @@ export function createWorker({
         staleMs,
         warmPerHour,
         crawlConcurrency,
+        ownCheckEveryMs,
+        ownCheckStaleMs,
         overrides: Object.keys(overrides).length,
       });
       while (!signal.aborted) {
@@ -358,6 +395,7 @@ export function createWorker({
           await queueOverridden();
           await syncCore();
           await refresh();
+          await checkOwn();
           await startCrawls();
         } catch (error) {
           // The database, most likely: wait, and try again.
@@ -376,6 +414,7 @@ export function createWorker({
       await queueOverridden();
       await syncCore();
       await refresh();
+      await checkOwn();
       let crawled = 0;
       // A crawl done may queue more, as a closure: the queue is drained once none is due and none is in hand.
       for (;;) {

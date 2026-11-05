@@ -1,7 +1,6 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import { manifestCheckDue } from '../../../src/lib/server/refresh.js';
 import { backoff, createWorker, sleep } from '../../../src/worker/worker.js';
 import { NO_DETAILS } from '../support/index-entry.js';
 import { memoryLogger } from '../support/logger.js';
@@ -434,47 +433,6 @@ describe('the worker, refreshing the packages held', () => {
     expect(order).toEqual(['queued', 'crawled']);
   });
 
-  it('queues, a 24th of them each hour, those whose own manifest gives a version not held', async () => {
-    // Two packages due this hour, and one not; Midi QOL's own manifest gives 13.0.5, the other's what is held.
-    const refs = Array.from({ length: 100 }, (_, index) => ({ type: 'module', id: `pkg-${String(index)}` }) as const);
-    // A third due has no releases held, so no manifest to check.
-    const [due, same, bare] = refs.filter(ref => manifestCheckDue(ref, NOW));
-    const notDue = refs.find(ref => !manifestCheckDue(ref, NOW));
-    if (due === undefined || same === undefined || bare === undefined || notDue === undefined)
-      throw new Error('No packages to check');
-    const manifestOf = (id: string) => `https://files.test/${id}/module.json`;
-    const fetch = vi.fn<typeof globalThis.fetch>(input => {
-      const url = input instanceof Request ? input.url : String(input);
-      return Promise.resolve(Response.json({ version: url === manifestOf(same.id) ? '13.0.4' : '13.0.5' }));
-    });
-    const { store, worker } = setUp({ send: fetch });
-    const at = (ref: PackageRef) => ({ ...release(), package: ref, manifest: manifestOf(ref.id) });
-    store.heldPackages.mockResolvedValue(
-      [due, same, bare, notDue].map(ref => ({
-        ref,
-        syncedAt: NOW,
-        listingUpdatedAt: null,
-        title: null,
-        premium: false,
-        unavailable: null,
-      })),
-    );
-    store.releasesOfEach.mockImplementation(asked =>
-      Promise.resolve(
-        new Map(
-          asked
-            .filter(ref => ref !== bare)
-            .map(ref => [`module:${ref.id}`, { releases: [at(ref)], asOf: NOW, unavailable: null }]),
-        ),
-      ),
-    );
-
-    await worker.drain();
-
-    expect(store.releasesOfEach).toHaveBeenCalledWith([due, same, bare]);
-    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: due, reason: 'refresh' }]);
-  });
-
   it("crawls with the package's own manifest declared, so that what it gives now is read", async () => {
     const releases = vi.fn<ReleaseSource['releases']>(() => Promise.resolve({ ok: true, value: [] }));
     const { store, worker } = setUp({ releases });
@@ -517,6 +475,91 @@ describe('the worker, refreshing the packages held', () => {
     expect(log.lines).toContainEqual(
       expect.objectContaining({ level: 'warn', message: 'The packages held were not checked for changes' }),
     );
+  });
+});
+
+describe("the worker, checking packages' own manifests", () => {
+  const manifestOf = (id: string) => `https://files.test/${id}/module.json`;
+  const at = (ref: PackageRef) => ({ ...release(), package: ref, manifest: manifestOf(ref.id) });
+
+  it('checks those due, records what each gave, and queues those that give a version not held', async () => {
+    const newer = { type: 'module', id: 'newer' } as const;
+    const same = { type: 'module', id: 'same' } as const;
+    const broken = { type: 'module', id: 'broken' } as const;
+    const bare = { type: 'module', id: 'bare' } as const;
+    const fetch = vi.fn<typeof globalThis.fetch>(input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === manifestOf('broken')) return Promise.resolve(new Response('', { status: 404 }));
+      return Promise.resolve(Response.json({ version: url === manifestOf('same') ? '13.0.4' : '13.0.5' }));
+    });
+    const { store, log, worker } = setUp({ send: fetch });
+    store.ownChecksDue.mockResolvedValue([newer, same, broken, bare]);
+    store.releasesOfEach.mockImplementation(asked =>
+      Promise.resolve(
+        new Map(
+          asked
+            .filter(ref => ref !== bare)
+            .map(ref => [`module:${ref.id}`, { releases: [at(ref)], asOf: NOW, unavailable: null }]),
+        ),
+      ),
+    );
+
+    await worker.drain();
+
+    // Due: checked an hour ago or more, at most a thousand.
+    expect(store.ownChecksDue).toHaveBeenCalledWith(new Date(NOW.getTime() - 60 * 60 * 1000), 1000);
+    expect(store.saveOwnChecks).toHaveBeenCalledWith(
+      [
+        { ref: newer, outcome: 'read', version: '13.0.5', changed: true },
+        { ref: same, outcome: 'read', version: '13.0.4', changed: false },
+        { ref: broken, outcome: 'failed', changed: false },
+        { ref: bare, outcome: 'none', changed: false },
+      ],
+      NOW,
+    );
+    expect(store.requestCrawl).toHaveBeenCalledWith([{ package: newer, reason: 'refresh' }]);
+    expect(log.lines).toContainEqual(
+      expect.objectContaining({ job: 'own-manifests', checked: 4, read: 2, failed: 1, changed: 1 }),
+    );
+  });
+
+  it('checks them through a client of their own, when given one', async () => {
+    const crawling = vi.fn<typeof globalThis.fetch>();
+    const checking = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(Response.json({ version: '13.0.4' })));
+    const store = mockStore();
+    store.ownChecksDue.mockResolvedValue([MIDI]);
+    store.releasesOfEach.mockResolvedValue(
+      new Map([['module:midi-qol', { releases: [at(MIDI)], asOf: NOW, unavailable: null }]]),
+    );
+    const worker = createWorker({
+      store,
+      log: memoryLogger(),
+      http: () => httpClient({ fetch: crawling }),
+      ownHttp: () => httpClient({ fetch: checking }),
+      sources: () => [],
+      coreReleases: () => Promise.resolve({ ok: true, value: [] }),
+      index: () => Promise.resolve({ ok: true, value: [] }),
+      now: () => NOW,
+    });
+    await worker.drain();
+    expect(checking).toHaveBeenCalledWith(manifestOf('midi-qol'), expect.anything());
+    expect(crawling).not.toHaveBeenCalled();
+  });
+
+  it('queues none when none gives a version not held', async () => {
+    const { store, worker } = setUp();
+    await worker.drain();
+    expect(store.saveOwnChecks).toHaveBeenCalledWith([], NOW);
+    expect(store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0)).toEqual([]);
+  });
+
+  it('does not check again within five minutes', async () => {
+    const { store, worker } = setUp();
+    store.lastSuccess.mockImplementation(job =>
+      Promise.resolve(job === 'own-manifests' ? new Date(NOW.getTime() - 4 * 60 * 1000) : null),
+    );
+    await worker.drain();
+    expect(store.ownChecksDue).not.toHaveBeenCalled();
   });
 });
 
