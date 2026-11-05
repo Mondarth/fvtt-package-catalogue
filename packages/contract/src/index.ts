@@ -45,4 +45,10 @@ export {
   OwnManifest,
   PackageRelease,
   PendingPackage,
+  MAX_RECHECK_PACKAGES,
+  RECHECK_MIN_SECONDS,
+  RECHECK_PATH,
+  RecheckRequest,
+  RecheckResponse,
+  RecheckedPackage,
 } from './v2.js';
