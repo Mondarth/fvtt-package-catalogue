@@ -8,6 +8,7 @@ import { POST as universe } from '../../../src/routes/api/v1/universe/+server.js
 import { GET as core } from '../../../src/routes/api/v2/core/+server.js';
 import { GET as listing } from '../../../src/routes/api/v2/listing/+server.js';
 import { POST as lookup } from '../../../src/routes/api/v2/lookup/+server.js';
+import { POST as recheck } from '../../../src/routes/api/v2/recheck/+server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
 import { invoke } from '../support/event.js';
 import { mockStore } from '../support/store.js';
@@ -215,6 +216,51 @@ describe('GET /api/v2/core', () => {
       locals: { store },
     });
     expect(again.status).toBe(304);
+  });
+});
+
+describe('POST /api/v2/recheck', () => {
+  const post = (body: unknown, store = mockStore()) =>
+    invoke(recheck, {
+      method: 'POST',
+      url: 'http://catalogue.test/api/v2/recheck',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+      locals: { store },
+    });
+
+  it('gives each package held as rechecked, and leaves out those it does not hold', async () => {
+    const store = mockStore();
+    const asOf = new Date('2026-11-05T09:00:00Z');
+    // Held, with no manifest of its own to read, so nothing is fetched.
+    store.releasesOfEach.mockResolvedValue(
+      new Map([
+        [
+          'module:midi-qol',
+          { releases: [{ ...release, manifest: undefined } as unknown as Release], asOf, unavailable: null },
+        ],
+      ]),
+    );
+    const response = await post({ packages: [release.package, { type: 'module', id: 'nobody' }] }, store);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      packages: [{ package: release.package, own: { version: null, readAt: null, checkedAt: null }, changed: false }],
+      pending: [],
+    });
+    expect(store.saveOwnChecks).toHaveBeenCalledWith(
+      [{ ref: release.package, outcome: 'none', changed: false }],
+      expect.any(Date),
+    );
+  });
+
+  it.each([
+    ['a body that is not JSON', '{'],
+    ['no packages', { packages: [] }],
+    ['too many packages', { packages: Array.from({ length: 51 }, () => release.package) }],
+  ])('answers bad-request for %s, without asking the store', async (_, body) => {
+    const store = mockStore();
+    const response = await post(body, store);
+    expect(response.status).toBe(400);
+    expect(store.detailsOf).not.toHaveBeenCalled();
   });
 });
 

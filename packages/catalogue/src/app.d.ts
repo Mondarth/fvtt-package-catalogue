@@ -1,3 +1,4 @@
+import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '#lib/server/log.js';
 import type { CatalogueStore } from '#lib/server/store/types.js';
 
@@ -11,6 +12,8 @@ declare global {
       requestId: string;
       store: CatalogueStore;
       log: Logger;
+      /** A client for a request that fetches, such as a recheck of packages' own manifests, with a budget of its own. */
+      http: () => HttpClient;
     }
   }
 }

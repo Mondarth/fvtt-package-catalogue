@@ -1,3 +1,4 @@
+import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CORS_HEADERS, createHandle } from '../../../../src/lib/server/http/handle.js';
@@ -9,10 +10,20 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 const store = mockStore();
 
+/** The client a request that fetches is given. */
+const http = () => httpClient({ fetch: vi.fn<typeof fetch>() });
+
 function setUp() {
   const log = memoryLogger();
   let tick = 0;
-  const handle = createHandle({ store, apiKeys: ['secret'], log, requestId: () => 'id-1', clock: () => (tick += 5) });
+  const handle = createHandle({
+    store,
+    apiKeys: ['secret'],
+    log,
+    http,
+    requestId: () => 'id-1',
+    clock: () => (tick += 5),
+  });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(Response.json({ ok: true })));
   const run = (url: string, options: { method?: string; headers?: Record<string, string> } = {}) => {
     const event = fakeEvent({ url: `http://catalogue.test${url}`, ...options });
@@ -22,12 +33,13 @@ function setUp() {
 }
 
 describe('createHandle', () => {
-  it('gives every request an id, the store and a logger', async () => {
+  it('gives every request an id, the store, a logger and the client to fetch with', async () => {
     const { run } = setUp();
     const { event, response } = run('/');
     await response;
     expect(event.locals.requestId).toBe('id-1');
     expect(event.locals.store).toBe(store);
+    expect(event.locals.http).toBe(http);
   });
 
   it('logs each request once, with its id, status and time', async () => {
@@ -133,7 +145,7 @@ describe('createHandle', () => {
   });
 
   it('makes a new random id for each request by default', async () => {
-    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger() });
+    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger(), http });
     const ids = await Promise.all(
       [1, 2].map(async () => {
         const event = fakeEvent();

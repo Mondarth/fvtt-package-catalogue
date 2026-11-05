@@ -48,6 +48,14 @@ lets it read the `ETag`.
   - `unavailable`: packages that cannot be had, as in version 1. `unreached`: packages whose sources could not all be
     listed when they were last brought up to date, so may have newer versions not held.
 
+`POST /api/v2/recheck`
+: Checks packages' own manifests again now, as a client's "check live" asks, rather than at the catalogue's next
+  hourly check: `{ packages: [{ type, id }] }`, at most 50. The answer is `{ packages, pending }`: each package asked
+  for that the catalogue holds, and can be had, once, as `{ package, own, changed }`, where `own` is as a lookup gives
+  it, now; and the packages whose manifest gave a version the catalogue does not hold, queued to be crawled, as a
+  lookup gives those pending, to look up again after `retryAfter`. A package checked in the last five minutes is given
+  as it was then, without asking its server, however many clients ask. A package not held is left out: look it up.
+
 `GET /api/v2/listing`, or `?type=module` or `?type=system`
 : Every package Foundry VTT's listing offers to install, as the catalogue keeps it, neither archived nor delisted:
   `{ packages, asOf }`, each package `{ package, title, summary, author, url, tags, systems, premium, exclusive,
