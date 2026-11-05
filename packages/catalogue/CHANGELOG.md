@@ -1,3 +1,21 @@
+## [@mondarth/fvtt-package-catalogue-v0.6.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.3...@mondarth/fvtt-package-catalogue-v0.6.0) (2026-11-05)
+
+### Features
+
+* **catalogue:** answer version 2 lookups ([418e079](https://github.com/Mondarth/fvtt-package-catalogue/commit/418e0795f70786eb86e06c0365f817ea3cec2bb3))
+* **catalogue:** give the listing and builds, revalidated by ETag ([e472730](https://github.com/Mondarth/fvtt-package-catalogue/commit/e472730d9314763614a76a5a1f54d12ea6733c58))
+* **catalogue:** keep a copy of Foundry VTT's package index ([00f7a75](https://github.com/Mondarth/fvtt-package-catalogue/commit/00f7a75e82916c5f6218013771d3adb08ab06ca0))
+* **catalogue:** read manifest URLs users give, refusing private ones ([d2c301c](https://github.com/Mondarth/fvtt-package-catalogue/commit/d2c301ccb3d6bbc5a1270370b5f460828bc891c8))
+* **catalogue:** recheck packages' own manifests when asked ([070b024](https://github.com/Mondarth/fvtt-package-catalogue/commit/070b024a362069cfcbbadf968f1ed4461bb83d19))
+* **worker:** check own manifests hourly and keep what they gave ([6a19078](https://github.com/Mondarth/fvtt-package-catalogue/commit/6a19078c7bf0461ebb313dd21c5e509b695cdfbb))
+* **worker:** compare the catalogue with the index daily ([eb9a46d](https://github.com/Mondarth/fvtt-package-catalogue/commit/eb9a46d95291daee0ac7882fe266bd5a7bf40706))
+* **worker:** crawl several packages at once, limited per host ([2d1a175](https://github.com/Mondarth/fvtt-package-catalogue/commit/2d1a1751f548b16d750bfd4ba3e0614e630a51a8))
+* **worker:** warm the catalogue with every package the index lists ([918b225](https://github.com/Mondarth/fvtt-package-catalogue/commit/918b2257f90dfb41fb398d7cf8266411d94704e1))
+
+### Bug Fixes
+
+* **worker:** bound the worker's cache of what it fetched ([4df6aa0](https://github.com/Mondarth/fvtt-package-catalogue/commit/4df6aa08f9e6c0e115c3075d2756fcf6680b8c71))
+
 ## [@mondarth/fvtt-package-catalogue-v0.5.3](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.5.2...@mondarth/fvtt-package-catalogue-v0.5.3) (2026-11-05)
 
 ### Bug Fixes
