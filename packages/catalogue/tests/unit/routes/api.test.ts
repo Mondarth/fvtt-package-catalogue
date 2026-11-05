@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import manifest from '../../../package.json';
 
@@ -8,6 +8,7 @@ import { POST as universe } from '../../../src/routes/api/v1/universe/+server.js
 import { GET as core } from '../../../src/routes/api/v2/core/+server.js';
 import { GET as listing } from '../../../src/routes/api/v2/listing/+server.js';
 import { POST as lookup } from '../../../src/routes/api/v2/lookup/+server.js';
+import { POST as manifestRead } from '../../../src/routes/api/v2/manifest/+server.js';
 import { POST as recheck } from '../../../src/routes/api/v2/recheck/+server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
 import { invoke } from '../support/event.js';
@@ -261,6 +262,41 @@ describe('POST /api/v2/recheck', () => {
     const response = await post(body, store);
     expect(response.status).toBe(400);
     expect(store.detailsOf).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/v2/manifest', () => {
+  const post = (body: unknown, locals: Partial<App.Locals> = {}) =>
+    invoke(manifestRead, {
+      method: 'POST',
+      url: 'http://catalogue.test/api/v2/manifest',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+      locals,
+    });
+
+  it('reads the manifest URL given, as the server fetches it', async () => {
+    const fetchGiven = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        url: 'https://example.com/module.json',
+        body: '{"id":"a","version":"1.0.0"}',
+      } as const),
+    );
+    const response = await post({ url: 'https://example.com/module.json', type: 'module' }, { fetchGiven });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, title: 'a', release: { version: '1.0.0' } });
+    expect(fetchGiven).toHaveBeenCalledWith('https://example.com/module.json');
+  });
+
+  it.each([
+    ['a body that is not JSON', '{'],
+    ['a URL that is not of the web', { url: 'file:///etc/passwd', type: 'module' }],
+    ['a type that is not installed from a manifest', { url: 'https://example.com/world.json', type: 'world' }],
+  ])('answers bad-request for %s, without fetching', async (_, body) => {
+    const fetchGiven = vi.fn();
+    const response = await post(body, { fetchGiven });
+    expect(response.status).toBe(400);
+    expect(fetchGiven).not.toHaveBeenCalled();
   });
 });
 

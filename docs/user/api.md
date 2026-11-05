@@ -48,6 +48,16 @@ lets it read the `ETag`.
   - `unavailable`: packages that cannot be had, as in version 1. `unreached`: packages whose sources could not all be
     listed when they were last brought up to date, so may have newer versions not held.
 
+`POST /api/v2/manifest`
+: Reads a manifest URL a user gives, to install a package from: `{ url, type }`, `type` `module` or `system`. The
+  answer is `{ ok: true, title, release }`, the release with the URL as its manifest, for its version alone, since what
+  it gives is what the user chose; or `{ ok: false, problem }`: `unreadable`, with a `reason` (`http` with its
+  `status`, `network`, `invalid`, `refused` or `too-large`) and the `host`; `other-type`, a manifest of the other
+  `type`, which Foundry VTT would install as the type asked; or `not-manifest`. The package is queued, found by the URL.
+  The catalogue fetches the URL itself, so it refuses what only it could reach: a host that is, or resolves to, a
+  private, local or reserved address, checked as each connection is made; a port other than 80 or 443; more than three
+  redirects; more than 1 MB; more than ten seconds.
+
 `POST /api/v2/recheck`
 : Checks packages' own manifests again now, as a client's "check live" asks, rather than at the catalogue's next
   hourly check: `{ packages: [{ type, id }] }`, at most 50. The answer is `{ packages, pending }`: each package asked

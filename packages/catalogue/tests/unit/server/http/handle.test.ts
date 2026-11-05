@@ -13,6 +13,9 @@ const store = mockStore();
 /** The client a request that fetches is given. */
 const http = () => httpClient({ fetch: vi.fn<typeof fetch>() });
 
+/** What fetches a URL a client gave. */
+const fetchGiven = vi.fn(() => Promise.resolve({ ok: false, reason: 'refused' } as const));
+
 function setUp() {
   const log = memoryLogger();
   let tick = 0;
@@ -21,6 +24,7 @@ function setUp() {
     apiKeys: ['secret'],
     log,
     http,
+    fetchGiven,
     requestId: () => 'id-1',
     clock: () => (tick += 5),
   });
@@ -40,6 +44,7 @@ describe('createHandle', () => {
     expect(event.locals.requestId).toBe('id-1');
     expect(event.locals.store).toBe(store);
     expect(event.locals.http).toBe(http);
+    expect(event.locals.fetchGiven).toBe(fetchGiven);
   });
 
   it('logs each request once, with its id, status and time', async () => {
@@ -145,7 +150,7 @@ describe('createHandle', () => {
   });
 
   it('makes a new random id for each request by default', async () => {
-    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger(), http });
+    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger(), http, fetchGiven });
     const ids = await Promise.all(
       [1, 2].map(async () => {
         const event = fakeEvent();
