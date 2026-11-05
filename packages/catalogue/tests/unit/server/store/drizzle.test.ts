@@ -301,11 +301,26 @@ describe('drizzleStore, for the worker', () => {
       { package: DND5E, reason: 'refresh' },
     ]);
     expect(await store.nextCrawl(soon(), { warm: false })).toMatchObject({ package: DND5E });
-    const next = await store.nextCrawl(soon());
-    if (next === undefined) throw new Error('nothing queued');
-    await store.finishCrawl(next.id);
     expect(await store.nextCrawl(soon(), { warm: false })).toBeUndefined();
     expect(await store.nextCrawl(soon())).toMatchObject({ package: DAE, reason: 'warm' });
+  });
+
+  it('holds a package taken from other crawls for an hour, unless it is finished first', async () => {
+    await store.requestCrawl([
+      { package: MIDI, reason: 'request' },
+      { package: DAE, reason: 'request' },
+    ]);
+    const now = soon();
+    const first = await store.nextCrawl(now);
+    const second = await store.nextCrawl(now);
+    expect([first?.package, second?.package]).toEqual([MIDI, DAE]);
+    expect(await store.nextCrawl(now)).toBeUndefined();
+    if (second === undefined) throw new Error('nothing queued');
+    await store.finishCrawl(second.id);
+    // Never finished, as when the worker stopped mid-crawl: given again once the hour is over.
+    const hourOn = new Date(now.getTime() + 60 * 60 * 1000);
+    expect(await store.nextCrawl(new Date(hourOn.getTime() - 1))).toBeUndefined();
+    expect(await store.nextCrawl(hourOn)).toMatchObject({ package: MIDI, attempts: 0 });
   });
 
   it('gives nothing when the queue is empty', async () => {

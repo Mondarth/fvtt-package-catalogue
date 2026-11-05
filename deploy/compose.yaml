@@ -94,6 +94,9 @@ services:
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
       # Packages crawled an hour to warm the catalogue; 0 turns warming off.
       WARM_PER_HOUR: ${WARM_PER_HOUR:-300}
+      # Packages crawled at once, and requests made to any one host at once across them.
+      CRAWL_CONCURRENCY: ${CRAWL_CONCURRENCY:-4}
+      CRAWL_PER_HOST: ${CRAWL_PER_HOST:-4}
     depends_on:
       migrate:
         condition: service_completed_successfully

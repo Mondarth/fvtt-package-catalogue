@@ -45,6 +45,8 @@ describe('readConfig', () => {
       REFRESH_MINUTES: 60,
       REFRESH_STALE_DAYS: 7,
       WARM_PER_HOUR: 300,
+      CRAWL_CONCURRENCY: 4,
+      CRAWL_PER_HOST: 4,
       PACKAGE_OVERRIDES_FILE: 'overrides.json',
       FOUNDRY_INDEX_URL: 'https://r2.foundryvtt.com/package-api-public/index-latest.json',
       FOUNDRY_RELEASES_URL: 'https://foundryvtt.com/releases/',

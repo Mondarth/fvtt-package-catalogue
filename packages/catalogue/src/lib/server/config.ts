@@ -53,6 +53,10 @@ export const WorkerConfig = z.object({
    * yet. None turns warming off.
    */
   WARM_PER_HOUR: z.coerce.number().int().nonnegative().default(300),
+  /** How many packages the worker crawls at once. */
+  CRAWL_CONCURRENCY: Count.default(4),
+  /** The most requests made to any one host at once, across every crawl in hand. */
+  CRAWL_PER_HOST: Count.default(4),
   /** The package overrides: what the catalogue is told of packages whose sources mislead it. */
   PACKAGE_OVERRIDES_FILE: z.string().min(1).default('overrides.json'),
   /** Foundry VTT's package index; another only to test against. */

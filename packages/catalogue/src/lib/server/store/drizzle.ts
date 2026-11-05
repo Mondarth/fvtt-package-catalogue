@@ -103,6 +103,9 @@ const gapRow = (gap: SourceGap) => ({
   version: gap.version ?? null,
 });
 
+/** How long a package taken to crawl is held from other crawls, unless it is finished or deferred first. */
+const CRAWL_HOLD_MS = 60 * 60 * 1000;
+
 /** How many index entries are written in one statement. */
 const INDEX_BATCH = 500;
 
@@ -358,20 +361,27 @@ export function drizzleStore(db: Database): CatalogueStore {
     },
 
     async nextCrawl(now, { warm = true } = {}) {
-      const [row] = await db
-        .select()
-        .from(crawlRequests)
-        .where(and(lte(crawlRequests.notBefore, now), warm ? undefined : ne(crawlRequests.reason, 'warm')))
-        .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
-        .limit(1);
-      return (
-        row && {
+      return db.transaction(async tx => {
+        // Locked, and one locked already passed over, so that two workers never take one package.
+        const [row] = await tx
+          .select()
+          .from(crawlRequests)
+          .where(and(lte(crawlRequests.notBefore, now), warm ? undefined : ne(crawlRequests.reason, 'warm')))
+          .orderBy(CRAWL_PRIORITY, asc(crawlRequests.id))
+          .limit(1)
+          .for('update', { skipLocked: true });
+        if (row === undefined) return undefined;
+        await tx
+          .update(crawlRequests)
+          .set({ notBefore: new Date(now.getTime() + CRAWL_HOLD_MS) })
+          .where(eq(crawlRequests.id, row.id));
+        return {
           id: row.id,
           package: { type: row.type, id: row.packageId },
           reason: row.reason,
           attempts: row.attempts,
-        }
-      );
+        };
+      });
     },
 
     async finishCrawl(id) {
