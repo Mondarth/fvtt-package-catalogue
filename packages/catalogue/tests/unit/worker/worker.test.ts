@@ -584,9 +584,15 @@ describe("the worker, comparing the catalogue with Foundry VTT's index", () => {
     manifest: null,
     notes: null,
   };
+  /** A worker whose copy of the index holds it. */
+  const listing = () => {
+    const set = setUp();
+    set.store.listingStamp.mockResolvedValue({ count: 1, changedAt: NOW });
+    return set;
+  };
 
   it('keeps the report, and queues the packages concerned to be crawled again', async () => {
-    const { store, log, worker } = setUp();
+    const { store, log, worker } = listing();
     store.consistencyInputs.mockResolvedValue({
       indexed: [{ ref: MIDI, archived: false, latestVersion: null, versions: [listedVersion] }],
       held: [{ ref: MIDI, unavailable: null, ownVersion: null, releases: [{ version: '13.0.4' }] }],
@@ -610,7 +616,7 @@ describe("the worker, comparing the catalogue with Foundry VTT's index", () => {
 
   it('queues at most five hundred, and none when nothing is wrong', async () => {
     const refs = Array.from({ length: 501 }, (_, index) => ({ type: 'module', id: `pkg-${String(index)}` }) as const);
-    const { store, worker } = setUp();
+    const { store, worker } = listing();
     store.consistencyInputs.mockResolvedValue({
       indexed: refs.map(ref => ({ ref, archived: false, latestVersion: '2.0.0', versions: [] })),
       held: refs.map(ref => ({ ref, unavailable: null, ownVersion: null, releases: [] })),
@@ -619,14 +625,26 @@ describe("the worker, comparing the catalogue with Foundry VTT's index", () => {
     expect(store.saveConsistency).toHaveBeenCalledWith(expect.objectContaining({ latestMissing: 501, requeued: 500 }));
     expect(store.requestCrawl.mock.calls.find(([requests]) => requests.length === 500)).toBeDefined();
 
-    const quiet = setUp();
+    const quiet = listing();
     await quiet.worker.drain();
     expect(quiet.store.saveConsistency).toHaveBeenCalledWith(expect.objectContaining({ listed: 0, requeued: 0 }));
     expect(quiet.store.requestCrawl.mock.calls.filter(([requests]) => requests.length > 0)).toEqual([]);
   });
 
-  it('compares once a day', async () => {
+  it('does not compare until the copy of the index holds it, nor record that it did, so compares once it does', async () => {
     const { store, worker } = setUp();
+    await worker.drain();
+    expect(store.consistencyInputs).not.toHaveBeenCalled();
+    expect(store.startRun).not.toHaveBeenCalledWith('consistency', expect.anything());
+    // The first refresh has kept the index: the next pass compares.
+    store.listingStamp.mockResolvedValue({ count: 7708, changedAt: NOW });
+    await worker.drain();
+    expect(store.consistencyInputs).toHaveBeenCalledOnce();
+    expect(store.startRun).toHaveBeenCalledWith('consistency', NOW);
+  });
+
+  it('compares once a day', async () => {
+    const { store, worker } = listing();
     store.lastSuccess.mockImplementation(job =>
       Promise.resolve(job === 'consistency' ? new Date(NOW.getTime() - 23 * 60 * 60 * 1000) : null),
     );
