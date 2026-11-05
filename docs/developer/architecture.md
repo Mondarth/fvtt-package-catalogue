@@ -79,6 +79,11 @@ is recorded in `sync_runs`.
   takes it off the queue, deferring sets its own time, and one neither, as when the worker is killed mid-crawl, is
   crawled again once the hour is over. Every crawl's client fetches through one `hostLimited` fetch, which makes at
   most `CRAWL_PER_HOST` requests to a host at once, across them all.
+- **The worker's cache** (`lib/server/lru-cache.ts`) is one for the process, so that Foundry VTT's index is fetched once
+  in five minutes rather than once a crawl, and in memory, keeping at most `CACHE_ENTRIES` answers (5000 by default)
+  and letting go of the least recently used: crawls keep each manifest they read for as long as they may, and warming
+  reads tens of thousands, so a cache without a bound would grow until the worker stopped. A manifest let go of costs
+  nothing more: a release loaded is kept in the database, and not loaded again.
   The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only

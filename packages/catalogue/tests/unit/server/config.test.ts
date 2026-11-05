@@ -45,6 +45,7 @@ describe('readConfig', () => {
       REFRESH_MINUTES: 60,
       REFRESH_STALE_DAYS: 7,
       WARM_PER_HOUR: 300,
+      CACHE_ENTRIES: 5000,
       CRAWL_CONCURRENCY: 4,
       CRAWL_PER_HOST: 4,
       PACKAGE_OVERRIDES_FILE: 'overrides.json',

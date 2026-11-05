@@ -14,13 +14,13 @@ import {
   gitlabSource,
   httpClient,
   manifestUrlSource,
-  memoryCache,
 } from '@mondarth/fvtt-resolver/sources';
 
 import { readConfig } from '#lib/server/config.js';
 import { connect } from '#lib/server/db/connect.js';
 import { hostLimited } from '#lib/server/host-limit.js';
 import { createLogger } from '#lib/server/log.js';
+import { lruCache } from '#lib/server/lru-cache.js';
 import { readOverrides } from '#lib/server/overrides.js';
 import { fetchIndex } from '#lib/server/refresh.js';
 import { drizzleStore } from '#lib/server/store/drizzle.js';
@@ -38,7 +38,7 @@ const [command] = process.argv.slice(2);
 /** The worker, over the database and the web, with the package overrides. */
 function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOverrides) {
   // One cache for the process: Foundry VTT's index is fetched once in five minutes, not once a crawl.
-  const cache = memoryCache();
+  const cache = lruCache(config.CACHE_ENTRIES);
   // One limit for the process: every crawl in hand asks the same hosts.
   const send = hostLimited(globalThis.fetch, config.CRAWL_PER_HOST);
   return createWorker({
