@@ -103,7 +103,12 @@ is recorded in `sync_runs`.
   listing says of it now: its compatibility, and whether it is listed. A release held that no source lists now is kept
   too, as a listing may give only the newest releases, such as GitHub's newest hundred; but one held as listed that
   could never be loaded is removed, as it was only what a listing once said, such as a tag an older resolver read as
-  another version (`Crawled.gone`). Nothing is removed while a listing could not be read. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
+  another version (`Crawled.gone`). A release only a forge's release list gives, whose manifest cannot be loaded, is
+  left out altogether, with its gap, and one held of it goes too: it is only a guess from a tag, which no client can
+  place or install, and a repository of several packages, or a manifest URL another package gives that leads to one,
+  makes such guesses of every other package's tags (socketlib was given every Tagmar module's). One Foundry VTT's
+  listing offers is kept, failed (`loadFailed`), as the listing vouches for it. Migration `0009` removed those held
+  before. Nothing is removed while a listing could not be read. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
   that does not is left out, as a gap from `contract`. The package's gaps are replaced, and what its releases require
   or run in that the catalogue does not know is queued as `closure`. A crawl that throws is deferred, with
   `attempts` counted and `not_before` doubling from a minute to a day.

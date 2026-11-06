@@ -102,10 +102,19 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
     .filter(gap => gap.package === key && (gap.version === undefined || !ignores(override, gap.version)));
   const releases: Release[] = [];
   for (const release of listed) {
-    const found =
-      reused(release) ??
-      loaded.get(release.version) ??
-      (toLoad.includes(release) ? { ...release, loadFailed: true } : release);
+    const fromLoad = loaded.get(release.version);
+    // Failed here, or already when the sources listed it, as a release newer than the listing offers is loaded then.
+    const failed =
+      (toLoad.includes(release) && fromLoad?.detail !== 'loaded') ||
+      (release.detail === 'listed' && release.loadFailed === true);
+    // A version that only a forge's release list gives, and whose manifest cannot be loaded, is left out: it is only
+    // a guess from a tag, which no client can place or install, and a repository that holds other packages too, or a
+    // manifest URL another package gives for this one that leads to one, makes such guesses of every tag in it. Its
+    // gap says why, and a release held of it goes once the crawl is complete. One the listing offers is kept, failed,
+    // and one held loaded is kept as it was.
+    const kept = reused(release);
+    if (kept === undefined && failed && release.listing === undefined) continue;
+    const found = kept ?? (failed ? { ...release, loadFailed: true } : (fromLoad ?? release));
     const read = Release.safeParse(found);
     if (read.success) releases.push(read.data);
     else
