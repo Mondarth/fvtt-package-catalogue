@@ -296,6 +296,43 @@ describe('crawlPackage, with releases newer than the listing offers', () => {
     expect(found.releases.find(release => release.version === '14.6.4')).toMatchObject({ unlisted: true });
   });
 
+  // Regression: a module in a repository of several named socketlib with a manifest URL into that repository, whose
+  // every other package's tag, such as `tagmar-calendario-v1.1.5`, became a socketlib version that could not be
+  // loaded, and was offered to clients newer than socketlib's own.
+  it('leaves out one only a release list gives whose manifest cannot be loaded, and what is held of it', async () => {
+    // 13.0.5's manifest is gone, and 14.6.4's is another package's, as a tag of a repository of several gives.
+    const { http } = web({
+      ...everyManifest('13.0.4', '13.1.0'),
+      [manifestOf('14.6.4')]: manifest('14.6.4', { id: 'tagmar-calendario' }),
+    });
+    const junk: Release = {
+      package: MIDI,
+      version: '1.9.3.1',
+      compatibility: {},
+      relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+      manifest: 'https://files.test/elsewhere/barbrawl-v1.9.3.1/module.json',
+      protected: false,
+      origin: 'https://gitlab.test/elsewhere/releases',
+      detail: 'listed',
+      loadFailed: true,
+    };
+    const found = await crawlPackage(MIDI, {
+      http,
+      sources: [foundryIndexSource(http, { indexUrl: INDEX }), ahead('14.6.4')],
+      core: [],
+      held: [junk],
+      manifests: [],
+    });
+    // The listing offers 13.0.5, so it is kept, failed; 14.6.4 is only a guess from a tag.
+    expect(found.releases.map(release => [release.version, release.detail, release.loadFailed])).toEqual([
+      ['13.0.4', 'loaded', undefined],
+      ['13.0.5', 'listed', true],
+      ['13.1.0', 'loaded', undefined],
+    ]);
+    expect(found.gaps).toContainEqual(expect.objectContaining({ package: 'module:midi-qol', version: '14.6.4' }));
+    expect(found.gone).toEqual(['1.9.3.1']);
+  });
+
   it('marks a release held as the listing now has it, listed or not', async () => {
     const { http } = web(everyManifest('13.0.4', '13.0.5'));
     const heldAs = (version: string, unlisted: boolean): Release => ({
