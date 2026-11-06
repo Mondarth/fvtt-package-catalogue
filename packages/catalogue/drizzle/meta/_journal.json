@@ -64,6 +64,13 @@
       "when": 1793892542910,
       "tag": "0008_crawl-manifest-hints",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793977134848,
+      "tag": "0009_drop-unloadable-forge-versions",
+      "breakpoints": true
     }
   ]
 }

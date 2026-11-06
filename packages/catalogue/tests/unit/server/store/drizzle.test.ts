@@ -835,3 +835,44 @@ describe('the migration that keeps unlisted releases', () => {
     }
   });
 });
+
+describe('the migration that drops unloadable forge versions', () => {
+  it('removes the failed releases the listing does not offer, keeping those it does, and every loaded one', async () => {
+    const MIGRATION = '0009_drop-unloadable-forge-versions';
+    const source = new URL('../../../../drizzle', import.meta.url).pathname;
+    const before = mkdtempSync(join(tmpdir(), 'migrations-'));
+    try {
+      cpSync(source, before, { recursive: true });
+      const journal = JSON.parse(readFileSync(join(before, 'meta/_journal.json'), 'utf8')) as {
+        entries: { tag: string }[];
+      };
+      journal.entries = journal.entries.slice(
+        0,
+        journal.entries.findIndex(entry => entry.tag === MIGRATION),
+      );
+      writeFileSync(join(before, 'meta/_journal.json'), JSON.stringify(journal));
+
+      const client = new PGlite();
+      const old = drizzle({ client, schema, casing: 'snake_case' });
+      await migrate(old, { migrationsFolder: before });
+      await old.execute(sql`insert into packages (type, package_id) values ('module', 'socketlib')`);
+      const listing = JSON.stringify({ minimum: '13', verified: '13' });
+      await old.execute(
+        sql`insert into releases (package_ref, version, protected, origin, detail, load_failed, listing, source)
+            select id, v.version, false, 'https://test', v.detail::release_detail, v.failed, v.listing::jsonb, 'crawl'
+            from packages, (values
+              ('1.1.4', 'loaded', false, null),
+              ('1.0.5', 'listed', true, ${listing}),
+              ('1.9.3.1', 'listed', true, null)
+            ) as v(version, detail, failed, listing)`,
+      );
+
+      await migrate(old, { migrationsFolder: source });
+      const kept = await old.select({ version: releases.version }).from(releases).orderBy(releases.version);
+      expect(kept.map(({ version }) => version)).toEqual(['1.0.5', '1.1.4']);
+      await client.close();
+    } finally {
+      rmSync(before, { recursive: true, force: true });
+    }
+  });
+});
