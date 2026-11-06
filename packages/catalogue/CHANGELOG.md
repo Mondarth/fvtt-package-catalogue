@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.6.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.1...@mondarth/fvtt-package-catalogue-v0.6.2) (2026-11-06)
+
+### Bug Fixes
+
+* **catalogue:** leave out versions guessed from tags that never load ([bfbefc6](https://github.com/Mondarth/fvtt-package-catalogue/commit/bfbefc61e9a69cefd4e32d2fd9be18b80ff9b44b))
+
 ## [@mondarth/fvtt-package-catalogue-v0.6.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.0...@mondarth/fvtt-package-catalogue-v0.6.1) (2026-11-05)
 
 ### Bug Fixes
