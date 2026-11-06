@@ -269,8 +269,8 @@ importers:
         specifier: workspace:*
         version: link:../contract
       '@mondarth/fvtt-resolver':
-        specifier: ^0.9.1
-        version: 0.9.1
+        specifier: ^0.10.1
+        version: 0.10.1
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
@@ -339,8 +339,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@mondarth/fvtt-resolver':
-        specifier: ^0.9.1
-        version: 0.9.1
+        specifier: ^0.10.1
+        version: 0.10.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -1172,8 +1172,8 @@ packages:
   '@lix-js/sdk@0.20.1':
     resolution: {integrity: sha512-oscOFP8Cr1My6Wh2KVYC9+aJ1mHs+d7vnD+7PPJaA4L+Y1FR37Sm99SrFGfvUizaj/XtRi2GlDF2IOFt9iXMNQ==}
 
-  '@mondarth/fvtt-resolver@0.9.1':
-    resolution: {integrity: sha512-NF5B1MzQDC9oVf2usGZ1rCHfJrN6S7JDaoE13WDIcyRSGGejsZTlTVNBTk7lQyREN8zNRZBe21yqLgYRWX0tOQ==}
+  '@mondarth/fvtt-resolver@0.10.1':
+    resolution: {integrity: sha512-1v3G6oHEqiIvmmR9P/ZJ4C7nCmywnsLiKmFV08tPKIL16XAqocimtAijtijyNgjPkXh+luyzTR+t1LzXjXg8aA==}
     engines: {node: '>=24'}
 
   '@napi-rs/wasm-runtime@1.2.5':
@@ -5157,7 +5157,7 @@ snapshots:
       binaryen: 130.0.0
       fflate: 0.8.3
 
-  '@mondarth/fvtt-resolver@0.9.1':
+  '@mondarth/fvtt-resolver@0.10.1':
     dependencies:
       '@mondarth/fvtt-package-catalogue-contract': link:packages/contract
       zod: 4.6.7
