@@ -1,7 +1,14 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import { backoff, createWorker, sleep } from '../../../src/worker/worker.js';
+import {
+  TRANSIENT_RETRIES,
+  backoff,
+  createWorker,
+  isTransient,
+  retryAfter,
+  sleep,
+} from '../../../src/worker/worker.js';
 import { NO_DETAILS } from '../support/index-entry.js';
 import { memoryLogger } from '../support/logger.js';
 import { mockStore } from '../support/store.js';
@@ -135,6 +142,42 @@ describe('the worker, draining the queue', () => {
     expect(log.lines).toContainEqual(
       expect.objectContaining({ level: 'error', message: 'The crawl failed', attempts: 3 }),
     );
+  });
+
+  describe('a crawl that could not fetch something for a while', () => {
+    /** A source that a host refused for a while, or for good, as its status says. */
+    const refused = (status: number) => () =>
+      Promise.resolve<SourceResult<Release[]>>({
+        ok: false,
+        gap: { source: 'test', url: 'https://files.test/releases', reason: 'http', status },
+      });
+
+    it('is saved, and crawled again within the hour, then later each time', async () => {
+      const { store, log, worker } = setUp({ releases: refused(429) });
+      store.nextCrawl.mockResolvedValueOnce(queued()).mockResolvedValueOnce(queued({ id: 8, attempts: 2 }));
+      await worker.drain();
+      expect(store.saveReleases).toHaveBeenCalledTimes(2);
+      expect(store.deferCrawl).toHaveBeenCalledWith(7, new Date(NOW.getTime() + 60 * 60 * 1000));
+      expect(store.deferCrawl).toHaveBeenCalledWith(8, new Date(NOW.getTime() + 4 * 60 * 60 * 1000));
+      expect(store.finishCrawl).not.toHaveBeenCalled();
+      expect(log.lines).toContainEqual(expect.objectContaining({ message: 'The job is done', job: 'crawl', retry: 1 }));
+    });
+
+    it('waits its turn once it has been tried again as often as it may', async () => {
+      const { store, worker } = setUp({ releases: refused(503) });
+      store.nextCrawl.mockResolvedValueOnce(queued({ attempts: TRANSIENT_RETRIES }));
+      await worker.drain();
+      expect(store.deferCrawl).not.toHaveBeenCalled();
+      expect(store.finishCrawl).toHaveBeenCalledWith(7);
+    });
+
+    it('is not tried again for what will not come, as a manifest that is gone', async () => {
+      const { store, worker } = setUp({ releases: refused(404) });
+      store.nextCrawl.mockResolvedValueOnce(queued());
+      await worker.drain();
+      expect(store.deferCrawl).not.toHaveBeenCalled();
+      expect(store.finishCrawl).toHaveBeenCalledWith(7);
+    });
   });
 
   it('records a failure that is not an Error by what was thrown', async () => {
@@ -812,6 +855,30 @@ describe('the worker, by default', () => {
     // Stopped already, the default sleep returns at once rather than after five seconds.
     await worker.run(stop.signal);
     expect(store.nextCrawl).toHaveBeenCalledOnce();
+  });
+});
+
+describe('isTransient', () => {
+  it('is a rate limit, a failing host, one not reached, or a budget run out; not a missing or broken manifest', () => {
+    expect(
+      [
+        { reason: 'http', status: 429 },
+        { reason: 'http', status: 500 },
+        { reason: 'http', status: 503 },
+        { reason: 'network' },
+        { reason: 'budget' },
+        { reason: 'http', status: 404 },
+        { reason: 'http', status: 403 },
+        { reason: 'http' },
+        { reason: 'invalid' },
+      ].map(gap => isTransient(gap as Parameters<typeof isTransient>[0])),
+    ).toEqual([true, true, true, true, true, false, false, false, false]);
+  });
+});
+
+describe('retryAfter', () => {
+  it('doubles from an hour, to a day at most', () => {
+    expect([0, 1, 2, 10].map(retryAfter)).toEqual([3_600_000, 7_200_000, 14_400_000, 24 * 60 * 60 * 1000]);
   });
 });
 
