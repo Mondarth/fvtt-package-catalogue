@@ -10,7 +10,7 @@ import { unavailableOf } from '#lib/server/overrides.js';
 import { checkOwnManifests, ownManifest, planRefresh } from '#lib/server/refresh.js';
 
 import type { CoreRelease } from '@mondarth/fvtt-package-catalogue-contract';
-import type { HttpClient, ReleaseSource, SourceResult } from '@mondarth/fvtt-resolver/sources';
+import type { HttpClient, ReleaseSource, SourceGap, SourceResult } from '@mondarth/fvtt-resolver/sources';
 import type { Logger } from '#lib/server/log.js';
 import type { PackageOverrides } from '#lib/server/overrides.js';
 import type { IndexEntry } from '#lib/server/refresh.js';
@@ -96,6 +96,33 @@ export interface Worker {
  */
 export function backoff(attempts: number): number {
   return Math.min(MINUTE * 2 ** attempts, DAY);
+}
+
+/** How many times a crawl is tried again soon for what it could not fetch for a while, before it waits its turn. */
+export const TRANSIENT_RETRIES = 5;
+
+/**
+ * Whether a gap is one that may close by itself soon: a host that limited the rate of requests (429), or failed
+ * itself (5xx), or could not be reached, or the crawl's budget of requests running out. A manifest that is missing
+ * (404), refused (403), or not one (`invalid`) stays so.
+ *
+ * @param gap - What could not be fetched or read
+ * @returns Whether to try again soon
+ */
+export function isTransient(gap: Pick<SourceGap, 'reason' | 'status'>): boolean {
+  if (gap.reason === 'network' || gap.reason === 'budget') return true;
+  return gap.reason === 'http' && gap.status !== undefined && (gap.status === 429 || gap.status >= 500);
+}
+
+/**
+ * How long a package waits to be crawled again for what it could not fetch for a while, after so many such tries: an
+ * hour, doubling each time, to a day at most.
+ *
+ * @param attempts - The tries so far
+ * @returns Milliseconds
+ */
+export function retryAfter(attempts: number): number {
+  return Math.min(HOUR * 2 ** attempts, DAY);
 }
 
 /**
@@ -340,12 +367,18 @@ export function createWorker({
         await store.replaceGaps(key, found.gaps);
         const unknown = await store.unknownOf(found.named);
         await store.requestCrawl(unknown.map(other => ({ package: other, reason: 'closure' })));
-        await store.finishCrawl(item.id);
+        // What could not be fetched for a while, as a host's rate limit, is tried again within the hour, not when the
+        // package is next due, which may be days: the crawl stays queued, for an hour, then longer, a few times.
+        const transient = found.gaps.filter(isTransient).length;
+        const retry = transient > 0 && item.attempts < TRANSIENT_RETRIES;
+        if (retry) await store.deferCrawl(item.id, new Date(now().getTime() + retryAfter(item.attempts)));
+        else await store.finishCrawl(item.id);
         return {
           releases: found.releases.length,
           gaps: found.gaps.length,
           removed: found.gone.length,
           queued: unknown.length,
+          ...(retry && { retry: transient }),
         };
       });
     } catch (error) {
