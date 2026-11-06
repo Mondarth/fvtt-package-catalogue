@@ -111,7 +111,11 @@ is recorded in `sync_runs`.
   before. Nothing is removed while a listing could not be read. Each release must pass the contract's `Release` schema, as the API would refuse to send it otherwise; one
   that does not is left out, as a gap from `contract`. The package's gaps are replaced, and what its releases require
   or run in that the catalogue does not know is queued as `closure`. A crawl that throws is deferred, with
-  `attempts` counted and `not_before` doubling from a minute to a day.
+  `attempts` counted and `not_before` doubling from a minute to a day. A crawl that could not fetch something for a
+  while (`isTransient`: a host's rate limit, `429`, or failure, `5xx`, one not reached, or the budget run out) is saved
+  and also deferred, so that it is crawled again within the hour rather than when next due, which may be days, its
+  releases that failed so loaded then: an hour, doubling, at most `TRANSIENT_RETRIES` (5) times, before it waits its
+  turn. A missing (`404`), refused (`403`) or broken (`invalid`) manifest is not tried again so.
 - **Package overrides** (`lib/server/overrides.ts`) are read from `PACKAGE_OVERRIDES_FILE` when the worker starts,
   through a strict schema, so that a mistake stops it rather than being ignored. `crawlPackage` is given the package's
   override: it leaves out the versions it ignores, with their gaps, and sets `manifest` (for a release still to load)
