@@ -127,9 +127,10 @@ request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and
   VTT still lists it. None of it is fetched; whatever was held of it is removed, and the universe names it as
   `unavailable`, with the reason as its note. It cannot be given with the other two.
 
-A package whose listing Foundry VTT's index marks `archived` is treated the same way without an override: it is not
-crawled, and the universe names it as `unavailable` because it is archived. The hourly refresh crawls a package again
-when the index archives it, or no longer does.
+A package whose listing Foundry VTT's index marks `archived` is still crawled: Foundry VTT's Setup screen no longer
+offers it, but it installs it from a manifest that names it, as a module that requires it gives. Only when none of its
+releases loads, and nothing failed that may succeed later, does the universe name it as `unavailable` because it is
+archived. The hourly refresh crawls a package held so again when the index no longer archives it.
 
 The worker reads the file when it starts, and stops at once if it is not valid, naming each problem. When it starts, it
 queues every package it holds that has an override to be crawled again, so a changed override applies straight away;

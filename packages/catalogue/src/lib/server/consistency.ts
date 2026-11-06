@@ -76,10 +76,8 @@ export function checkConsistency(
   for (const entry of indexed) {
     const pkg = byKey.get(packageKey(entry.ref));
     if (entry.archived) {
-      if (pkg?.unavailable === null) {
-        archivedHeld++;
-        concern(entry.ref);
-      }
+      // Counted, but no concern: one archived is held while a manifest still gives it, as Foundry VTT installs it so.
+      if (pkg?.unavailable === null) archivedHeld++;
       continue;
     }
     listed++;

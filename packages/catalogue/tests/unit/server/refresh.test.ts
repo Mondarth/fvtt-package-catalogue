@@ -224,8 +224,9 @@ describe('planRefresh, for a package on the index', () => {
     expect(plan([held()], [entry()])).toEqual({ refresh: [], listings: [] });
   });
 
-  it('crawls it again when the index archives it, or no longer does, though its day has not changed', () => {
-    expect(plan([held()], [entry({ archived: true })]).refresh).toEqual([MIDI]);
+  it('crawls one held as archived again when the index no longer archives it, though its day has not changed', () => {
+    // One archived is crawled as any other, as a manifest may still give it, and is held so.
+    expect(plan([held()], [entry({ archived: true })]).refresh).toEqual([]);
     expect(plan([held({ unavailable: 'archived' })], [entry()]).refresh).toEqual([MIDI]);
     expect(plan([held({ unavailable: 'archived' })], [entry({ archived: true })]).refresh).toEqual([]);
   });

@@ -259,8 +259,9 @@ export function planRefresh(
         : entry.lastUpdated > pkg.listingUpdatedAt)
     ) {
       refresh.push(pkg.ref);
-    } else if (entry.archived ? pkg.unavailable === null : pkg.unavailable === 'archived') {
-      // Archived or no longer, without its date changing: a package gone is gone whatever the index says.
+    } else if (!entry.archived && pkg.unavailable === 'archived') {
+      // No longer archived, without its date changing: a package gone is gone whatever the index says. One archived is
+      // crawled as any other, as Foundry VTT still installs it from its manifests, and so is not crawled again for it.
       refresh.push(pkg.ref);
     }
     if (
