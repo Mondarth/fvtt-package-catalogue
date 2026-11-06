@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-v0.6.4](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.3...@mondarth/fvtt-package-catalogue-v0.6.4) (2026-11-06)
+
+### Bug Fixes
+
+* **catalogue:** load versions written with fewer zeros, or IDs cased ([35e9460](https://github.com/Mondarth/fvtt-package-catalogue/commit/35e94602533c62d5d33511ce4150af2f7bb5e388))
+* **worker:** crawl again soon what could not be fetched for a while ([e2dafc2](https://github.com/Mondarth/fvtt-package-catalogue/commit/e2dafc2248cb72dc82889dfa74edd092d9c513cd))
+
 ## [@mondarth/fvtt-package-catalogue-v0.6.3](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.2...@mondarth/fvtt-package-catalogue-v0.6.3) (2026-11-06)
 
 ### Bug Fixes
