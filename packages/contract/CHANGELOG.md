@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.4.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.4.0...@mondarth/fvtt-package-catalogue-contract-v0.4.1) (2026-11-06)
+
+### Bug Fixes
+
+* **catalogue:** take no other package's tags from a shared repository ([05fb87e](https://github.com/Mondarth/fvtt-package-catalogue/commit/05fb87e08927688e60a1fc7d689dc620bccc903b))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.3.2...@mondarth/fvtt-package-catalogue-contract-v0.4.0) (2026-11-05)
 
 ### Features
