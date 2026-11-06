@@ -279,7 +279,7 @@ describe('the worker, with package overrides', () => {
     expect(store.saveReleases).not.toHaveBeenCalled();
   });
 
-  it('marks a package archived, as the index says, without crawling it', async () => {
+  describe('a package the index archives', () => {
     const archived: IndexEntry = {
       ref: MIDI,
       lastUpdated: null,
@@ -289,11 +289,44 @@ describe('the worker, with package overrides', () => {
       details: NO_DETAILS,
     };
     const other: IndexEntry = { ...archived, ref: { type: 'module', id: 'other' } };
-    const { store, worker } = setUp({ index: () => Promise.resolve({ ok: true, value: [other, archived] }) });
-    store.nextCrawl.mockResolvedValueOnce(queued());
-    await worker.drain();
-    expect(store.saveUnavailable).toHaveBeenCalledWith(MIDI, { reason: 'archived' }, { source: 'crawl', at: NOW });
-    expect(store.saveReleases).not.toHaveBeenCalled();
+    const index = () => Promise.resolve<SourceResult<IndexEntry[]>>({ ok: true, value: [other, archived] });
+
+    // Regression: Math.js, archived, was not crawled, so no version of Monster Blocks that requires it, by a manifest
+    // that still gives it, could be had.
+    it('is crawled, and held while a release of it loads', async () => {
+      const { store, worker } = setUp({ index });
+      store.nextCrawl.mockResolvedValueOnce(queued());
+      await worker.drain();
+      expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [release()], expect.objectContaining({ source: 'crawl' }));
+      expect(store.saveUnavailable).not.toHaveBeenCalled();
+    });
+
+    it('is marked archived when none of its releases loads', async () => {
+      const { store, worker } = setUp({
+        index,
+        releases: () => Promise.resolve({ ok: true, value: [{ ...release(), loadFailed: true }] }),
+      });
+      store.nextCrawl.mockResolvedValueOnce(queued());
+      await worker.drain();
+      expect(store.saveUnavailable).toHaveBeenCalledWith(MIDI, { reason: 'archived' }, { source: 'crawl', at: NOW });
+      expect(store.replaceGaps).toHaveBeenCalledWith('module:midi-qol', []);
+      expect(store.saveReleases).not.toHaveBeenCalled();
+    });
+
+    it('is not marked archived while what failed may succeed later, but crawled again soon', async () => {
+      const { store, worker } = setUp({
+        index,
+        releases: () =>
+          Promise.resolve({
+            ok: false,
+            gap: { source: 'test', url: 'https://files.test/releases', reason: 'http', status: 429 },
+          }),
+      });
+      store.nextCrawl.mockResolvedValueOnce(queued());
+      await worker.drain();
+      expect(store.saveUnavailable).not.toHaveBeenCalled();
+      expect(store.deferCrawl).toHaveBeenCalled();
+    });
   });
 
   it('removes a release held that is gone and could never be loaded, but keeps one that was loaded', async () => {

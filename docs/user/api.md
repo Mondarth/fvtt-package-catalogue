@@ -93,7 +93,7 @@ lets it read the `ETag`.
   `versionsMissing` (versions the index lists of a package held that it does not hold), `latestMissing` (packages
   whose newest version, where the index gives it, it does not hold), `listingsDiffer` (releases whose core
   compatibility on the index is not what it holds), `archivedHeld` (packages the index archived that it holds as
-  available) and `ownMissing` (packages whose own manifest gave a version it does not hold); and `requeued`, how many
+  available, as a manifest still gives them: counted, but nothing to put right) and `ownMissing` (packages whose own manifest gave a version it does not hold); and `requeued`, how many
   of the packages concerned it queued to crawl again, at most 500.
 
 `GET /healthz`

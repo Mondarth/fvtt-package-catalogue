@@ -876,3 +876,45 @@ describe('the migration that drops unloadable forge versions', () => {
     }
   });
 });
+
+describe('the migration that crawls archived packages', () => {
+  it('queues each package held as archived, keeping the reason of one already queued', async () => {
+    const MIGRATION = '0010_crawl-archived-packages';
+    const source = new URL('../../../../drizzle', import.meta.url).pathname;
+    const before = mkdtempSync(join(tmpdir(), 'migrations-'));
+    try {
+      cpSync(source, before, { recursive: true });
+      const journal = JSON.parse(readFileSync(join(before, 'meta/_journal.json'), 'utf8')) as {
+        entries: { tag: string }[];
+      };
+      journal.entries = journal.entries.slice(
+        0,
+        journal.entries.findIndex(entry => entry.tag === MIGRATION),
+      );
+      writeFileSync(join(before, 'meta/_journal.json'), JSON.stringify(journal));
+
+      const client = new PGlite();
+      const old = drizzle({ client, schema, casing: 'snake_case' });
+      await migrate(old, { migrationsFolder: before });
+      await old.execute(
+        sql`insert into packages (type, package_id, unavailable) values
+              ('module', '_mathjs', 'archived'), ('module', 'old', 'archived'), ('module', 'lost', 'gone'),
+              ('module', 'midi-qol', null)`,
+      );
+      await old.execute(sql`insert into crawl_requests (type, package_id, reason) values ('module', 'old', 'request')`);
+
+      await migrate(old, { migrationsFolder: source });
+      const queued = await old
+        .select({ packageId: crawlRequests.packageId, reason: crawlRequests.reason })
+        .from(crawlRequests)
+        .orderBy(crawlRequests.packageId);
+      expect(queued).toEqual([
+        { packageId: '_mathjs', reason: 'refresh' },
+        { packageId: 'old', reason: 'request' },
+      ]);
+      await client.close();
+    } finally {
+      rmSync(before, { recursive: true, force: true });
+    }
+  });
+});
