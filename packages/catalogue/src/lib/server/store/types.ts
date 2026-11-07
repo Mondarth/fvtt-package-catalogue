@@ -176,7 +176,7 @@ export interface ListedEntry {
 
 /** What a lookup gives of a package held, beside its releases. */
 export interface PackageDetails {
-  /** As Foundry VTT's index lists it, or as last saved from it; null if neither. */
+  /** As Foundry VTT's index lists it, or as last saved from it, or else as its own manifest gave it; null if none. */
   readonly title: string | null;
   readonly latest: string | null;
   readonly premium: boolean;

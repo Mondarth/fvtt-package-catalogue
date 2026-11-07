@@ -297,7 +297,15 @@ export type OwnCheck = {
   readonly ref: PackageRef;
   /** Whether it gave a version the catalogue does not hold, so that the package is to be crawled again. */
   readonly changed: boolean;
-} & ({ readonly outcome: 'read'; readonly version: string } | { readonly outcome: 'none' | 'failed' });
+} & (
+  | {
+      readonly outcome: 'read';
+      readonly version: string;
+      /** The package's title, as the manifest gives it, if it gives one. */
+      readonly title?: string;
+    }
+  | { readonly outcome: 'none' | 'failed' }
+);
 
 /**
  * Reads each package's own manifest, as Foundry VTT's updater reads it, for a version the catalogue does not hold: one
@@ -318,13 +326,18 @@ export async function checkOwnManifests(
       const url = ownManifest(releases);
       if (url === undefined) return { ref, outcome: 'none', changed: false };
       const fetched = await http.getJson(url, { maxAge: 0 });
-      const version = fetched.ok ? (fetched.value as { readonly version?: unknown } | null)?.version : undefined;
+      const manifest = fetched.ok
+        ? (fetched.value as { readonly version?: unknown; readonly title?: unknown } | null)
+        : null;
+      const version = manifest?.version;
       if (typeof version !== 'string' && typeof version !== 'number') return { ref, outcome: 'failed', changed: false };
       const given = String(version);
+      const title = typeof manifest?.title === 'string' ? manifest.title.trim() : '';
       return {
         ref,
         outcome: 'read',
         version: given,
+        ...(title !== '' && { title }),
         changed: !releases.some(release => sameVersion(release.version, given)),
       };
     }),

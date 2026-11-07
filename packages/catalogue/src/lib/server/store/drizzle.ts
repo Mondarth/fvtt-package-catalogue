@@ -467,6 +467,7 @@ export function drizzleStore(db: Database): CatalogueStore {
           type: packages.type,
           packageId: packages.packageId,
           heldTitle: packages.title,
+          ownTitle: packages.ownTitle,
           heldPremium: packages.premium,
           syncedAt: packages.syncedAt,
           ownVersion: packages.ownVersion,
@@ -481,7 +482,8 @@ export function drizzleStore(db: Database): CatalogueStore {
         .where(or(...refs.map(ref => and(eq(packages.type, ref.type), eq(packages.packageId, ref.id)))));
       for (const row of rows) {
         found.set(packageKey({ type: row.type, id: row.packageId }), {
-          title: row.listedTitle ?? row.heldTitle,
+          // As Foundry VTT's index lists it, or listed it, or else as the package's own manifest gives it.
+          title: row.listedTitle ?? row.heldTitle ?? row.ownTitle,
           latest: row.latest,
           premium: row.listedPremium ?? row.heldPremium,
           syncedAt: row.syncedAt,
@@ -607,7 +609,11 @@ export function drizzleStore(db: Database): CatalogueStore {
           // One that failed keeps what was last read.
           const found =
             check.outcome === 'read'
-              ? { ownVersion: check.version, ownReadAt: at }
+              ? {
+                  ownVersion: check.version,
+                  ownReadAt: at,
+                  ...(check.title !== undefined && { ownTitle: check.title }),
+                }
               : check.outcome === 'none' && { ownVersion: null, ownReadAt: null };
           await tx
             .update(packages)

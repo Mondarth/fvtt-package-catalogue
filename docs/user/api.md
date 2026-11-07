@@ -38,7 +38,9 @@ lets it read the `ETag`.
     newer than any Foundry VTT's package listing offers, such as one published on GitLab first, is included with
     `"unlisted": true`: Foundry VTT's users cannot install it from the listing, so the resolver chooses one only when
     no listed version fits, and a client should say what it is. `title`, `latest` (the newest version,
-    where Foundry VTT's listing gives it) and `premium` are the listing's. `syncedAt` is when its releases were last
+    where Foundry VTT's listing gives it) and `premium` are the listing's; a package the listing does not give a title,
+    as one installed by its manifest alone or one archived, has the title its own manifest gave when last read, or
+    `null` before it is. `syncedAt` is when its releases were last
     brought up to date; `own` is what its own manifest last gave, `{ version, readAt, checkedAt }`, checked about
     hourly, so a client can say how fresh it is.
   - `fromGeneration`, if given, leaves out releases whose declared `maximum` is of an older generation of Foundry VTT,

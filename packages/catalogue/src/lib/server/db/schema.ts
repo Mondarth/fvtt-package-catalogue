@@ -57,6 +57,11 @@ export const packages = pgTable(
     ownCheckedAt: timestamp({ withTimezone: true }),
     /** When its own manifest was last read, giving `ownVersion`; null if never. */
     ownReadAt: timestamp({ withTimezone: true }),
+    /**
+     * The title its own manifest gave when last read, if any: the package's title where Foundry VTT's index does not
+     * list it, as for one installed by its manifest alone, or one archived.
+     */
+    ownTitle: text(),
     createdAt,
   },
   // The packages whose own manifest is due a check, the least recently checked first.
