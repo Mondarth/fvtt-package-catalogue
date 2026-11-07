@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { UNIVERSE_PATH, UniverseResponse } from '@mondarth/fvtt-package-catalogue-contract';
+import { LOOKUP_PATH, LookupResponse } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { expect, test } from '@playwright/test';
 import { connect } from '../../../src/lib/server/db/connect.js';
@@ -26,36 +26,42 @@ async function drain(web: StubWeb): Promise<void> {
   });
 }
 
-/** The universe of a package, the crawled one by default, as the API gives it. */
-async function universe(request: APIRequestContext, ref: { readonly type: 'module'; readonly id: string } = CRAWLED) {
-  const response = await request.post(UNIVERSE_PATH, { data: { packages: [ref] } });
-  return UniverseResponse.parse(await response.json());
+/** A lookup of a package, the crawled one by default, and what it needs, as the API gives it. */
+async function lookup(request: APIRequestContext, ref: { readonly type: 'module'; readonly id: string } = CRAWLED) {
+  const response = await request.post(LOOKUP_PATH, { data: { packages: [ref] } });
+  return LookupResponse.parse(await response.json());
 }
 
-const versionsOf = (found: UniverseResponse) =>
-  found.universe.releases.map(release => [release.package.id, release.version, release.detail]);
+/** The packages a lookup found not held yet. */
+const pendingOf = (found: LookupResponse) => found.pending.map(({ package: ref }) => ref);
+
+/** Each release a lookup gave, as its package's ID, its version and how much of it is known. */
+const versionsOf = (found: LookupResponse) =>
+  found.packages.flatMap(({ package: ref, releases }) =>
+    releases.map(release => [ref.id, release.version, release.detail]),
+  );
 
 /**
  * The built worker against the database and a web that stands in for Foundry VTT's. It runs after the API's tests, as
  * its crawls change what they expect.
  */
 test('the worker crawls what was asked for and what that needs, then what changed', async ({ request }) => {
-  expect((await universe(request)).pending).toEqual([CRAWLED]);
+  expect(pendingOf(await lookup(request))).toEqual([CRAWLED]);
 
   const web = await stubWeb();
   try {
     await drain(web);
-    const crawled = await universe(request);
-    expect(crawled.pending).toEqual([]);
+    const crawled = await lookup(request);
+    expect(pendingOf(crawled)).toEqual([]);
     expect(versionsOf(crawled)).toEqual([
       [CRAWLED.id, '1.0.0', 'loaded'],
       [NEEDED.id, '2.0.0', 'loaded'],
     ]);
-    expect(crawled.universe.releases[0]).toMatchObject({ listing: { minimum: '13', verified: '14' } });
-    expect(crawled.universe.core).toEqual([...SEEDED_CORE, ...STUB_BUILDS]);
+    expect(crawled.packages[0]?.releases[0]).toMatchObject({ listing: { minimum: '13', verified: '14' } });
+    expect(crawled.core).toEqual([...SEEDED_CORE, ...STUB_BUILDS]);
     // Warmed: held before any client asked for it, as the index lists it.
-    const warmed = await universe(request, WARMED);
-    expect(warmed.pending).toEqual([]);
+    const warmed = await lookup(request, WARMED);
+    expect(pendingOf(warmed)).toEqual([]);
     expect(versionsOf(warmed)).toEqual([[WARMED.id, '0.1.0', 'loaded']]);
 
     // Its author publishes 1.1.0 now, and an hour passes: the refresh is due again.
@@ -68,7 +74,7 @@ test('the worker crawls what was asked for and what that needs, then what change
     }
     await drain(web);
 
-    const refreshed = await universe(request);
+    const refreshed = await lookup(request);
     expect(versionsOf(refreshed)).toEqual([
       [CRAWLED.id, '1.0.0', 'loaded'],
       [CRAWLED.id, '1.1.0', 'loaded'],

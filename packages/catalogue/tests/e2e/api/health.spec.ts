@@ -12,10 +12,10 @@ test('the server says it is up, without a key', async ({ playwright, baseURL }) 
 });
 
 test('the status gives what the catalogue holds', async ({ request }) => {
-  const response = await request.get('/api/v1/status');
+  const response = await request.get('/api/v2/status');
   expect(response.status()).toBe(200);
   expect(StatusResponse.parse(await response.json())).toMatchObject({
-    apiVersion: 'v1',
+    apiVersion: 'v2',
     packages: 1,
     releases: SEEDED_RELEASES.length,
     asOf: SEEDED_AT.toISOString(),

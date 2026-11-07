@@ -16,9 +16,8 @@ The repository is a pnpm workspace of two packages:
 ```text
 src/
   env.ts                    the server's environment, validated when it starts
-  params.ts                 route parameter matchers ([type=packageType])
   hooks.server.ts           wiring: the handle hook, over #lib/server/runtime
-  routes/api/v1/…           the API's endpoints
+  routes/api/v2/…           the API's endpoints
   routes/healthz/           the container's health check
   routes/+page.svelte       the website (+layout, +error)
   lib/components/           Svelte components
@@ -171,8 +170,8 @@ Some of what SvelteKit 3 changed shapes the code:
 - `tsconfig.json` extends `$app/tsconfig`, which `svelte-kit sync` generates in `node_modules/$app`.
 - `#lib` is a [subpath import](https://nodejs.org/api/packages.html#subpath-imports) in `package.json`, not an alias,
   so imports through it name the file: `#lib/server/log.js`.
-- Hook types are in `@sveltejs/kit/hooks`; parameter matchers are Standard Schemas, defined in `src/params.ts` with
-  `defineParams`. The contract's zod `PackageType` is the `packageType` matcher.
+- Hook types are in `@sveltejs/kit/hooks`. Parameter matchers, should a route need one, are Standard Schemas, defined
+  in `src/params.ts` with `defineParams`.
 
 (environment)=
 
@@ -203,5 +202,5 @@ added to `dependencies` would be missing from the image.
 
 The contract's `package.json` exports its TypeScript sources under the `@mondarth/fvtt-package-catalogue/source` condition, and its build
 otherwise. Vite, Vitest, `tsc` and `svelte-check` in the catalogue resolve that condition, so a change to the contract
-is seen at once, with no build. SvelteKit's build analysis loads `src/params.ts` with Node rather than Vite, which does
+is seen at once, with no build. SvelteKit's build analysis loads some modules with Node rather than Vite, which does
 not know the condition, so the catalogue's `build` builds the contract first.
