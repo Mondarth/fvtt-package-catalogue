@@ -9,7 +9,7 @@ test.describe('without a valid key', () => {
   ] as const) {
     test(`the API refuses ${label}, readably from any origin`, async ({ playwright, baseURL }) => {
       const anonymous = await playwright.request.newContext({ baseURL: baseURL ?? '', extraHTTPHeaders: headers });
-      const response = await anonymous.get('/api/v1/status');
+      const response = await anonymous.get('/api/v2/status');
       expect(response.status()).toBe(401);
       expect(response.headers()['access-control-allow-origin']).toBe('*');
       expect(ErrorResponse.parse(await response.json()).error.code).toBe('unauthorised');
@@ -19,13 +19,13 @@ test.describe('without a valid key', () => {
 });
 
 test('a key being rotated out is still accepted', async ({ request }) => {
-  const response = await request.get('/api/v1/status', { headers: { 'X-API-Key': 'e2e-previous-key' } });
+  const response = await request.get('/api/v2/status', { headers: { 'X-API-Key': 'e2e-previous-key' } });
   expect(response.status()).toBe(200);
 });
 
 test('the CORS preflight needs no key', async ({ playwright, baseURL }) => {
   const anonymous = await playwright.request.newContext({ baseURL: baseURL ?? '' });
-  const response = await anonymous.fetch('/api/v1/status', {
+  const response = await anonymous.fetch('/api/v2/status', {
     method: 'OPTIONS',
     headers: { Origin: 'https://foundry.example.com', 'Access-Control-Request-Headers': 'x-api-key' },
   });
@@ -35,7 +35,7 @@ test('the CORS preflight needs no key', async ({ playwright, baseURL }) => {
 });
 
 test('a path no endpoint has gets the contract’s error, not a web page', async ({ request }) => {
-  const response = await request.get('/api/v1/packages/theme/anything/releases');
+  const response = await request.get('/api/v2/nothing-here');
   expect(response.status()).toBe(404);
   expect(ErrorResponse.parse(await response.json()).error.code).toBe('not-found');
 });

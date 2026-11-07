@@ -1,56 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  API_BASE,
   ErrorResponse,
   HealthResponse,
-  MAX_UNIVERSE_PACKAGES,
-  ReleasesResponse,
+  STATUS_PATH,
   StatusResponse,
-  UNIVERSE_PATH,
-  UniverseRequest,
-  UniverseResponse,
+  UnavailablePackage,
   packageKey,
-  releasesPath,
 } from '../src/index.js';
-import { listed } from './fixtures.js';
-
-describe('paths', () => {
-  it('are under the API version', () => {
-    expect(API_BASE).toBe('/api/v1');
-  });
-
-  it("give a package's releases", () => {
-    expect(releasesPath({ type: 'module', id: 'midi-qol' })).toBe('/api/v1/packages/module/midi-qol/releases');
-  });
-
-  it('encode the id', () => {
-    expect(releasesPath({ type: 'module', id: 'a b' })).toBe('/api/v1/packages/module/a%20b/releases');
-  });
-
-  it('give the universe', () => {
-    expect(UNIVERSE_PATH).toBe('/api/v1/universe');
-  });
-});
-
-describe('UniverseRequest', () => {
-  const ref = { type: 'module', id: 'midi-qol' } as const;
-
-  it('names the packages to start from', () => {
-    expect(UniverseRequest.parse({ packages: [ref] })).toEqual({ packages: [ref] });
-  });
-
-  it('names at least one package, and at most the limit', () => {
-    expect(UniverseRequest.safeParse({ packages: [] }).success).toBe(false);
-    const most = Array.from({ length: MAX_UNIVERSE_PACKAGES }, (_, i) => ({ type: 'module', id: `m${String(i)}` }));
-    expect(UniverseRequest.safeParse({ packages: most }).success).toBe(true);
-    expect(UniverseRequest.safeParse({ packages: [...most, ref] }).success).toBe(false);
-  });
-
-  it('refuses an id no package can have', () => {
-    expect(UniverseRequest.safeParse({ packages: [{ type: 'module', id: 'a/b' }] }).success).toBe(false);
-  });
-});
 
 describe('packageKey', () => {
   it("is the resolver's key", () => {
@@ -59,19 +16,14 @@ describe('packageKey', () => {
 });
 
 describe('responses', () => {
-  it('give releases as of a time, or of none', () => {
-    const body = { package: listed.package, releases: [listed], asOf: '2026-10-24T09:00:00.000Z' };
-    expect(ReleasesResponse.parse(body)).toEqual(body);
-    expect(ReleasesResponse.parse({ ...body, asOf: null }).asOf).toBeNull();
-  });
-
-  it('give the status of this API version only', () => {
-    const status = { apiVersion: 'v1', version: '0.1.0', packages: 1, releases: 2, asOf: null, consistency: null };
+  it('give the status, under version 2, of that version only', () => {
+    expect(STATUS_PATH).toBe('/api/v2/status');
+    const status = { apiVersion: 'v2', version: '0.7.0', packages: 1, releases: 2, asOf: null, consistency: null };
     expect(StatusResponse.parse(status)).toEqual(status);
-    expect(StatusResponse.safeParse({ ...status, apiVersion: 'v2' }).success).toBe(false);
+    expect(StatusResponse.safeParse({ ...status, apiVersion: 'v1' }).success).toBe(false);
   });
 
-  it('give how the catalogue last compared with the index, or none from a catalogue that predates it', () => {
+  it('give how the catalogue last compared with the index, or that it never has', () => {
     const consistency = {
       at: '2026-11-05T03:00:00.000Z',
       listed: 6724,
@@ -83,35 +35,19 @@ describe('responses', () => {
       ownMissing: 4,
       requeued: 9,
     };
-    const status = { apiVersion: 'v1', version: '0.6.0', packages: 1, releases: 2, asOf: null };
+    const status = { apiVersion: 'v2', version: '0.7.0', packages: 1, releases: 2, asOf: null };
     expect(StatusResponse.parse({ ...status, consistency }).consistency).toEqual(consistency);
-    expect(StatusResponse.parse(status).consistency).toBeNull();
+    expect(StatusResponse.parse({ ...status, consistency: null }).consistency).toBeNull();
     expect(StatusResponse.safeParse({ ...status, consistency: { ...consistency, held: -1 } }).success).toBe(false);
   });
 
-  it('give a universe, what could not be fetched, and what is not held yet', () => {
-    const body = {
-      universe: { core: [{ version: '14.368', generation: 14, channel: 'stable' }], releases: [listed] },
-      gaps: [{ source: 'foundry-index', url: 'https://example.com', reason: 'http', status: 404, package: 'module:x' }],
-      pending: [{ type: 'module', id: 'lib-wrapper' }],
-      asOf: '2026-10-24T09:00:00.000Z',
-    };
-    // A catalogue that predates them names no packages that cannot be had.
-    expect(UniverseResponse.parse(body)).toEqual({ ...body, unavailable: [] });
-    expect(UniverseResponse.parse({ ...body, asOf: null }).asOf).toBeNull();
-  });
-
   it('give the packages that cannot be had, and why', () => {
-    const unavailable = [
-      { package: { type: 'module', id: 'babonus' }, reason: 'archived' },
-      { package: { type: 'module', id: 'lost' }, reason: 'gone', note: 'Its repository was deleted' },
-    ];
-    const body = { universe: { core: [], releases: [] }, gaps: [], pending: [], unavailable, asOf: null };
-    expect(UniverseResponse.parse(body)).toEqual(body);
-    expect(
-      UniverseResponse.safeParse({ ...body, unavailable: [{ ...unavailable[0], reason: 'hidden' }] }).success,
-    ).toBe(false);
-    expect(UniverseResponse.safeParse({ ...body, unavailable: [{ ...unavailable[1], note: '' }] }).success).toBe(false);
+    const archived = { package: { type: 'module', id: 'babonus' }, reason: 'archived' };
+    const gone = { package: { type: 'module', id: 'lost' }, reason: 'gone', note: 'Its repository was deleted' };
+    expect(UnavailablePackage.parse(archived)).toEqual(archived);
+    expect(UnavailablePackage.parse(gone)).toEqual(gone);
+    expect(UnavailablePackage.safeParse({ ...archived, reason: 'hidden' }).success).toBe(false);
+    expect(UnavailablePackage.safeParse({ ...gone, note: '' }).success).toBe(false);
   });
 
   it('give health', () => {

@@ -14,7 +14,7 @@ import type { HttpClient, ReleaseSource, SourceGap, SourceResult } from '@mondar
 import type { Logger } from '#lib/server/log.js';
 import type { PackageOverrides } from '#lib/server/overrides.js';
 import type { IndexEntry } from '#lib/server/refresh.js';
-import type { CatalogueStore, QueuedCrawl } from '#lib/server/store/types.js';
+import type { CatalogueStore, QueuedCrawl, Unavailable } from '#lib/server/store/types.js';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -329,22 +329,32 @@ export function createWorker({
     overridesQueued = true;
   }
 
+  /**
+   * Marks a package that cannot be had, ending its crawl: whatever was held of it goes, with its gaps.
+   * @param item - Its crawl
+   * @param unavailable - Why it cannot be had
+   * @returns What the crawl did, for its log
+   */
+  async function markUnavailable(item: QueuedCrawl, unavailable: Unavailable): Promise<{ unavailable: string }> {
+    await store.saveUnavailable(item.package, unavailable, { source: 'crawl', at: now() });
+    await store.replaceGaps(packageKey(item.package), []);
+    await store.finishCrawl(item.id);
+    return { unavailable: unavailable.reason };
+  }
+
   /** Crawls one package from the queue, deferring it if the crawl fails. Rejects only if it cannot be deferred. */
   async function crawl(item: QueuedCrawl): Promise<void> {
     const ref = item.package;
     const key = packageKey(ref);
     try {
       await job('crawl', { package: key, reason: item.reason }, async client => {
-        // A package that cannot be had is not crawled: whatever was held of it goes, with its gaps.
+        // A package that is gone is not crawled: whatever was held of it goes, with its gaps. One archived is: Foundry VTT's
+        // Setup no longer offers it, but it installs it still from a manifest that names it, as a dependent's `requires`
+        // does (Math.js, for Monster Blocks). It cannot be had only if none of its releases loads.
         const listed = await index(client);
         const archived = listed.ok && listed.value.some(entry => packageKey(entry.ref) === key && entry.archived);
-        const unavailable = unavailableOf(overrides[key], archived);
-        if (unavailable !== null) {
-          await store.saveUnavailable(ref, unavailable, { source: 'crawl', at: now() });
-          await store.replaceGaps(key, []);
-          await store.finishCrawl(item.id);
-          return { unavailable: unavailable.reason };
-        }
+        const gone = unavailableOf(overrides[key], false);
+        if (gone !== null) return await markUnavailable(item, gone);
         const [held, manifests, core] = await Promise.all([
           store.releasesOf(ref),
           store.declaredManifests(ref),
@@ -362,6 +372,11 @@ export function createWorker({
           manifests: [...new Set([...manifests, ...[own, item.manifest].filter(url => url !== undefined)])],
           override: overrides[key],
         });
+        // An archived package none of whose releases could be had, though nothing failed that may succeed later.
+        const transient = found.gaps.filter(isTransient).length;
+        if (archived && transient === 0 && !found.releases.some(release => release.loadFailed !== true)) {
+          return await markUnavailable(item, { reason: 'archived' });
+        }
         // Saved even when none was found, so that the package is known, and not asked for again until it is due.
         await store.saveReleases(ref, found.releases, { source: 'crawl', at: now(), remove: found.gone });
         await store.replaceGaps(key, found.gaps);
@@ -369,7 +384,6 @@ export function createWorker({
         await store.requestCrawl(unknown.map(other => ({ package: other, reason: 'closure' })));
         // What could not be fetched for a while, as a host's rate limit, is tried again within the hour, not when the
         // package is next due, which may be days: the crawl stays queued, for an hour, then longer, a few times.
-        const transient = found.gaps.filter(isTransient).length;
         const retry = transient > 0 && item.attempts < TRANSIENT_RETRIES;
         if (retry) await store.deferCrawl(item.id, new Date(now().getTime() + retryAfter(item.attempts)));
         else await store.finishCrawl(item.id);

@@ -34,7 +34,8 @@ the proxy as the faster source; where it has no answer, the clients fall back to
 ## Using the API
 
 ```shell
-curl -H "X-API-Key: $KEY" https://catalogue.example.com/api/v1/packages/module/midi-qol/releases
+curl -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"packages":[{"type":"module","id":"midi-qol"}]}' https://catalogue.example.com/api/v2/lookup
 ```
 
 See [the API](https://mondarth.github.io/fvtt-package-catalogue/user/api.html) for the endpoints, keys and errors, and [deploying it](https://mondarth.github.io/fvtt-package-catalogue/user/deployment.html) to run

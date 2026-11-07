@@ -6,8 +6,8 @@ import { inLocale } from '../support/locale.js';
 import { messagesOf } from '../support/messages.js';
 
 const endpoints = [
-  { method: 'GET', path: '/api/v1/status', summary: () => 'What the catalogue holds.' },
-  { method: 'GET', path: '/api/v1/other', summary: () => 'Something else.' },
+  { method: 'GET', path: '/api/v2/status', summary: () => 'What the catalogue holds.' },
+  { method: 'GET', path: '/api/v2/other', summary: () => 'Something else.' },
 ] as const;
 
 describe('EndpointList', () => {
@@ -16,7 +16,7 @@ describe('EndpointList', () => {
     expect(screen.getByRole('heading', { name: 'Endpoints' })).toBeInTheDocument();
     const items = screen.getAllByRole('listitem');
     expect(items).toHaveLength(2);
-    expect(items[0]).toHaveTextContent('GET /api/v1/status');
+    expect(items[0]).toHaveTextContent('GET /api/v2/status');
     expect(items[0]).toHaveTextContent('What the catalogue holds.');
   });
 

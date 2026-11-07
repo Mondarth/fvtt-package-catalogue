@@ -21,7 +21,7 @@ describe('the home page', () => {
     expect(screen.getByRole('heading', { level: 1, name: en.site_title })).toBeInTheDocument();
     expect(screen.getByText(en.home_lede)).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(ENDPOINTS.length);
-    expect(screen.getByText(en.endpoint_releases_summary)).toBeInTheDocument();
+    expect(screen.getByText(en.endpoint_lookup_summary)).toBeInTheDocument();
   });
 
   it('is in Spanish for a Spanish visitor', () => {

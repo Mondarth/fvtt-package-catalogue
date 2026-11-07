@@ -16,9 +16,8 @@ The repository is a pnpm workspace of two packages:
 ```text
 src/
   env.ts                    the server's environment, validated when it starts
-  params.ts                 route parameter matchers ([type=packageType])
   hooks.server.ts           wiring: the handle hook, over #lib/server/runtime
-  routes/api/v1/…           the API's endpoints
+  routes/api/v2/…           the API's endpoints
   routes/healthz/           the container's health check
   routes/+page.svelte       the website (+layout, +error)
   lib/components/           Svelte components
@@ -122,10 +121,12 @@ is recorded in `sync_runs`.
   and `versionManifest` (for every release) from its manifest template before loading. Once, when it starts, the
   worker queues as `refresh` each package it holds that has an override, and each it holds as gone.
 - **Unavailable packages** are not crawled. Before crawling, the worker reads Foundry VTT's index (from the cache) and
-  the package's override: `unavailableOf` gives `gone` for an override that says so, else `archived` when the index's
-  `status` is `archived`. Such a package is saved with `packages.unavailable` (and `unavailable_note`), its releases and
-  gaps removed; saving releases again clears it. `planRefresh` queues a package whose archived status on the index no
-  longer matches what is held. `gatherUniverse` gives these packages as `unavailable` and follows none of them.
+  the package's override: `unavailableOf` gives `gone` for an override that says so. A package the index's `status`
+  marks `archived` is crawled as any other, as Foundry VTT still installs it from a manifest that names it, such as a
+  dependent's `requires` (Math.js, for Monster Blocks); it is `archived` only when none of its releases loads and
+  nothing failed that may succeed later. Such a package is saved with `packages.unavailable` (and `unavailable_note`),
+  its releases and gaps removed; saving releases again clears it. `planRefresh` queues a package held as archived that
+  the index no longer archives. `gatherUniverse` gives these packages as `unavailable` and follows none of them.
 - **Core builds** come from Foundry VTT's release notes, once a day; builds held stay when they cannot be read.
 
 - **Refreshing** (`lib/server/refresh.ts`), hourly, before the crawl, so that what it queues is crawled in the same
@@ -169,8 +170,8 @@ Some of what SvelteKit 3 changed shapes the code:
 - `tsconfig.json` extends `$app/tsconfig`, which `svelte-kit sync` generates in `node_modules/$app`.
 - `#lib` is a [subpath import](https://nodejs.org/api/packages.html#subpath-imports) in `package.json`, not an alias,
   so imports through it name the file: `#lib/server/log.js`.
-- Hook types are in `@sveltejs/kit/hooks`; parameter matchers are Standard Schemas, defined in `src/params.ts` with
-  `defineParams`. The contract's zod `PackageType` is the `packageType` matcher.
+- Hook types are in `@sveltejs/kit/hooks`. Parameter matchers, should a route need one, are Standard Schemas, defined
+  in `src/params.ts` with `defineParams`.
 
 (environment)=
 
@@ -201,5 +202,5 @@ added to `dependencies` would be missing from the image.
 
 The contract's `package.json` exports its TypeScript sources under the `@mondarth/fvtt-package-catalogue/source` condition, and its build
 otherwise. Vite, Vitest, `tsc` and `svelte-check` in the catalogue resolve that condition, so a change to the contract
-is seen at once, with no build. SvelteKit's build analysis loads `src/params.ts` with Node rather than Vite, which does
+is seen at once, with no build. SvelteKit's build analysis loads some modules with Node rather than Vite, which does
 not know the condition, so the catalogue's `build` builds the contract first.

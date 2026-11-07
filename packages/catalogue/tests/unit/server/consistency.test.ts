@@ -108,12 +108,12 @@ describe('checkConsistency', () => {
     expect(checkConsistency(index, [held('a', { releases: [{ version: '1.0.0' }] })], {}).listingsDiffer).toBe(0);
   });
 
-  it('finds packages the index archived that are held as available, and not those held as unavailable', () => {
+  it('counts packages the index archived that are held as available, as a manifest still gives them, as no concern', () => {
     const archived = indexed('a', { archived: true });
     expect(checkConsistency([archived], [held('a')], {})).toMatchObject({
       listed: 0,
       archivedHeld: 1,
-      concerned: [ref('a')],
+      concerned: [],
     });
     expect(checkConsistency([archived], [held('a', { unavailable: 'archived', releases: [] })], {})).toMatchObject({
       archivedHeld: 0,

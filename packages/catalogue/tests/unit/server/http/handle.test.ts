@@ -49,13 +49,13 @@ describe('createHandle', () => {
 
   it('logs each request once, with its id, status and time', async () => {
     const { log, run } = setUp();
-    await run('/api/v1/status', { headers: { 'X-API-Key': 'secret', 'X-Catalogue-Client': 'EMMA/0.6.0' } }).response;
+    await run('/api/v2/status', { headers: { 'X-API-Key': 'secret', 'X-Catalogue-Client': 'EMMA/0.6.0' } }).response;
     expect(log.lines).toEqual([
       expect.objectContaining({
         message: 'request',
         requestId: 'id-1',
         method: 'GET',
-        path: '/api/v1/status',
+        path: '/api/v2/status',
         status: 200,
         ms: 5,
         client: 'EMMA/0.6.0',
@@ -72,7 +72,7 @@ describe('createHandle', () => {
 
   it('answers the CORS preflight without a key', async () => {
     const { resolve, run } = setUp();
-    const response = await run('/api/v1/status', { method: 'OPTIONS' }).response;
+    const response = await run('/api/v2/status', { method: 'OPTIONS' }).response;
     expect(response.status).toBe(204);
     expect(Object.fromEntries(response.headers)).toMatchObject(
       Object.fromEntries(Object.entries(CORS_HEADERS).map(([name, value]) => [name.toLowerCase(), value])),
@@ -90,7 +90,7 @@ describe('createHandle', () => {
     ['a wrong key', { 'X-API-Key': 'guess' }],
   ])('refuses an API request with %s, readably from any origin', async (_label, headers) => {
     const { resolve, run } = setUp();
-    const response = await run('/api/v1/status', { headers }).response;
+    const response = await run('/api/v2/status', { headers }).response;
     expect(response.status).toBe(401);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(await response.json()).toEqual({
@@ -101,7 +101,7 @@ describe('createHandle', () => {
 
   it('serves an API request with a key, with CORS headers', async () => {
     const { run } = setUp();
-    const response = await run('/api/v1/status', { headers: { 'X-API-Key': 'secret' } }).response;
+    const response = await run('/api/v2/status', { headers: { 'X-API-Key': 'secret' } }).response;
     expect(response.status).toBe(200);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(await response.json()).toEqual({ ok: true });
@@ -133,7 +133,7 @@ describe('createHandle', () => {
     resolve.mockResolvedValueOnce(
       new Response('<!doctype html>', { status, headers: { 'Content-Type': 'text/html' } }),
     );
-    const response = await run('/api/v1/nope', { headers: { 'X-API-Key': 'secret' } }).response;
+    const response = await run('/api/v2/nope', { headers: { 'X-API-Key': 'secret' } }).response;
     expect(response.status).toBe({ 410: 400, 503: 500 }[status] ?? status);
     expect(await response.json()).toMatchObject({ error: { code, requestId: 'id-1' } });
   });

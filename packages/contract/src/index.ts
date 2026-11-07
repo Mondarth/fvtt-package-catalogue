@@ -10,23 +10,15 @@ export { Compatibility, Relationship, Relationships, Release, ReleaseDetail, Ver
 export { CoreChannel, CoreRelease } from './core.js';
 export { SourceGap, Universe } from './universe.js';
 export {
-  API_BASE,
   API_KEY_HEADER,
-  API_VERSION,
   CLIENT_HEADER,
   ConsistencyReport,
   ErrorCode,
   ErrorResponse,
   HealthResponse,
   MAX_UNIVERSE_PACKAGES,
-  ReleasesResponse,
-  StatusResponse,
-  UNIVERSE_PATH,
   UnavailablePackage,
   UnavailableReason,
-  UniverseRequest,
-  UniverseResponse,
-  releasesPath,
 } from './api.js';
 export {
   API_V2_BASE,
@@ -54,4 +46,6 @@ export {
   RecheckRequest,
   RecheckResponse,
   RecheckedPackage,
+  STATUS_PATH,
+  StatusResponse,
 } from './v2.js';
