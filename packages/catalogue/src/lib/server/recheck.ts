@@ -7,6 +7,7 @@ import { RECHECK_MIN_SECONDS, packageKey } from '@mondarth/fvtt-package-catalogu
 
 import { RETRY_AFTER_SECONDS } from './lookup.js';
 import { checkOwnManifests } from './refresh.js';
+import { isEmptyDue } from './universe.js';
 
 import type { PackageRef, RecheckResponse } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
@@ -57,7 +58,13 @@ export async function recheck(
 
   const checks = await checkOwnManifests(http, due);
   await store.saveOwnChecks(checks, now);
-  const changed = checks.filter(check => check.changed).map(check => check.ref);
+  // What gave a version not held, and what is held with no releases so long that it is due to be crawled again: a
+  // package with no releases has no manifest of its own to check, so is only ever found by crawling it.
+  const empty = asked.filter(ref => {
+    const found = held.get(packageKey(ref));
+    return found !== undefined && isEmptyDue(found, now);
+  });
+  const changed = [...checks.filter(check => check.changed).map(check => check.ref), ...empty];
   if (changed.length > 0) await store.requestCrawl(changed.map(ref => ({ package: ref, reason: 'request' })));
 
   const after = due.length > 0 ? await store.detailsOf(available) : before;

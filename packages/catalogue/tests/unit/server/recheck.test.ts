@@ -36,7 +36,12 @@ const details = (change: Partial<PackageDetails> = {}): PackageDetails => ({
 });
 
 /** A store holding these packages, each at 1.0.0, with these details, which keeps the checks saved. */
-function storeOf(held: Record<string, Partial<PackageDetails> | 'gone'>) {
+/** A package held with no releases, crawled last at a time, or never. */
+interface Empty {
+  readonly empty: Date | null;
+}
+
+function storeOf(held: Record<string, Partial<PackageDetails> | 'gone' | Empty>) {
   const store = mockStore();
   const known = new Map(Object.entries(held));
   store.releasesOfEach.mockImplementation(refs =>
@@ -50,7 +55,9 @@ function storeOf(held: Record<string, Partial<PackageDetails> | 'gone'>) {
               packageKey(of),
               found === 'gone'
                 ? { releases: [], asOf: NOW, unavailable: { reason: 'gone' as const } }
-                : { releases: [release(of, '1.0.0')], asOf: NOW, unavailable: null },
+                : 'empty' in found
+                  ? { releases: [], asOf: found.empty, unavailable: null }
+                  : { releases: [release(of, '1.0.0')], asOf: NOW, unavailable: null },
             ] as const,
           ];
         }),
@@ -62,7 +69,7 @@ function storeOf(held: Record<string, Partial<PackageDetails> | 'gone'>) {
     for (const check of checks) {
       const was = known.get(packageKey(check.ref));
       saved.set(packageKey(check.ref), {
-        ...details(was === 'gone' ? {} : was),
+        ...details(was === 'gone' || (was !== undefined && 'empty' in was) ? {} : was),
         ownCheckedAt: at,
         ...(check.outcome === 'read' && { ownVersion: check.version, ownReadAt: at }),
       });
@@ -75,7 +82,8 @@ function storeOf(held: Record<string, Partial<PackageDetails> | 'gone'>) {
         refs.flatMap(of => {
           const key = packageKey(of);
           const found = saved.get(key) ?? known.get(key);
-          return found === undefined || found === 'gone' ? [] : [[key, { ...details(), ...found }] as const];
+          if (found === undefined || found === 'gone') return [];
+          return [[key, { ...details(), ...('empty' in found ? {} : found) }] as const];
         }),
       ),
     ),
@@ -156,6 +164,23 @@ describe('recheck', () => {
         own: { version: '1.0.0', readAt: before.toISOString(), checkedAt: NOW.toISOString() },
         changed: false,
       },
+    ]);
+  });
+
+  // Regression: a package held with no releases has no manifest of its own to check, so a check live found nothing new
+  // of it, and nothing had it crawled again.
+  it('queues a package held with no releases that is due to be crawled again, as pending', async () => {
+    const store = storeOf({
+      'module:emma': { empty: new Date(NOW.getTime() - 2 * 60 * MINUTE) },
+      'module:fresh': { empty: new Date(NOW.getTime() - 10 * MINUTE) },
+    });
+    const { http } = serving({});
+    const answer = await recheck(store, [ref('emma'), ref('fresh')], { http, now: NOW });
+    expect(store.requestCrawl).toHaveBeenCalledExactlyOnceWith([{ package: ref('emma'), reason: 'request' }]);
+    expect(answer.pending).toEqual([{ package: ref('emma'), retryAfter: expect.any(Number) as number }]);
+    expect(answer.packages.map(({ package: of, changed }) => [of.id, changed])).toEqual([
+      ['emma', true],
+      ['fresh', false],
     ]);
   });
 });
