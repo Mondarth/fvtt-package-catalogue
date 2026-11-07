@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.5.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.4.1...@mondarth/fvtt-package-catalogue-contract-v0.5.0) (2026-11-07)
+
+### Features
+
+* **contract:** retire version 1 of the API ([96fcd28](https://github.com/Mondarth/fvtt-package-catalogue/commit/96fcd28f7ed0da3beb38ed101b7acccf2f0733aa))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.4.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.4.0...@mondarth/fvtt-package-catalogue-contract-v0.4.1) (2026-11-06)
 
 ### Bug Fixes
