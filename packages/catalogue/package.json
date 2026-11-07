@@ -48,7 +48,7 @@
     "@testing-library/svelte": "^5.4.2",
     "@testing-library/user-event": "^14.6.8",
     "@types/node": "^24.19.2",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.4",
     "happy-dom": "^21.0.4",
@@ -58,7 +58,7 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript7": "npm:typescript@^7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5",
+    "vitest": "^5.1.0",
     "zod": "^4.6.7"
   }
 }
