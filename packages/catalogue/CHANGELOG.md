@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.7.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.1...@mondarth/fvtt-package-catalogue-v0.7.2) (2026-11-07)
+
+### Bug Fixes
+
+* **catalogue:** give a package's title from its own manifest ([efab8a4](https://github.com/Mondarth/fvtt-package-catalogue/commit/efab8a4e2b8b4480a11564f58af94ca17fafb7f1))
+
 ## [@mondarth/fvtt-package-catalogue-v0.7.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.0...@mondarth/fvtt-package-catalogue-v0.7.1) (2026-11-07)
 
 ### Bug Fixes
