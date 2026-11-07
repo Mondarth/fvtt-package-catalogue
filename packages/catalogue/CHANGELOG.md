@@ -1,3 +1,14 @@
+## [@mondarth/fvtt-package-catalogue-v0.7.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.4...@mondarth/fvtt-package-catalogue-v0.7.0) (2026-11-07)
+
+### Features
+
+* **catalogue:** retire version 1 of the API ([ee12fdc](https://github.com/Mondarth/fvtt-package-catalogue/commit/ee12fdc5ba6728bb887453300a6423e933978e8e))
+* **contract:** retire version 1 of the API ([96fcd28](https://github.com/Mondarth/fvtt-package-catalogue/commit/96fcd28f7ed0da3beb38ed101b7acccf2f0733aa))
+
+### Bug Fixes
+
+* **worker:** crawl archived packages, as manifests still give them ([28d0ad0](https://github.com/Mondarth/fvtt-package-catalogue/commit/28d0ad05eda636d15e247c2a11da3c28732e304b))
+
 ## [@mondarth/fvtt-package-catalogue-v0.6.4](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.3...@mondarth/fvtt-package-catalogue-v0.6.4) (2026-11-06)
 
 ### Bug Fixes
