@@ -372,6 +372,36 @@ describe("a package's own manifest", () => {
     ]);
   });
 
+  // Regression: Math.js, archived, and EMMA, outside the listing, had no title: their manifests' were never read.
+  it("reads the package's title from it too, where it gives one", async () => {
+    const http = httpClient({
+      fetch: vi.fn<typeof globalThis.fetch>(input => {
+        const url = input instanceof Request ? input.url : input.toString();
+        return Promise.resolve(
+          url.includes('mathjs')
+            ? Response.json({ version: '7.5.1-fvtt2', title: ' Math.js ' })
+            : Response.json({ version: '1.0.0', title: '' }),
+        );
+      }),
+    });
+    const at = (id: string) => [release('1.0.0', { manifest: `https://files.test/${id}/module.json` })];
+    expect(
+      await checkOwnManifests(http, [
+        { ref: { type: 'module', id: '_mathjs' }, releases: at('mathjs') },
+        { ref: { type: 'module', id: 'blank' }, releases: at('blank') },
+      ]),
+    ).toEqual([
+      {
+        ref: { type: 'module', id: '_mathjs' },
+        outcome: 'read',
+        version: '7.5.1-fvtt2',
+        title: 'Math.js',
+        changed: true,
+      },
+      { ref: { type: 'module', id: 'blank' }, outcome: 'read', version: '1.0.0', changed: false },
+    ]);
+  });
+
   it('is asked of its server every time, revalidating with the ETag it gave', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>((_input, init) =>
       Promise.resolve(
