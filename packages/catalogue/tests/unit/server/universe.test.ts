@@ -126,6 +126,32 @@ describe('gatherUniverse', () => {
     ]);
   });
 
+  // Regression: the EMMA module, outside Foundry VTT's listing, was crawled once before clients gave the manifest URL it is
+  // found by, so was held with no releases, and never crawled again, however often clients asked for it with the URL.
+  it('crawls again a package held with no releases when asked for it, with its manifest, once an hour at most', async () => {
+    const now = new Date(LATE.getTime() + 2 * 60 * 60 * 1000);
+    const manifest = 'https://raw.example.com/emma/module.json';
+    const store = storeOf({
+      'module:emma': { releases: [], asOf: LATE },
+      'module:new': { releases: [], asOf: new Date(now.getTime() - 10 * 60 * 1000) },
+      'module:never': { releases: [], asOf: null },
+      'module:full': { releases: [release('module:full', '1')], asOf: EARLY },
+    });
+    const found = await gatherUniverse(
+      store,
+      [ref('module:emma'), ref('module:new'), ref('module:never'), ref('module:full')],
+      { hints: new Map([['module:emma', manifest]]), now },
+    );
+    expect(found.pending).toEqual([ref('module:emma'), ref('module:never')]);
+    expect(found.held).toEqual([ref('module:new'), ref('module:full')]);
+    expect(store.requestCrawl).toHaveBeenCalledExactlyOnceWith([
+      { package: ref('module:emma'), reason: 'request', manifest },
+      { package: ref('module:never'), reason: 'request' },
+    ]);
+    // Still as of when what it holds was crawled.
+    expect(found.asOf).toBeNull();
+  });
+
   it("gives Foundry VTT's builds, and the gaps of every package in the closure, held or pending", async () => {
     const store = storeOf({
       'module:a': { releases: [release('module:a', '1', { requires: ['module:missing'] })], asOf: LATE },
