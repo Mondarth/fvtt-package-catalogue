@@ -43,7 +43,8 @@ lets it read the `ETag`.
     hourly, so a client can say how fresh it is.
   - `fromGeneration`, if given, leaves out releases whose declared `maximum` is of an older generation of Foundry VTT,
     so cannot run on a build of that generation or later, and so what only they need, but for the version `installed`.
-  - `pending`: packages the catalogue does not hold yet, each `{ package, retryAfter }`: it queues them, found by the
+  - `pending`: packages the catalogue does not hold yet, or holds with no releases and last crawled more than an hour
+    ago, each `{ package, retryAfter }`: it queues them, found by the
     `manifest` given, if any, so a package installed by its manifest alone is found too; asking again after
     `retryAfter` seconds may find them.
   - `unavailable`: packages that cannot be had, each `{ package, reason, note? }`. The `reason` is `archived`, when
@@ -67,7 +68,8 @@ lets it read the `ETag`.
   hourly check: `{ packages: [{ type, id }] }`, at most 50. The answer is `{ packages, pending }`: each package asked
   for that the catalogue holds, and can be had, once, as `{ package, own, changed }`, where `own` is as a lookup gives
   it, now; and the packages whose manifest gave a version the catalogue does not hold, queued to be crawled, as a
-  lookup gives those pending, to look up again after `retryAfter`. A package checked in the last five minutes is given
+  lookup gives those pending, to look up again after `retryAfter`; so is a package held with no releases and last crawled
+  more than an hour ago, which has no manifest of its own to check. A package checked in the last five minutes is given
   as it was then, without asking its server, however many clients ask. A package not held is left out: look it up.
 
 `GET /api/v2/listing`, or `?type=module` or `?type=system`

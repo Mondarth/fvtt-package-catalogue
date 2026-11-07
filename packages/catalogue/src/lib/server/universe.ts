@@ -10,7 +10,7 @@ import type {
   UnavailablePackage,
   Universe,
 } from '@mondarth/fvtt-package-catalogue-contract';
-import type { CatalogueStore, CrawlRequest } from './store/types.js';
+import type { CatalogueStore, CrawlRequest, PackageReleases } from './store/types.js';
 
 /** A universe, with what is missing from it and how old it is. */
 export interface GatheredUniverse {
@@ -39,6 +39,29 @@ export interface GatherOptions {
   readonly keep?: (release: Release) => boolean;
   /** Manifest URLs clients gave, by package key, to queue with a package the catalogue does not hold. */
   readonly hints?: ReadonlyMap<string, string>;
+  /** The time now, to tell a package held with no releases that is due to be crawled again (see {@link isEmptyDue}). */
+  readonly now?: Date;
+}
+
+/**
+ * How long after a package held with no releases was last crawled a client asking for it has it crawled again, in
+ * seconds. One crawled before any client gave the manifest URL it is found by, as a package outside Foundry VTT's
+ * listing is, holds nothing until it is crawled again with it; once an hour at most, so that a package that truly has
+ * no releases is not crawled at every request.
+ */
+export const EMPTY_RECRAWL_SECONDS = 3600;
+
+/**
+ * Whether a package held is due to be crawled again because a client asks for it: it has no releases, and was last
+ * crawled, if ever, more than {@link EMPTY_RECRAWL_SECONDS} ago.
+ *
+ * @param held - The package's releases held, and when they were last brought up to date
+ * @param now - The time now
+ * @returns `true` if it is to be crawled again
+ */
+export function isEmptyDue(held: PackageReleases, now: Date): boolean {
+  if (held.releases.length > 0 || held.unavailable !== null) return false;
+  return held.asOf === null || now.getTime() - held.asOf.getTime() > EMPTY_RECRAWL_SECONDS * 1000;
 }
 
 /**
@@ -54,7 +77,7 @@ export interface GatherOptions {
 export async function gatherUniverse(
   store: CatalogueStore,
   roots: readonly PackageRef[],
-  { keep = () => true, hints = new Map<string, string>() }: GatherOptions = {},
+  { keep = () => true, hints = new Map<string, string>(), now = new Date() }: GatherOptions = {},
 ): Promise<GatheredUniverse> {
   const met = new Map<string, PackageRef>();
   const meet = (refs: readonly PackageRef[]): PackageRef[] =>
@@ -78,13 +101,15 @@ export async function gatherUniverse(
     const next: PackageRef[] = [];
     for (const ref of level) {
       const found = ofLevel.get(packageKey(ref));
-      if (found === undefined) {
+      // What it holds is as of when it was crawled, even what is to be crawled again.
+      if (found !== undefined) asOf = older(asOf, found.asOf);
+      // Not held, or held with nothing, so long that it is to be crawled again: pending either way.
+      if (found === undefined || isEmptyDue(found, now)) {
         pending.push(ref);
         const manifest = hints.get(packageKey(ref));
         crawl.push({ package: ref, reason, ...(manifest !== undefined && { manifest }) });
         continue;
       }
-      asOf = older(asOf, found.asOf);
       // It holds no releases, so needs nothing.
       if (found.unavailable !== null) {
         unavailable.push({ package: ref, ...found.unavailable });

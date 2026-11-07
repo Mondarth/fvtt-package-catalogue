@@ -53,11 +53,13 @@ const unreachedOf = (gaps: readonly SourceGap[], held: ReadonlyMap<string, Packa
  *
  * @param store - The catalogue
  * @param request - What was asked
+ * @param now - The time now, to tell a package held with no releases that is due to be crawled again
  * @returns The answer, in the contract's shape
  */
 export async function lookUp(
   store: CatalogueStore,
   { packages, fromGeneration }: LookupRequest,
+  now: Date = new Date(),
 ): Promise<LookupResponse> {
   const installed = new Map(
     packages.flatMap(({ type, id, installed: version }) =>
@@ -75,7 +77,7 @@ export async function lookUp(
     return version !== undefined && sameVersion(version, release.version);
   };
   const roots = packages.map(({ type, id }) => ({ type, id }));
-  const found = await gatherUniverse(store, roots, { keep, hints });
+  const found = await gatherUniverse(store, roots, { keep, hints, now });
 
   // Each package held, in the order met, those asked for first: one with no release kept is still given, as held.
   const held = new Map(found.held.map(ref => [packageKey(ref), ref]));
