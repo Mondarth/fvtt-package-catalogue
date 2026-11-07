@@ -447,6 +447,21 @@ describe('drizzleStore, for lookups', () => {
     expect((await store.detailsOf([])).size).toBe(0);
   });
 
+  it("gives a package's title from its own manifest where the index lists none, keeping it through later checks", async () => {
+    const mathjs = { type: 'module', id: '_mathjs' } as const;
+    await store.saveReleases(mathjs, [], { source: 'crawl', at });
+    expect((await store.detailsOf([mathjs])).get('module:_mathjs')?.title).toBeNull();
+    await store.saveOwnChecks(
+      [{ ref: mathjs, outcome: 'read', version: '7.5.1', title: 'Math.js', changed: false }],
+      at,
+    );
+    expect((await store.detailsOf([mathjs])).get('module:_mathjs')?.title).toBe('Math.js');
+    // A check that gives none, or fails, keeps the title last read.
+    await store.saveOwnChecks([{ ref: mathjs, outcome: 'read', version: '7.5.2', changed: false }], later);
+    await store.saveOwnChecks([{ ref: mathjs, outcome: 'failed', changed: false }], later);
+    expect((await store.detailsOf([mathjs])).get('module:_mathjs')?.title).toBe('Math.js');
+  });
+
   it('keeps the manifest URL a client gave with a package queued, until it is crawled', async () => {
     await store.requestCrawl([{ package: MIDI, reason: 'warm' }]);
     await store.requestCrawl([{ package: MIDI, reason: 'request', manifest: 'https://example.com/a.json' }]);
