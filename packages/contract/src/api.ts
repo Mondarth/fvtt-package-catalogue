@@ -1,17 +1,10 @@
 /**
- * The HTTP API: where each answer is, how to authenticate, and the shape of every response.
+ * The HTTP API, whatever its version: how to authenticate, and what every version's answers share. Each version's
+ * endpoints are in their own module (see `v2.ts`).
  */
 import { z } from 'zod';
 
 import { PackageRef } from './package.js';
-import { Release } from './release.js';
-import { SourceGap, Universe } from './universe.js';
-
-/** The version of the API these schemas describe; part of every path. */
-export const API_VERSION = 'v1';
-
-/** The path every endpoint of this API version is under. */
-export const API_BASE = `/api/${API_VERSION}`;
 
 /**
  * The header that carries the API key. Every API request needs one, except the CORS preflight.
@@ -23,35 +16,14 @@ export const API_KEY_HEADER = 'X-API-Key';
 export const CLIENT_HEADER = 'X-Catalogue-Client';
 
 /**
- * The path of a package's releases.
- *
- * @param ref - The package
- * @returns The path, under {@link API_BASE}
- */
-export function releasesPath({ type, id }: PackageRef): string {
-  return `${API_BASE}/packages/${type}/${encodeURIComponent(id)}/releases`;
-}
-
-/** The path of the universe: a set of packages and everything they need. */
-export const UNIVERSE_PATH = `${API_BASE}/universe`;
-
-/**
- * The most packages a {@link UniverseRequest} may start from: far more than the modules any world enables, which for a
- * heavily modded world can be several hundred, while still refusing an absurd request before it is walked. What a
- * universe costs depends on its closure, not on how many packages it starts from.
+ * The most packages a lookup may start from: far more than the modules any world enables, which for a heavily modded
+ * world can be several hundred, while still refusing an absurd request before it is walked. What a lookup costs depends
+ * on its closure, not on how many packages it starts from.
  */
 export const MAX_UNIVERSE_PACKAGES = 1000;
 
 /** When the answer's data was last brought up to date, as an ISO 8601 time, or null if never. */
-const AsOf = z.iso.datetime().nullable();
-
-/** `GET /api/v1/packages/:type/:id/releases`: every release of a package the catalogue knows. */
-export const ReleasesResponse = z.object({
-  package: PackageRef,
-  releases: z.array(Release),
-  asOf: AsOf,
-});
-export type ReleasesResponse = z.infer<typeof ReleasesResponse>;
+export const AsOf = z.iso.datetime().nullable();
 
 /**
  * Why a package cannot be had: `archived`, Foundry VTT's listing of it is archived, so its Setup screen no longer offers
@@ -69,38 +41,8 @@ export const UnavailablePackage = z.object({
 });
 export type UnavailablePackage = z.infer<typeof UnavailablePackage>;
 
-/** `POST /api/v1/universe`: the packages to start from, such as those a world has enabled. */
-export const UniverseRequest = z.object({
-  packages: z.array(PackageRef).min(1).max(MAX_UNIVERSE_PACKAGES),
-});
-export type UniverseRequest = z.infer<typeof UniverseRequest>;
-
-/**
- * `POST /api/v1/universe`: the packages asked for and every package their releases require or run in, as far as the
- * catalogue holds them, with Foundry VTT's builds.
- */
-export const UniverseResponse = z.object({
-  universe: Universe,
-  /** What the catalogue's sources could not fetch or read for these packages. */
-  gaps: z.array(SourceGap),
-  /**
-   * Packages asked for or needed that the catalogue does not hold yet. They are queued for it to fetch; until then, a
-   * client finds them elsewhere, such as through EMMA's proxy.
-   */
-  pending: z.array(PackageRef),
-  /**
-   * Packages asked for or needed that cannot be had, with no releases in the universe, and not followed further. A
-   * client should leave them out of what it resolves, rather than look for them elsewhere. None from a catalogue that
-   * predates it.
-   */
-  unavailable: z.array(UnavailablePackage).default([]),
-  /** The oldest time any of the packages held was brought up to date. */
-  asOf: AsOf,
-});
-export type UniverseResponse = z.infer<typeof UniverseResponse>;
-
 /** A count of none or more. */
-const Count = z.int().nonnegative();
+export const Count = z.int().nonnegative();
 
 /**
  * How what the catalogue holds compares with Foundry VTT's index, as the catalogue last checked, once a day. Each count
@@ -128,20 +70,7 @@ export const ConsistencyReport = z.object({
 });
 export type ConsistencyReport = z.infer<typeof ConsistencyReport>;
 
-/** `GET /api/v1/status`: what the catalogue holds. */
-export const StatusResponse = z.object({
-  apiVersion: z.literal(API_VERSION),
-  /** The catalogue's own release. */
-  version: z.string(),
-  packages: Count,
-  releases: Count,
-  asOf: AsOf,
-  /** How it last compared with Foundry VTT's index; null if it never has, or predates the check. */
-  consistency: ConsistencyReport.nullable().default(null),
-});
-export type StatusResponse = z.infer<typeof StatusResponse>;
-
-/** `GET /healthz`: the server is up. It is not under {@link API_BASE}, and needs no key. */
+/** `GET /healthz`: the server is up. It is under no version of the API, and needs no key. */
 export const HealthResponse = z.object({
   status: z.literal('ok'),
 });
