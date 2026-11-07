@@ -1,3 +1,16 @@
+## [@mondarth/fvtt-package-catalogue-v0.7.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.0...@mondarth/fvtt-package-catalogue-v0.7.1) (2026-11-07)
+
+### Bug Fixes
+
+* **catalogue:** crawl again a package held with nothing when asked for ([c29006c](https://github.com/Mondarth/fvtt-package-catalogue/commit/c29006c6abb93d7d3f2d0a4340cc306534b96a0c))
+
+### Build System
+
+* **deps-dev:** Bump @electric-sql/pglite ([dd3e740](https://github.com/Mondarth/fvtt-package-catalogue/commit/dd3e740599cc854e60383c831e0f4b9aed223b1b))
+* **deps-dev:** Bump @inlang/paraglide-js from 2.29.3 to 3.1.0 ([3903712](https://github.com/Mondarth/fvtt-package-catalogue/commit/3903712a80281531d4679d58814510431bf3ed75))
+* **deps-dev:** Bump svelte-check ([9136113](https://github.com/Mondarth/fvtt-package-catalogue/commit/913611370d3f33308251b428cd561a2c15af8ff2))
+* **deps-dev:** Bump the vite group across 1 directory with 2 updates ([912b109](https://github.com/Mondarth/fvtt-package-catalogue/commit/912b1099b175ac89ef4599f4183660e5094c8311))
+
 ## [@mondarth/fvtt-package-catalogue-v0.7.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.6.4...@mondarth/fvtt-package-catalogue-v0.7.0) (2026-11-07)
 
 ### Features
