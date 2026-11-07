@@ -8,8 +8,8 @@ test('the API is never localised', async ({ playwright, baseURL }) => {
     baseURL: baseURL ?? '',
     extraHTTPHeaders: { 'Accept-Language': 'es', Cookie: 'PARAGLIDE_LOCALE=es', 'X-API-Key': E2E_API_KEY },
   });
-  const response = await spanish.get('/api/v1/packages/module/nobody/releases');
-  expect(await response.json()).toMatchObject({ error: { message: 'The catalogue does not know module:nobody' } });
-  expect((await spanish.get('/es/api/v1/status')).status()).toBe(404);
+  const response = await spanish.get('/api/v2/listing?type=world');
+  expect(await response.json()).toMatchObject({ error: { message: 'type is module or system' } });
+  expect((await spanish.get('/es/api/v2/status')).status()).toBe(404);
   await spanish.dispose();
 });

@@ -12,7 +12,7 @@ test.describe('for a visitor whose browser prefers Spanish', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'es');
     await expect(page).toHaveTitle(es.site_title);
     await expect(page.getByRole('heading', { level: 1, name: es.site_title })).toBeVisible();
-    await expect(page.getByText(es.endpoint_releases_summary)).toBeVisible();
+    await expect(page.getByText(es.endpoint_lookup_summary)).toBeVisible();
     await expect(page.getByRole('note')).toHaveText(es.machine_translation_notice);
   });
 

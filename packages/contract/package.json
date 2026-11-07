@@ -50,7 +50,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@mondarth/fvtt-resolver": "^0.10.2",
+    "@mondarth/fvtt-resolver": "^0.11.0",
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.0.5",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

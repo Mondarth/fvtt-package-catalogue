@@ -1,10 +1,10 @@
 /**
  * Version 2 of the HTTP API: answers shaped for clients that ask the catalogue alone, such as EMMA, as few times as
- * they can. Version 1 is kept until every Mondarth client asks version 2.
+ * they can. Version 1 is retired.
  */
 import { z } from 'zod';
 
-import { MAX_UNIVERSE_PACKAGES, UnavailablePackage } from './api.js';
+import { AsOf, ConsistencyReport, Count, MAX_UNIVERSE_PACKAGES, UnavailablePackage } from './api.js';
 import { CoreRelease } from './core.js';
 import { PackageRef } from './package.js';
 import { Release, Version } from './release.js';
@@ -29,6 +29,9 @@ export const MANIFEST_PATH = `${API_V2_BASE}/manifest`;
 
 /** The path that has packages' own manifests checked again now, as a client's "check live" asks. */
 export const RECHECK_PATH = `${API_V2_BASE}/recheck`;
+
+/** The path of what the catalogue holds. */
+export const STATUS_PATH = `${API_V2_BASE}/status`;
 
 /** The most packages one recheck may ask for: those a user means to see fresh, not every package installed. */
 export const MAX_RECHECK_PACKAGES = 50;
@@ -234,3 +237,16 @@ export const ManifestResponse = z.union([
   z.object({ ok: z.literal(false), problem: z.literal('not-manifest') }),
 ]);
 export type ManifestResponse = z.infer<typeof ManifestResponse>;
+
+/** `GET /api/v2/status`: what the catalogue holds. */
+export const StatusResponse = z.object({
+  apiVersion: z.literal(API_V2_VERSION),
+  /** The catalogue's own release. */
+  version: z.string(),
+  packages: Count,
+  releases: Count,
+  asOf: AsOf,
+  /** How it last compared with Foundry VTT's index; null if it never has. */
+  consistency: ConsistencyReport.nullable(),
+});
+export type StatusResponse = z.infer<typeof StatusResponse>;

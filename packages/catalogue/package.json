@@ -39,7 +39,7 @@
     "@electric-sql/pglite": "^0.5.14",
     "@inlang/paraglide-js": "^2.29.3",
     "@mondarth/fvtt-package-catalogue-contract": "workspace:*",
-    "@mondarth/fvtt-resolver": "^0.10.2",
+    "@mondarth/fvtt-resolver": "^0.11.0",
     "@playwright/test": "^1.64.1",
     "@sveltejs/adapter-node": "^6.0.1",
     "@sveltejs/kit": "^3.1.1",

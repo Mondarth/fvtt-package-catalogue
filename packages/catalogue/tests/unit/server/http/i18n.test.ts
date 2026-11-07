@@ -44,7 +44,7 @@ describe('handleI18n', () => {
     expect((await render('/', { 'Accept-Language': 'ja' })).locale).toBe('en');
   });
 
-  it.each(['/api/v1/status', '/healthz'])('passes %s through untouched', async path => {
+  it.each(['/api/v2/status', '/healthz'])('passes %s through untouched', async path => {
     const { resolve, response } = await render(path, { 'Accept-Language': 'es' });
     expect(resolve).toHaveBeenCalledWith(expect.anything());
     expect(resolve.mock.calls[0]).toHaveLength(1);

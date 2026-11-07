@@ -1,8 +1,8 @@
 # The API
 
-Every endpoint is under `/api/v1` or, for version 2, `/api/v2`, and answers in JSON. Version 2 is for clients that
-ask the catalogue alone, such as EMMA, as few times as they can; version 1 stays until every Mondarth client asks
-version 2. The schema of every request and response is in the
+Every endpoint is under `/api/v2`, and answers in JSON. Version 2 is for clients that ask the catalogue alone, such as
+EMMA, as few times as they can. Version 1 (`/api/v1`, its releases, universe and status) is retired: every Mondarth
+client asks version 2. The schema of every request and response is in the
 [contract](https://www.npmjs.com/package/@mondarth/fvtt-package-catalogue-contract), as zod schemas a client can
 validate with.
 
@@ -11,7 +11,7 @@ validate with.
 Every request needs a key, in the `X-API-Key` header, except the CORS preflight and `GET /healthz`:
 
 ```shell
-curl -H "X-API-Key: $KEY" https://catalogue.example.com/api/v1/status
+curl -H "X-API-Key: $KEY" https://catalogue.example.com/api/v2/status
 ```
 
 As with EMMA's default proxy, a key ships inside the clients that use it, so it cannot be kept secret. It identifies a
@@ -28,15 +28,16 @@ lets it read the `ETag`.
 
 ## Endpoints
 
-### Version 2
-
 `POST /api/v2/lookup`
 : A set of packages, such as those installed, and every package their releases require or run in, all the way down,
   each once: `{ packages: [{ type, id, installed?, manifest? }], fromGeneration? }`, at most 1000 packages. The answer
   is `{ core, packages, pending, unavailable, unreached, asOf }`:
 
   - `packages`: each package held, those asked for first, as `{ package, title, latest, premium, syncedAt, own,
-    releases }`. Its releases are those of version 1, without their `package`. `title`, `latest` (the newest version,
+    releases }`. Each release is what `@mondarth/fvtt-resolver` reads as a `Release`, without its `package`. A release
+    newer than any Foundry VTT's package listing offers, such as one published on GitLab first, is included with
+    `"unlisted": true`: Foundry VTT's users cannot install it from the listing, so the resolver chooses one only when
+    no listed version fits, and a client should say what it is. `title`, `latest` (the newest version,
     where Foundry VTT's listing gives it) and `premium` are the listing's. `syncedAt` is when its releases were last
     brought up to date; `own` is what its own manifest last gave, `{ version, readAt, checkedAt }`, checked about
     hourly, so a client can say how fresh it is.
@@ -45,7 +46,10 @@ lets it read the `ETag`.
   - `pending`: packages the catalogue does not hold yet, each `{ package, retryAfter }`: it queues them, found by the
     `manifest` given, if any, so a package installed by its manifest alone is found too; asking again after
     `retryAfter` seconds may find them.
-  - `unavailable`: packages that cannot be had, as in version 1. `unreached`: packages whose sources could not all be
+  - `unavailable`: packages that cannot be had, each `{ package, reason, note? }`. The `reason` is `archived`, when
+    Foundry VTT's listing of the package is archived and none of its releases loads, or `gone`, when the catalogue's
+    maintainers found its files are no longer there; `note` says more, in words. None of their releases are given, and
+    what they need is not followed. `unreached`: packages whose sources could not all be
     listed when they were last brought up to date, so may have newer versions not held.
 
 `POST /api/v2/manifest`
@@ -77,16 +81,7 @@ lets it read the `ETag`.
 `GET /api/v2/core`
 : Foundry VTT's builds, oldest first: `{ core }`, with an `ETag` and `Cache-Control: max-age=3600`, as the listing.
 
-### Version 1
-
-`GET /api/v1/packages/{type}/{id}/releases`
-: Every release of a package that the catalogue knows: `{ package, releases, asOf }`. Each release is what
-  `@mondarth/fvtt-resolver` reads as a `Release`. `type` is `module`, `system` or `world`. `asOf` is when the
-  releases were last brought up to date. A release newer than any Foundry VTT's package listing offers, such as one
-  published on GitLab first, is included with `"unlisted": true`: Foundry VTT's users cannot install it from the
-  listing, so the resolver chooses one only when no listed version fits, and a client should say what it is.
-
-`GET /api/v1/status`
+`GET /api/v2/status`
 : What the catalogue holds: `{ apiVersion, version, packages, releases, asOf, consistency }`. `consistency` is how it
   last compared with Foundry VTT's index, once a day, or `null` if it has not yet: `at`; `listed`, the packages the
   index lists and has not archived, and `held`, how many of them the catalogue holds; then what is to be put right:
@@ -98,30 +93,6 @@ lets it read the `ETag`.
 
 `GET /healthz`
 : `{ "status": "ok" }` while the server is up. It needs no key and does not touch the database.
-
-`POST /api/v1/universe`
-: A set of packages and everything they need, in one answer. The body names up to 1000 packages to start from, such as
-  those a world has enabled:
-
-  ```json
-  { "packages": [{ "type": "module", "id": "midi-qol" }] }
-  ```
-
-  The answer is `{ universe, gaps, pending, unavailable, asOf }`:
-
-  - `universe`: `{ core, releases }`, what `@mondarth/fvtt-resolver` reads as a `Universe`. `releases` holds every
-    release of the packages asked for, and of every package any of those releases requires or runs in, all the way
-    down. What releases conflict with or recommend is not followed, nor are worlds, as the resolver does not follow them
-    either. `core` is every build of Foundry VTT the catalogue knows, oldest first.
-  - `gaps`: what the catalogue's sources could not fetch or read for these packages.
-  - `pending`: packages asked for or needed that the catalogue does not hold yet. Each is queued for the worker to
-    fetch; until then, a client finds them elsewhere, such as through EMMA's proxy, and asks again later.
-  - `unavailable`: packages asked for or needed that cannot be had, each `{ package, reason, note? }`. The `reason` is
-    `archived`, when Foundry VTT's listing of the package is archived, so its Setup screen no longer offers it, or
-    `gone`, when the catalogue's maintainers found its files are no longer there; `note` says more, in words. None of
-    their releases are in the universe, and what they need is not followed. A client should leave them out of what it
-    resolves, rather than look for them elsewhere. A catalogue from before this field gives none.
-  - `asOf`: the oldest time any package held was brought up to date, or `null` if none is held.
 
 ## Errors
 
