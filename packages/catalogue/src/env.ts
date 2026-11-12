@@ -31,6 +31,21 @@ export const variables = defineEnvVars({
     schema: ProviderCredential,
   },
   AUTH_GITHUB_SECRET: { description: "The GitHub OAuth app's client secret.", schema: ProviderCredential },
+  AUTH_GOOGLE_ID: {
+    description: "The Google OAuth client's id; Google is offered only with it.",
+    schema: ProviderCredential,
+  },
+  AUTH_GOOGLE_SECRET: { description: "The Google OAuth client's secret.", schema: ProviderCredential },
+  AUTH_DISCORD_ID: {
+    description: "The Discord application's client id; Discord is offered only with it.",
+    schema: ProviderCredential,
+  },
+  AUTH_DISCORD_SECRET: { description: "The Discord application's client secret.", schema: ProviderCredential },
+  AUTH_PATREON_ID: {
+    description: "The Patreon client's id; Patreon is offered only with it.",
+    schema: ProviderCredential,
+  },
+  AUTH_PATREON_SECRET: { description: "The Patreon client's secret.", schema: ProviderCredential },
   AUTH_TEST_PROVIDER_URL: {
     description: 'A stand-in sign-in provider, for the end-to-end tests alone. Never set in a deployment.',
     schema: TestProviderUrl,

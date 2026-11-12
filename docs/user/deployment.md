@@ -59,8 +59,9 @@ has no way out. Nothing is published on the host.
    : The website's address as visitors reach it through SWAG, such as `https://catalogue.example.org`. Sign-in
      providers send visitors back to it.
 
-   `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (optional)
-   : Signing in with GitHub (see [Signing in](#signing-in)). Without both, the sign-in page does not offer it.
+   `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `AUTH_PATREON_ID`, `AUTH_PATREON_SECRET` (optional)
+   : Signing in with GitHub, Google, Discord and Patreon (see [Signing in](#signing-in)). Each provider is offered only
+     with both its id and its secret.
 
    `GITHUB_TOKEN`, `GITLAB_TOKEN` (optional)
    : Raise the worker's limit on GitHub's API from 60 requests an hour to 5000; a token needs no scopes. Without one,
@@ -78,13 +79,29 @@ has no way out. Nothing is published on the host.
 
 ## Signing in
 
-The website asks visitors to sign in with an account they already have: GitHub, for now. Each provider is offered only
-once its app is set up:
+The website asks visitors to sign in with an account they already have: GitHub, Google, Discord or Patreon. Each
+provider is offered only once its app is registered with it and its id and secret are in `.env`. Every app's callback,
+or redirect, URL is `SITE_URL` followed by `/auth/callback/<provider>`; with `SITE_URL=https://catalogue.example.org`,
+GitHub's is `https://catalogue.example.org/auth/callback/github`. After changing `.env`, `docker compose up -d app`.
 
 GitHub
-: Create an OAuth app (GitHub: Settings, Developer settings, OAuth Apps). Its homepage URL is `SITE_URL`, and its
-  authorization callback URL is `SITE_URL` followed by `/auth/callback/github`. Put its client id and a client secret in
-  `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, then `docker compose up -d app`.
+: Settings, Developer settings, OAuth Apps, New OAuth App. The homepage URL is `SITE_URL`, and the authorization
+  callback URL is `SITE_URL/auth/callback/github`. Its client id and a client secret go in `AUTH_GITHUB_ID` and
+  `AUTH_GITHUB_SECRET`.
+
+Google
+: In the Google Cloud console, set up the OAuth consent screen (Google Auth Platform: branding, audience), then, under
+  Clients, create an OAuth client ID for a web application. Its authorised redirect URI is
+  `SITE_URL/auth/callback/google`. Its client ID and secret go in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. While the
+  app is in testing, only the test users the consent screen lists can sign in; publish it to let anyone.
+
+Discord
+: In the Developer Portal, create an application, and under OAuth2 add the redirect `SITE_URL/auth/callback/discord`.
+  Its client ID and client secret go in `AUTH_DISCORD_ID` and `AUTH_DISCORD_SECRET`.
+
+Patreon
+: In Patreon's developer portal (Clients & API Keys), create a client whose redirect URI is
+  `SITE_URL/auth/callback/patreon`. Its client ID and client secret go in `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET`.
 
 Signing in keeps what the provider gives of the visitor (their name, email address and picture), their sessions, and
 where each session signed in from. The website's "What we store" page (`/privacy`) lays it all out, row by row, and a

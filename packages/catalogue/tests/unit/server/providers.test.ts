@@ -5,6 +5,9 @@ import { providerName } from '../../../src/lib/providers.js';
 describe('providerName', () => {
   it("is a provider's own name, or its id for one the website does not know", () => {
     expect(providerName('github')).toBe('GitHub');
+    expect(providerName('google')).toBe('Google');
+    expect(providerName('discord')).toBe('Discord');
+    expect(providerName('patreon')).toBe('Patreon');
     expect(providerName('myspace')).toBe('myspace');
   });
 });

@@ -23,8 +23,9 @@ as several people: nicknames one of them has taken, for one.
 
 It exists on the development server alone: a Vite plugin in `vite.config.ts` serves it (`apply: 'serve'`), before
 SvelteKit, and the server offers it only when `import.meta.env.DEV` is set (`accounts/dev-provider.ts`). A build has
-neither. Setting `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` in `.env` offers GitHub beside it, through an OAuth app whose
-callback is `http://localhost:5173/auth/callback/github`.
+neither. Setting a real provider's id and secret in `.env` (`AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, and so on for
+Google, Discord and Patreon) offers it beside the stand-in, through an app whose callback is
+`http://localhost:5173/auth/callback/<provider>`.
 
 ## Commands
 
