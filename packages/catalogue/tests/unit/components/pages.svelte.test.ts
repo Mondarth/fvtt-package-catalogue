@@ -95,8 +95,12 @@ describe('the layout', () => {
     expect(home.closest('header')?.firstElementChild).toBe(home);
     const source = home.querySelector('picture source');
     expect(source).toHaveAttribute('media', '(prefers-color-scheme: dark)');
-    expect(source?.getAttribute('srcset')).toMatch(/logo-dark/);
-    expect(home.querySelector('img')?.getAttribute('src')).toMatch(/logo-light/);
+    // Small enough for Vite to inline, or else a file of their own: SVG either way, and not the same one.
+    const dark = source?.getAttribute('srcset') ?? '';
+    const light = home.querySelector('img')?.getAttribute('src') ?? '';
+    expect(dark).toMatch(/svg/);
+    expect(light).toMatch(/svg/);
+    expect(dark).not.toBe(light);
   });
 
   it('puts the workspace bar along the top once signed in, the profile button at its far right', () => {

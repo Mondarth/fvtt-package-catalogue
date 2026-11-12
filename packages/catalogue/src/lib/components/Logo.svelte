@@ -2,8 +2,8 @@
   The catalogue's logo, in the visitor's colour scheme: the light one, or the dark one where the browser prefers dark.
 -->
 <script lang="ts">
-  import dark from '#lib/assets/brand/logo-dark.png';
-  import light from '#lib/assets/brand/logo-light.png';
+  import dark from '#lib/assets/brand/logo-dark.svg';
+  import light from '#lib/assets/brand/logo-light.svg';
 
   interface Props {
     /** Its height, in CSS units; its width follows. */
