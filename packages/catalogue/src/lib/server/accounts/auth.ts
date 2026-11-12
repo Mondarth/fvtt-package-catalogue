@@ -1,6 +1,6 @@
 /**
- * Signing in to the website, with Better Auth: through a sign-in provider (GitHub, for now), into a session kept in the
- * database. The API is not signed in to; it keeps its keys.
+ * Signing in to the website, with Better Auth: through a sign-in provider (GitHub, Google, Discord or Patreon), into a
+ * session kept in the database. The API is not signed in to; it keeps its keys.
  *
  * Better Auth answers under {@link AUTH_PATH}, not its default `/api/auth`, which is the API's (see `http/paths.ts`).
  * What it stores is laid out on the website's "What we store" page (`/privacy`), which says the same as
@@ -8,7 +8,7 @@
  */
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { genericOAuth } from 'better-auth/plugins/generic-oauth';
+import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
 import { eq } from 'drizzle-orm';
 
@@ -36,6 +36,12 @@ export interface AuthOptions {
   readonly siteUrl: string;
   /** GitHub's app, if signing in with GitHub is offered. */
   readonly github?: ProviderApp | undefined;
+  /** Google's, if signing in with Google is offered. */
+  readonly google?: ProviderApp | undefined;
+  /** Discord's, if signing in with Discord is offered. */
+  readonly discord?: ProviderApp | undefined;
+  /** Patreon's, if signing in with Patreon is offered. */
+  readonly patreon?: ProviderApp | undefined;
   /**
    * A stand-in provider's address, for the end-to-end tests alone: it answers `/authorize`, `/token` and `/userinfo`
    * as an OAuth 2 provider does. Never set in a deployment.
@@ -48,18 +54,39 @@ export interface AuthOptions {
 /** The stand-in provider's id. */
 export const TEST_PROVIDER = 'test';
 
+/** The real providers, in the order the sign-in page shows them. */
+export const PROVIDERS = ['github', 'google', 'discord', 'patreon'] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
+/** Each provider's app, where it is set up. */
+export type ProviderApps = Partial<Record<Provider, ProviderApp | undefined>>;
+
 /**
  * The providers a configuration offers, in the order the sign-in page shows them.
  *
  * @param options - The configuration
  * @returns Each provider's id
  */
-export function signInProviders(options: Pick<AuthOptions, 'github' | 'testProviderUrl'>): string[] {
+export function signInProviders(options: ProviderApps & Pick<AuthOptions, 'testProviderUrl'>): string[] {
   return [
-    ...(options.github === undefined ? [] : ['github']),
+    ...PROVIDERS.filter(provider => options[provider] !== undefined),
     ...(options.testProviderUrl === undefined ? [] : [TEST_PROVIDER]),
   ];
 }
+
+/**
+ * A provider's app, from its id and secret as the environment gives them.
+ *
+ * @param clientId - Its client id
+ * @param clientSecret - Its client secret
+ * @returns The app, or none unless both are given
+ */
+export function providerApp(clientId: string | undefined, clientSecret: string | undefined): ProviderApp | undefined {
+  return clientId !== undefined && clientSecret !== undefined ? { clientId, clientSecret } : undefined;
+}
+
+/** A provider's app as Better Auth takes it, keeping nothing else of the configuration. */
+const appOf = ({ clientId, clientSecret }: ProviderApp) => ({ clientId, clientSecret });
 
 /**
  * Better Auth, set up for the website.
@@ -68,7 +95,22 @@ export function signInProviders(options: Pick<AuthOptions, 'github' | 'testProvi
  * @returns The instance
  */
 export function createAuth(options: AuthOptions) {
-  const { db, github, testProviderUrl, random } = options;
+  const { db, github, google, discord, testProviderUrl, random } = options;
+  const generic = [
+    ...(options.patreon === undefined ? [] : [patreon(appOf(options.patreon))]),
+    ...(testProviderUrl === undefined
+      ? []
+      : [
+          {
+            providerId: TEST_PROVIDER,
+            clientId: 'e2e',
+            clientSecret: 'e2e',
+            authorizationUrl: `${testProviderUrl}/authorize`,
+            tokenUrl: `${testProviderUrl}/token`,
+            userInfoUrl: `${testProviderUrl}/userinfo`,
+          },
+        ]),
+  ];
   return betterAuth({
     appName: 'Mondarth',
     baseURL: options.siteUrl,
@@ -81,25 +123,12 @@ export function createAuth(options: AuthOptions) {
     // There is no signing in with a password: only through a provider.
     emailAndPassword: { enabled: false },
     socialProviders: {
-      ...(github !== undefined && { github: { clientId: github.clientId, clientSecret: github.clientSecret } }),
+      ...(github !== undefined && { github: appOf(github) }),
+      ...(google !== undefined && { google: appOf(google) }),
+      ...(discord !== undefined && { discord: appOf(discord) }),
     },
-    plugins:
-      testProviderUrl === undefined
-        ? []
-        : [
-            genericOAuth({
-              config: [
-                {
-                  providerId: TEST_PROVIDER,
-                  clientId: 'e2e',
-                  clientSecret: 'e2e',
-                  authorizationUrl: `${testProviderUrl}/authorize`,
-                  tokenUrl: `${testProviderUrl}/token`,
-                  userInfoUrl: `${testProviderUrl}/userinfo`,
-                },
-              ],
-            }),
-          ],
+    // Patreon is not among Better Auth's own providers, and the stand-in is no one's: both come through its plugin.
+    plugins: generic.length === 0 ? [] : [genericOAuth({ config: generic })],
     user: {
       additionalFields: {
         // Given by the hook below, which Better Auth runs after checking what is required: the default stands in until

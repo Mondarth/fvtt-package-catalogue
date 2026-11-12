@@ -3,6 +3,9 @@
  */
 export const PROVIDER_NAMES: Readonly<Record<string, string>> = {
   github: 'GitHub',
+  google: 'Google',
+  discord: 'Discord',
+  patreon: 'Patreon',
   test: 'Test provider',
 };
 

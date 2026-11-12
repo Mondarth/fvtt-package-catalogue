@@ -215,7 +215,7 @@ read and validated again at start-up, come from the environment the server runs 
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
 | `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
 | `SITE_URL`     | yes      | The website's address as visitors reach it                 |
-| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | no | GitHub's OAuth app; signing in with GitHub is offered only with both |
+| `AUTH_<PROVIDER>_ID`, `AUTH_<PROVIDER>_SECRET` | no | A provider's app, for `GITHUB`, `GOOGLE`, `DISCORD` and `PATREON`; each is offered only with both |
 | `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
 | `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
 
