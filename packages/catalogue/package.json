@@ -49,6 +49,7 @@
     "@testing-library/user-event": "^14.6.8",
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.1.0",
+    "better-auth": "^1.7.20",
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.4",
     "happy-dom": "^21.0.4",

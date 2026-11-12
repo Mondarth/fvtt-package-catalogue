@@ -1,16 +1,28 @@
+<!--
+  The home page: the sign-in page, or, once signed in, the workspace, which has only its bar along the top for now.
+-->
 <script lang="ts">
-  import EndpointList from '#lib/components/EndpointList.svelte';
-  import { ENDPOINTS } from '#lib/endpoints.js';
+  import SignIn from '#lib/components/SignIn.svelte';
   import { m } from '#lib/paraglide/messages.js';
+
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
 </script>
 
-<h1>{m.site_title()}</h1>
-<p class="lede">{m.home_lede()}</p>
-
-<EndpointList endpoints={ENDPOINTS} />
+{#if data.signedIn === null}
+  <SignIn providers={data.providers} failed={data.failed} />
+{:else}
+  <h1 class="visually-hidden">{m.workspace_label()}</h1>
+{/if}
 
 <style>
-  .lede {
-    color: var(--muted);
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 </style>

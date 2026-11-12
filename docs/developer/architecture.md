@@ -19,13 +19,18 @@ src/
   hooks.server.ts           wiring: the handle hook, over #lib/server/runtime
   routes/api/v2/…           the API's endpoints
   routes/healthz/           the container's health check
-  routes/+page.svelte       the website (+layout, +error)
+  routes/+page.svelte       the website: the sign-in page, or the workspace (+layout, +error)
+  routes/profile/           the profile page: the nickname, what is stored, signing out, deleting the profile
+  routes/privacy/           "What we store": everything signing in keeps, and why (lib/stored.ts)
+  routes/developers/        the API's endpoints, for developers
+  routes/sign-in/, sign-out/  starting a sign-in with a provider, and ending a session
   lib/components/           Svelte components
   lib/i18n.ts               the locales, and which are machine translated
   lib/server/
     config.ts               the environment's schemas, shared by the server and the worker
     log.ts                  JSON-lines logging
     http/                   request handling: keys, CORS, the website's locale, responses in the contract's shape
+    accounts/               signing in to the website: Better Auth, its tables, handles and nicknames
     db/                     the Drizzle schema and the connection
     store/                  the store: everything read or written
     universe.ts             a set of packages and everything they need, from the store
@@ -175,6 +180,27 @@ Some of what SvelteKit 3 changed shapes the code:
 
 (environment)=
 
+### Signing in
+
+The website signs visitors in with [Better Auth](https://www.better-auth.com), in `lib/server/accounts/`, kept apart
+from the catalogue so that it can move to a service of its own, shared by every Mondarth site:
+
+- Better Auth answers under `/auth` (its callbacks from the providers at `/auth/callback/<provider>`), not its default
+  `/api/auth`, which is the API's and needs a key. The accounts' `handle` hook (`accounts/handle.ts`) gives it those
+  paths, and gives every other page of the website who is signed in, in `locals.user`; the API is never signed in to.
+- Its tables (`users`, `sessions`, `accounts`, `verifications`) are in `accounts/schema.ts`, migrated with the rest by
+  drizzle-kit, with two of the catalogue's own on `users`: the `handle`, three words and two digits given at random
+  when the profile is made, and the `nickname` the user may choose, unique whatever its case.
+- The site needs no script to sign in: signing in, signing out and deleting the profile are forms posted to small
+  endpoints (`routes/sign-in/[provider]`, `routes/sign-out`, `routes/profile/delete`) that call Better Auth on the
+  server and pass its cookies on with a redirect.
+- `lib/stored.ts` lists what each row of the "What we store" page covers, by column; a test checks it against the
+  tables as the migrations make them, so that a column added must be added to the page too.
+- The end-to-end tests sign in through a stand-in provider (`tests/e2e/fake-provider.ts`), offered only when
+  `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
+  (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
+  {doc}`setup`.
+
 ### The environment
 
 `src/env.ts` declares the server's variables with `defineEnvVars`, each with a zod schema from `lib/server/config.ts`,
@@ -187,6 +213,10 @@ read and validated again at start-up, come from the environment the server runs 
 | `DATABASE_URL` | yes      | The PostgreSQL connection string                           |
 | `API_KEYS`     | yes      | The keys accepted, separated by commas                     |
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
+| `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
+| `SITE_URL`     | yes      | The website's address as visitors reach it                 |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | no | GitHub's OAuth app; signing in with GitHub is offered only with both |
+| `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
 | `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
 
 adapter-node reads its own: `PORT`, and behind a proxy `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER` and

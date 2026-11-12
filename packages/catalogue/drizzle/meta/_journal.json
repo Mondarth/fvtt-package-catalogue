@@ -85,6 +85,13 @@
       "when": 1794087697971,
       "tag": "0011_own-title",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794486163107,
+      "tag": "0012_accounts",
+      "breakpoints": true
     }
   ]
 }

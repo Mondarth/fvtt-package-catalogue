@@ -43,6 +43,8 @@ jobs:
         env:
           DATABASE_URL: postgres://build:build@localhost:5432/build
           API_KEYS: build-only
+          AUTH_SECRET: build-only-placeholder-not-a-secret-0000
+          SITE_URL: http://build.invalid
 
       - name: Cache Playwright browsers
         if: matrix.project != 'api' && matrix.project != 'worker'

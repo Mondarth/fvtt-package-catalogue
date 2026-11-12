@@ -50,6 +50,18 @@ has no way out. Nothing is published on the host.
    `CATALOGUE_TAG`
    : The release to run: a version (`0.1.0`), its line (`0.1`, `0`) or `latest`.
 
+   `AUTH_SECRET`
+   : Signs the website's cookies and encrypts what sign-in providers give (`openssl rand -hex 32`). Keep it secret,
+     and keep it the same: changing it signs everyone out, and the providers' tokens already stored can no longer be
+     read.
+
+   `SITE_URL`
+   : The website's address as visitors reach it through SWAG, such as `https://catalogue.example.org`. Sign-in
+     providers send visitors back to it.
+
+   `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (optional)
+   : Signing in with GitHub (see [Signing in](#signing-in)). Without both, the sign-in page does not offer it.
+
    `GITHUB_TOKEN`, `GITLAB_TOKEN` (optional)
    : Raise the worker's limit on GitHub's API from 60 requests an hour to 5000; a token needs no scopes. Without one,
      packages listed by Foundry VTT still crawl in full, as their manifests are not fetched through the API.
@@ -63,6 +75,23 @@ has no way out. Nothing is published on the host.
    docker compose logs migrate         # "The database is up to date"
    docker compose logs worker          # "The worker started", then each job
    ```
+
+## Signing in
+
+The website asks visitors to sign in with an account they already have: GitHub, for now. Each provider is offered only
+once its app is set up:
+
+GitHub
+: Create an OAuth app (GitHub: Settings, Developer settings, OAuth Apps). Its homepage URL is `SITE_URL`, and its
+  authorization callback URL is `SITE_URL` followed by `/auth/callback/github`. Put its client id and a client secret in
+  `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, then `docker compose up -d app`.
+
+Signing in keeps what the provider gives of the visitor (their name, email address and picture), their sessions, and
+where each session signed in from. The website's "What we store" page (`/privacy`) lays it all out, row by row, and a
+visitor can delete their profile, and all of it with it, from their profile page. The sign-in page says what is stored,
+and links to that page, before any provider is chosen.
+
+The API is not signed in to: it keeps its keys.
 
 ## The worker
 
