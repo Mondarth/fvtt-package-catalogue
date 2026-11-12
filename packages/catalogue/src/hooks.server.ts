@@ -1,13 +1,18 @@
 import { sequence } from '@sveltejs/kit/hooks';
 
+import { createAccountsHandle } from '#lib/server/accounts/handle.js';
 import { createHandle } from '#lib/server/http/handle.js';
 import { handleI18n } from '#lib/server/http/i18n.js';
-import { apiKeys, fetchGiven, http, log, store } from '#lib/server/runtime.js';
+import { accounts, apiKeys, auth, fetchGiven, http, log, providers, store } from '#lib/server/runtime.js';
 
 import type { HandleServerError } from '@sveltejs/kit/hooks';
 
-/** Request ids, logging, CORS and keys first; then the website's localisation. */
-export const handle = sequence(createHandle({ store, apiKeys, log, http, fetchGiven }), handleI18n);
+/** Request ids, logging, CORS and keys first; then signing in, and the website's localisation. */
+export const handle = sequence(
+  createHandle({ store, apiKeys, log, http, fetchGiven }),
+  createAccountsHandle(auth, accounts, providers),
+  handleI18n,
+);
 
 /** SvelteKit's own errors, such as a 404, are expected; anything else is logged. */
 export const handleError: HandleServerError = ({ kind, error, event }) => {

@@ -241,3 +241,6 @@ export const syncRuns = pgTable('sync_runs', {
   outcome: text({ enum: ['ok', 'failed'] }),
   error: text(),
 });
+
+/** The accounts' tables, kept in a module of their own (see accounts/schema.ts). */
+export * from '../accounts/schema.js';

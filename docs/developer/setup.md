@@ -30,5 +30,6 @@ From the repository root:
 | `pnpm build:docs`         | This documentation, in Docker; warnings fail                          |
 | `pnpm devserve:docs`      | This documentation with live reload, on <http://localhost:8089>       |
 
-`pnpm build` needs `DATABASE_URL` and `API_KEYS` set, as SvelteKit validates the environment while it builds (see
+`pnpm build` needs `DATABASE_URL`, `API_KEYS`, `AUTH_SECRET` and `SITE_URL` set, as SvelteKit validates the environment
+while it builds (see
 {ref}`environment`). The `.env` from `.env.example` does.

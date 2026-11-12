@@ -1,11 +1,12 @@
 <script lang="ts">
   import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
+  import TopBar from '#lib/components/TopBar.svelte';
   import { m } from '#lib/paraglide/messages.js';
 
   import type { LayoutProps } from './$types';
 
-  let { children }: LayoutProps = $props();
+  let { children, data }: LayoutProps = $props();
 </script>
 
 <svelte:head>
@@ -14,7 +15,11 @@
 </svelte:head>
 
 <header>
-  <LanguagePicker />
+  {#if data.signedIn === null}
+    <LanguagePicker />
+  {:else}
+    <TopBar name={data.signedIn.name} />
+  {/if}
 </header>
 
 <main>
@@ -61,6 +66,10 @@
     display: flex;
     justify-content: flex-end;
     padding-block: 1rem 0;
+  }
+
+  header > :global(nav) {
+    flex: 1;
   }
 
   main {

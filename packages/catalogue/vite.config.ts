@@ -53,6 +53,7 @@ export default defineConfig({
         'src/lib/server/db/connect.ts',
         // Declarations, read by drizzle-kit; the migrations and the store's tests cover what they mean.
         'src/lib/server/db/schema.ts',
+        'src/lib/server/accounts/schema.ts',
         'src/worker/main.ts',
       ],
       // lcov feeds Codecov, with paths from the repository root; json-summary feeds the CI job summary.

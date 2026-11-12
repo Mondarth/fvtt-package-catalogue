@@ -28,6 +28,24 @@ export type LogLevel = z.infer<typeof LogLevel>;
 /** A secret that may be left out; compose gives one left unset in `.env` as empty, which is none. */
 const Token = z.preprocess(value => (value === '' ? undefined : value), z.string().min(1).optional());
 
+/** Signs the website's cookies and encrypts what sign-in providers give: long, random, and kept secret. */
+export const AuthSecret = z.string().min(32, 'AUTH_SECRET must be at least 32 characters');
+
+/** The website's address as visitors reach it, without a trailing slash; sign-in providers send them back to it. */
+export const SiteUrl = z.url({ protocol: /^https?$/ }).transform(url => url.replace(/\/+$/, ''));
+
+/** Text the environment may leave out; compose gives one left unset in `.env` as empty, which is none. */
+const given = z
+  .string()
+  .optional()
+  .transform(value => (value === '' ? undefined : value));
+
+/** A sign-in provider's app id or secret, left out where the provider is not offered. */
+export const ProviderCredential = given;
+
+/** The stand-in sign-in provider's address, for the end-to-end tests alone. */
+export const TestProviderUrl = given.pipe(z.url().optional());
+
 /** A whole number above none, from the environment's text. */
 const Count = z.coerce.number().int().positive();
 
