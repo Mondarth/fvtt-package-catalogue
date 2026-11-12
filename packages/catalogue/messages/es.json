@@ -85,5 +85,6 @@
   "privacy_kept_heading": "Cuánto tiempo se guarda",
   "privacy_kept": "Hasta que elimines tu perfil, desde tu página de perfil, lo que lo elimina todo de una vez. Una sesión termina cuando caduca o cuando cierras la sesión.",
   "privacy_cookies_heading": "Cookies",
-  "privacy_cookies": "Una cookie mantiene tu sesión iniciada, y otras de corta duración guardan un inicio de sesión mientras está en curso. Otra guarda el idioma que elegiste."
+  "privacy_cookies": "Una cookie mantiene tu sesión iniciada, y otras de corta duración guardan un inicio de sesión mientras está en curso. Otra guarda el idioma que elegiste.",
+  "home_link": "Catálogo de paquetes de Foundry VTT: inicio"
 }

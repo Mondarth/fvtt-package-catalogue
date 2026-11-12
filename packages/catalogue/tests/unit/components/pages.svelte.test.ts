@@ -35,6 +35,12 @@ describe('the home page', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('shows the logo above the heading, unnamed, as the heading names the page', () => {
+    home({ signedIn: null, providers: [], failed: false });
+    const logo = document.querySelector('main img, picture img');
+    expect(logo).toHaveAttribute('alt', '');
+  });
+
   it('says when a sign-in did not work, or when there is no provider to sign in with', () => {
     home({ signedIn: null, providers: [], failed: true });
     expect(screen.getByRole('alert')).toHaveTextContent(en.sign_in_failed);
@@ -80,6 +86,21 @@ describe('the layout', () => {
     inLocale('es');
     render(Layout, { children, params: {}, data: { signedIn: null } });
     expect(screen.getByRole('note')).toHaveTextContent(es.machine_translation_notice);
+  });
+
+  it('puts the logo at the far left of the top, linking home, the dark one where the browser prefers dark', () => {
+    render(Layout, { children, params: {}, data: { signedIn: null } });
+    const home = screen.getByRole('link', { name: en.home_link });
+    expect(home).toHaveAttribute('href', '/');
+    expect(home.closest('header')?.firstElementChild).toBe(home);
+    const source = home.querySelector('picture source');
+    expect(source).toHaveAttribute('media', '(prefers-color-scheme: dark)');
+    // Small enough for Vite to inline, or else a file of their own: SVG either way, and not the same one.
+    const dark = source?.getAttribute('srcset') ?? '';
+    const light = home.querySelector('img')?.getAttribute('src') ?? '';
+    expect(dark).toMatch(/svg/);
+    expect(light).toMatch(/svg/);
+    expect(dark).not.toBe(light);
   });
 
   it('puts the workspace bar along the top once signed in, the profile button at its far right', () => {

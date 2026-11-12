@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import Logo from '#lib/components/Logo.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { providerName } from '#lib/providers.js';
 
@@ -17,6 +18,7 @@
   let { providers, failed = false }: Props = $props();
 </script>
 
+<div class="logo"><Logo height="6rem" /></div>
 <h1>{m.sign_in_heading()}</h1>
 <p class="lede">{m.sign_in_lede()}</p>
 
@@ -48,6 +50,10 @@
 </footer>
 
 <style>
+  .logo {
+    margin-top: 2rem;
+  }
+
   .lede,
   .stores {
     color: var(--muted);
