@@ -21,6 +21,16 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
   await expect(page.getByRole('row')).toHaveCount(12);
 });
 
+test('every page has the logo, linking home, and the icons', async ({ page, request }) => {
+  await page.goto('/privacy');
+  await page.getByRole('link', { name: en.home_link }).click();
+  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  for (const icon of await page.locator('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]').all()) {
+    const href = (await icon.getAttribute('href')) ?? '';
+    expect((await request.get(href)).status(), href).toBe(200);
+  }
+});
+
 test('the API page introduces the catalogue and lists its endpoints, from the sign-in page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: en.developers_link }).click();

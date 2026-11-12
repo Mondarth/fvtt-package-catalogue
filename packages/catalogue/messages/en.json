@@ -85,5 +85,6 @@
   "privacy_kept_heading": "How long it is kept",
   "privacy_kept": "Until you delete your profile, from your profile page, which removes all of it at once. A session ends when it expires or you sign out.",
   "privacy_cookies_heading": "Cookies",
-  "privacy_cookies": "One cookie keeps you signed in, and short-lived ones hold a sign-in while it is in progress. Another keeps the language you chose."
+  "privacy_cookies": "One cookie keeps you signed in, and short-lived ones hold a sign-in while it is in progress. Another keeps the language you chose.",
+  "home_link": "Foundry VTT Package Catalogue: home"
 }

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import LanguagePicker from '#lib/components/LanguagePicker.svelte';
+  import Logo from '#lib/components/Logo.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -15,6 +17,7 @@
 </svelte:head>
 
 <header>
+  <a class="home" href={resolve('/')}><Logo height="2rem" alt={m.home_link()} /></a>
   {#if data.signedIn === null}
     <LanguagePicker />
   {:else}
@@ -64,8 +67,14 @@
 
   header {
     display: flex;
-    justify-content: flex-end;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
     padding-block: 1rem 0;
+  }
+
+  .home {
+    flex: none;
   }
 
   header > :global(nav) {
