@@ -17,6 +17,7 @@ import {
 } from '$app/env/private';
 
 import { createAuth, signInProviders } from './accounts/auth.js';
+import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
 
 import { connect } from './db/connect.js';
@@ -36,20 +37,23 @@ const github =
     ? { clientId: AUTH_GITHUB_ID, clientSecret: AUTH_GITHUB_SECRET }
     : undefined;
 
+/** The stand-in provider: the one the end-to-end tests run, or, on the development server, its own (dev-provider.ts). */
+const testProvider = testProviderUrl(AUTH_TEST_PROVIDER_URL, SITE_URL, import.meta.env.DEV);
+
 /** Signing in to the website. */
 export const auth = createAuth({
   db: connection.db,
   secret: AUTH_SECRET,
   siteUrl: SITE_URL,
   github,
-  testProviderUrl: AUTH_TEST_PROVIDER_URL,
+  testProviderUrl: testProvider,
 });
 
 /** The accounts' tables, beyond what Better Auth does itself. */
 export const accounts = accountsStore(connection.db);
 
 /** The providers the sign-in page offers. */
-export const providers = signInProviders({ github, testProviderUrl: AUTH_TEST_PROVIDER_URL });
+export const providers = signInProviders({ github, testProviderUrl: testProvider });
 
 // The versions of packages' own manifests rechecked, so that each is revalidated by its ETag, as the worker's are.
 const versions = versionsOnly(lruCache(5000));

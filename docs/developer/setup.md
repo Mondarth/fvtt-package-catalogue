@@ -13,6 +13,19 @@ pnpm dev                                    # http://localhost:5173
 
 `db:stop` stops the database; its data is kept in a volume until `docker compose -f compose.dev.yaml down -v`.
 
+## Signing in while developing
+
+The development server signs in without any real provider. `pnpm dev` serves a stand-in one at `/__dev/provider`, and
+the sign-in page offers it as **Sign in with Test provider**. It asks who to sign in as, from a few made-up users
+(Ada Lovelace, Grace Hopper, Alan Turing, Katherine Johnson and Linus Torvalds, who has a picture), or someone new each
+time. Each user is a profile of its own in the development database, so signing out and in as another tries the site
+as several people: nicknames one of them has taken, for one.
+
+It exists on the development server alone: a Vite plugin in `vite.config.ts` serves it (`apply: 'serve'`), before
+SvelteKit, and the server offers it only when `import.meta.env.DEV` is set (`accounts/dev-provider.ts`). A build has
+neither. Setting `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` in `.env` offers GitHub beside it, through an OAuth app whose
+callback is `http://localhost:5173/auth/callback/github`.
+
 ## Commands
 
 From the repository root:

@@ -197,7 +197,9 @@ from the catalogue so that it can move to a service of its own, shared by every 
 - `lib/stored.ts` lists what each row of the "What we store" page covers, by column; a test checks it against the
   tables as the migrations make them, so that a column added must be added to the page too.
 - The end-to-end tests sign in through a stand-in provider (`tests/e2e/fake-provider.ts`), offered only when
-  `AUTH_TEST_PROVIDER_URL` is set.
+  `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
+  (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
+  {doc}`setup`.
 
 ### The environment
 
