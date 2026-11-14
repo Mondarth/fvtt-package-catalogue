@@ -100,7 +100,8 @@ is recorded in `sync_runs`.
   The resolver's `sourceSet` lists every release the sources know, then loads each from its own
   manifest. A release newer than the newest the package's listing offers, such as midi-qol's on GitLab ahead of
   Foundry VTT's listing, is kept, marked `unlisted` (`sourceSet`'s `unlisted: 'last'`): the resolver chooses one only
-  when no listed version fits. The package's own manifest, that of its newest listed release held, is declared to the
+  when no listed version fits. The package's own manifest, that of its newest listed release held (newest by version, not
+  in the order the releases are held), is declared to the
   sources, so that the version it gives now is read: a listing's manifest URLs only load the versions it lists. That
   version, given by a manifest a listed release names that names no version, is what Foundry VTT's updater installs,
   as one its author publishes by the manifest alone, so it is listed. A release already held as loaded is kept rather than loaded again, with what the

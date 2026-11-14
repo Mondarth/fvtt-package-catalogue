@@ -338,6 +338,30 @@ describe("a package's own manifest", () => {
     expect(ownManifest([{ ...release('1.0.0'), manifest: undefined } as unknown as Release])).toBeUndefined();
   });
 
+  // Regression: midi-qol's releases were held out of order, its last an 11.x release whose manifest, on an old branch,
+  // gives 11.4.48 for ever, so its own-manifest check never noticed 14.6.9 to 14.6.11.
+  it('takes the newest by version, however the releases are held', () => {
+    const latest = 'https://github.test/tposney/midi-qol/releases/download/latest-dnd6/module.json';
+    expect(
+      ownManifest([
+        release('14.6.10', { manifest: latest }),
+        release('14.0.20', {
+          manifest: 'https://github.test/tposney/midi-qol/releases/download/latest-v14/module.json',
+        }),
+        release('14.6.11', { manifest: latest }),
+        release('14.6.4', { unlisted: true, manifest: 'https://gitlab.test/midi-qol/raw/dnd6/package/module.json' }),
+        release('11.4.48', { manifest: 'https://gitlab.test/midi-qol/raw/master/package/module.json' }),
+      ]),
+    ).toBe(latest);
+    // Of releases none listed, the newest by version too.
+    expect(
+      ownManifest([
+        release('2.0.0', { unlisted: true, manifest: 'https://files.test/two.json' }),
+        release('1.0.0', { unlisted: true, manifest: 'https://files.test/one.json' }),
+      ]),
+    ).toBe('https://files.test/two.json');
+  });
+
   it('is read for a version not held, and says so of one whose is held, cannot be read, or has none', async () => {
     const answers: Record<string, () => Response> = {
       [MANIFEST]: () => Response.json({ id: 'midi-qol', version: '1.0.36' }),

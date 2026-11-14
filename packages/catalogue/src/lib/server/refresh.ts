@@ -3,7 +3,7 @@
  * package it lists last changed; a package it does not list is crawled again once it is old enough.
  */
 import { PackageType, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
-import { namesVersion, sameVersion } from '@mondarth/fvtt-resolver';
+import { isNewerVersion, namesVersion, sameVersion } from '@mondarth/fvtt-resolver';
 import { z } from 'zod';
 
 import type { PackageRef, Release, UnavailableReason } from '@mondarth/fvtt-package-catalogue-contract';
@@ -279,14 +279,31 @@ export function planRefresh(
  * its newest listed release, or, if none is listed, of its newest. One that names that release's version is that
  * release's alone, and never gives a newer one, so it is none: reading it again would only load what is held.
  *
- * @param releases - Its releases held, oldest first as stored
+ * The newest is by version, not by the order the releases are held in, which crawls that add releases of other lines,
+ * or older ones, leave mixed: midi-qol's newest held was once an 11.x release, whose manifest still gives 11.4.48, so
+ * its 14.6 releases went unnoticed.
+ *
+ * @param releases - Its releases held, in any order
  * @returns The manifest's URL, if the release gives one that may give a newer version
  */
 export function ownManifest(releases: readonly Release[]): string | undefined {
   const withManifest = releases.filter(release => release.manifest !== undefined);
   const listed = withManifest.filter(release => release.unlisted !== true);
-  const newest = listed.at(-1) ?? withManifest.at(-1);
+  const newest = newestOf(listed) ?? newestOf(withManifest);
   return newest?.manifest === undefined || namesVersion(newest.manifest, newest.version) ? undefined : newest.manifest;
+}
+
+/**
+ * The newest of some releases, by version.
+ *
+ * @param releases - The releases
+ * @returns The newest, or none of none
+ */
+function newestOf(releases: readonly Release[]): Release | undefined {
+  return releases.reduce<Release | undefined>(
+    (newest, release) => (newest === undefined || isNewerVersion(release.version, newest.version) ? release : newest),
+    undefined,
+  );
 }
 
 /**
