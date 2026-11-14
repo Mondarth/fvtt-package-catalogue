@@ -1,3 +1,18 @@
+## [@mondarth/fvtt-package-catalogue-v0.8.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.2...@mondarth/fvtt-package-catalogue-v0.8.0) (2026-11-14)
+
+### Features
+
+* **catalogue:** draw the logo and icons as SVG, in the site's orange ([88fad41](https://github.com/Mondarth/fvtt-package-catalogue/commit/88fad41e71fc2db922fcb0faf701d4090bd6c082)), closes [#8a3b12](https://github.com/Mondarth/fvtt-package-catalogue/issues/8a3b12)
+* **catalogue:** show the catalogue's logo, and give the site its icons ([d848fa1](https://github.com/Mondarth/fvtt-package-catalogue/commit/d848fa137aad7013a7eb3575ade011c8c07959ef))
+* **catalogue:** sign in on the dev server as one of a few dev users ([cdf8dfc](https://github.com/Mondarth/fvtt-package-catalogue/commit/cdf8dfcab18aa5cc9017ecc703930b41064447d7))
+* **catalogue:** sign in to the website, with a profile and nickname ([d968abc](https://github.com/Mondarth/fvtt-package-catalogue/commit/d968abc5d253210a943c53a1d226c5044d3f7797))
+* **catalogue:** sign in with Google, Discord or Patreon ([c4c38a6](https://github.com/Mondarth/fvtt-package-catalogue/commit/c4c38a62f86ebf9b6154271435f7055c2b289e82))
+
+### Bug Fixes
+
+* **catalogue:** check the own manifest of the newest release by version ([42ae8cf](https://github.com/Mondarth/fvtt-package-catalogue/commit/42ae8cfccdb4d33216e41d9388647f4dc58f2135))
+* **catalogue:** list a package's releases despite a repository gone ([718d42a](https://github.com/Mondarth/fvtt-package-catalogue/commit/718d42a66df74d8770f9a97ed9cd4ff250679052))
+
 ## [@mondarth/fvtt-package-catalogue-v0.7.2](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.1...@mondarth/fvtt-package-catalogue-v0.7.2) (2026-11-07)
 
 ### Bug Fixes
