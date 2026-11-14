@@ -7,6 +7,10 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
+import { devProvider } from './src/lib/server/accounts/dev-provider.js';
+
+import type { Plugin } from 'vite';
+
 /** The export condition under which the workspace's packages give their TypeScript sources. */
 export const SOURCE = '@mondarth/fvtt-package-catalogue/source';
 
@@ -15,8 +19,21 @@ const { version } = JSON.parse(readFileSync(new URL('package.json', import.meta.
 /** What the server and the worker are built with: the catalogue's version, which the release sets in package.json. */
 export const DEFINE = { __CATALOGUE_VERSION__: JSON.stringify(version) };
 
+/**
+ * A stand-in sign-in provider, with made-up users to sign in as, on the development server alone (`pnpm dev`): served
+ * before SvelteKit, at `/__dev/provider`, which the server offers on the sign-in page in development (runtime.ts).
+ */
+const devSignIn: Plugin = {
+  name: 'catalogue:dev-sign-in',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use(devProvider());
+  },
+};
+
 export default defineConfig({
   plugins: [
+    devSignIn,
     sveltekit({
       compilerOptions: {
         // Runes mode throughout, except in libraries. Can be removed in Svelte 6.
@@ -53,6 +70,7 @@ export default defineConfig({
         'src/lib/server/db/connect.ts',
         // Declarations, read by drizzle-kit; the migrations and the store's tests cover what they mean.
         'src/lib/server/db/schema.ts',
+        'src/lib/server/accounts/schema.ts',
         'src/worker/main.ts',
       ],
       // lcov feeds Codecov, with paths from the repository root; json-summary feeds the CI job summary.

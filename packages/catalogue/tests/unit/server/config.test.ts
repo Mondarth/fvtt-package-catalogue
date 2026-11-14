@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiKeys, DatabaseUrl, LogLevel, readConfig } from '../../../src/lib/server/config.js';
+import {
+  ApiKeys,
+  AuthSecret,
+  DatabaseUrl,
+  LogLevel,
+  ProviderCredential,
+  readConfig,
+  SiteUrl,
+  TestProviderUrl,
+} from '../../../src/lib/server/config.js';
 
 const DATABASE_URL = 'postgres://catalogue:secret@db:5432/catalogue';
 
@@ -21,6 +30,32 @@ describe('ApiKeys', () => {
 
   it.each(['', ' , ', undefined])('needs at least one key, not %j', value => {
     expect(ApiKeys.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('AuthSecret', () => {
+  it('takes a secret of 32 characters or more, and nothing shorter', () => {
+    expect(AuthSecret.parse('x'.repeat(32))).toBe('x'.repeat(32));
+    expect(AuthSecret.safeParse('x'.repeat(31)).success).toBe(false);
+  });
+});
+
+describe('SiteUrl', () => {
+  it('takes an http or https address, without a trailing slash', () => {
+    expect(SiteUrl.parse('https://catalogue.example.org/')).toBe('https://catalogue.example.org');
+    expect(SiteUrl.parse('http://127.0.0.1:4173')).toBe('http://127.0.0.1:4173');
+    expect(SiteUrl.safeParse('ftp://catalogue.example.org').success).toBe(false);
+  });
+});
+
+describe('the sign-in providers', () => {
+  it('take an empty value, or none, as a provider not set up', () => {
+    expect(ProviderCredential.parse('')).toBeUndefined();
+    expect(ProviderCredential.parse(undefined)).toBeUndefined();
+    expect(ProviderCredential.parse('id')).toBe('id');
+    expect(TestProviderUrl.parse('')).toBeUndefined();
+    expect(TestProviderUrl.parse('http://127.0.0.1:4174')).toBe('http://127.0.0.1:4174');
+    expect(TestProviderUrl.safeParse('not a url').success).toBe(false);
   });
 });
 

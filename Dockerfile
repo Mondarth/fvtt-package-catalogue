@@ -16,6 +16,7 @@ COPY packages/catalogue packages/catalogue
 # SvelteKit validates the environment when it analyses the build as well as when the server starts. These placeholders
 # satisfy the build; the server reads, and validates, the real values when it starts.
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build API_KEYS=build-only \
+    AUTH_SECRET=build-only-placeholder-not-a-secret-0000 SITE_URL=http://build.invalid \
     pnpm --filter @mondarth/fvtt-package-catalogue build
 
 FROM node:24-alpine
