@@ -61,7 +61,7 @@ way.
 ## npm trusted publishing
 
 The release workflow publishes `@mondarth/fvtt-package-catalogue-contract` without a token: npm trusts the
-repository's release workflow instead, through OIDC, and attaches provenance. That trust is set per package, and only
+repository's release workflow instead, through OIDC. That trust is set per package, and only
 for a package that already exists, so the package is created by hand first.
 
 1. **Have the scope.** `@mondarth` belongs to the npm organisation `mondarth`; publish as one of its owners, with
@@ -115,7 +115,8 @@ for a package that already exists, so the package is created by hand first.
    cd ~ && npm deprecate "@mondarth/fvtt-package-catalogue-contract@0.0.0" "Placeholder published to set up trusted publishing: use 0.1.0 or later" --otp <code>
    ```
 
-Provenance needs the repository and the package to be public.
+There is no provenance: npm attests it only for a package published from a public repository, and this one is
+private. Nothing asks for it (no `--provenance`, no `publishConfig.provenance`), so the publish goes ahead without it.
 
 ## The container image
 
