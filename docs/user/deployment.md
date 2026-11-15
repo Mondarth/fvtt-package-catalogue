@@ -69,7 +69,18 @@ has no way out. Nothing is published on the host.
 
 3. Copy `deploy/swag/fvtt-package-catalogue.subdomain.conf.sample` to SWAG's
    `/config/nginx/proxy-confs/fvtt-package-catalogue.subdomain.conf`, set its `server_name`, and restart SWAG.
-4. Start it: `docker compose up -d`. The server starts once `migrate` has exited successfully:
+4. Sign in to the GitHub Container Registry, where the image is private, as the user that runs `docker compose` (root,
+   with `sudo docker compose`). The token is a **classic** personal access token with the `read:packages` scope alone,
+   from an account that can read the package; fine-grained tokens cannot sign in to the registry:
+
+   ```shell
+   read -rs TOKEN && echo "$TOKEN" | docker login ghcr.io --username <account> --password-stdin && unset TOKEN
+   ```
+
+   Docker keeps it in that user's `~/.docker/config.json`, only base64-encoded unless a credential helper is set up, so
+   keep the file readable by its owner alone (`chmod 600`). When the token expires, the containers running carry on;
+   only the next `docker compose pull` is refused (`denied` or `unauthorized`), until you sign in again with a new one.
+5. Start it: `docker compose up -d`. The server starts once `migrate` has exited successfully:
 
    ```shell
    docker compose ps -a                # migrate: exited (0); app, db: running (healthy); worker: running
@@ -187,7 +198,8 @@ to its path. Removing an override does not crawl its package again: it takes eff
 ## Upgrading
 
 Set `CATALOGUE_TAG`, then `docker compose pull && docker compose up -d`. The migration runs again first; it applies only
-what the database does not have yet.
+what the database does not have yet. If the pull is refused, the registry's token has expired: sign in again (see
+[Setting up](#setting-up)).
 
 An upgrade does not crawl the packages held again, except those with overrides: each waits for its next refresh. When
 the release notes say a release crawls differently, run `recrawl` (see [the worker](#the-worker)) once it is up. 0.5.0
