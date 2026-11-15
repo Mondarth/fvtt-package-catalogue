@@ -166,8 +166,11 @@ request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and
 ```json
 {
   "module:baileywiki-content": {
-    "reason": "The listing gives every version the newest's manifest URL; each has its own at v<version>/module.json.",
-    "manifest": "https://download.bailey.wiki/bcm/v{version}/module.json"
+    "reason": "The listing gives every version the newest's manifest URL; each has its own, on one host or the other.",
+    "manifest": [
+      "https://download.bailey.wiki/bcm/v{version}/module.json",
+      "https://foundrymods.com/api/manifest/baileywiki-content?version={version}"
+    ]
   },
   "module:multi-token-edit": {
     "reason": "The GitHub release 99.test is a test build.",
@@ -176,9 +179,12 @@ request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and
 }
 ```
 
-- `manifest`: each version's own manifest URL, with `{version}` for the version as listed. The release is loaded from
-  it in place of the manifest its listing gives, and offers it as its own version's manifest, which EMMA's plan gives
-  as the URL to install that version from.
+- `manifest`: each version's own manifest URL, with `{version}` for the version as listed; or several, tried in order,
+  as when an author moves to another host. A version takes the first URL whose manifest can be fetched and is of this
+  package at this version: one that cannot be fetched, or gives another version, as a host may for a version it does
+  not hold, is never offered. The release is loaded from the URL taken in place of the manifest its listing gives, and
+  offers it as its own version's manifest, which EMMA's plan gives as the URL to install that version from. A URL
+  taken is kept; one that is not is asked again at the next crawl, as it may be published later.
 - `ignoreVersions`: versions the sources list that are not releases of the package, which are left out.
 - `gone`: `true` when the package's files are no longer there, such as when its repository was deleted, though Foundry
   VTT still lists it. None of it is fetched; whatever was held of it is removed, and the universe names it as

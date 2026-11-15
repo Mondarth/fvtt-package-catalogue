@@ -6,7 +6,7 @@ import { Release, packageKey } from '@mondarth/fvtt-package-catalogue-contract';
 import { namesVersion } from '@mondarth/fvtt-resolver';
 import { sourceSet } from '@mondarth/fvtt-resolver/sources';
 
-import { ignores, overridden } from './overrides.js';
+import { confirmedManifest, ignores, overridden } from './overrides.js';
 
 import type { CoreRelease, PackageRef, SourceGap } from '@mondarth/fvtt-package-catalogue-contract';
 import type { HttpClient, ReleaseSource } from '@mondarth/fvtt-resolver/sources';
@@ -68,23 +68,34 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
   const ofPackage = (release: { readonly package: PackageRef }) => packageKey(release.package) === key;
 
   const { override } = options;
-  // Versions the override says are not releases are left out; the rest are loaded from its manifest, if it gives one.
-  const listed = (await set.universe([ref])).releases
-    .filter(release => !ignores(override, release.version))
-    .map(release => overridden(override, release));
+  // Versions the override says are not releases are left out.
+  const universe = (await set.universe([ref])).releases.filter(release => !ignores(override, release.version));
   const held = new Map(options.held.filter(release => release.detail === 'loaded').map(r => [r.version, r]));
+  // The manifest URL the override gives each version, listed or held, once confirmed to be of that version: the rest
+  // are loaded from it, and offer it as their own.
+  const versions = [...new Set([...universe.map(release => release.version), ...held.keys()])];
+  const confirmed = new Map(
+    await Promise.all(
+      versions.map(async version => [version, await confirmedManifest(options.http, override, ref, version)] as const),
+    ),
+  );
+  const listed = universe.map(release => overridden(override, release, confirmed.get(release.version)));
   // A listing can change a release's core compatibility after it is released, and come to list it; its manifest
   // cannot change. So a release held is kept, with what the listing says of it now. So is a manifest URL for the
   // version alone that the sources give now and the release held lacks, as one a newer resolver reads from a listing.
   const reused = (release: (typeof listed)[number]) => {
     const kept = held.get(release.version);
     if (kept === undefined) return undefined;
-    const fresh: Release = overridden(override, {
-      ...kept,
-      ...(release.listing !== undefined && { listing: release.listing }),
-      ...(kept.versionManifest === undefined &&
-        release.versionManifest !== undefined && { versionManifest: release.versionManifest }),
-    });
+    const fresh: Release = overridden(
+      override,
+      {
+        ...kept,
+        ...(release.listing !== undefined && { listing: release.listing }),
+        ...(kept.versionManifest === undefined &&
+          release.versionManifest !== undefined && { versionManifest: release.versionManifest }),
+      },
+      confirmed.get(release.version),
+    );
     if (release.unlisted === true) fresh.unlisted = true;
     else delete fresh.unlisted;
     return fresh;
@@ -139,6 +150,14 @@ export async function crawlPackage(ref: PackageRef, options: CrawlOptions): Prom
       !namesVersion(manifest, release.version)
     )
       delete release.unlisted;
+  }
+  // A release held that no source lists now, such as one a package's own manifest gave until a newer replaced it, is
+  // kept as it was; but saved again if the override's manifest for it is now confirmed, or found not to be.
+  const listedVersions = new Set(releases.map(release => release.version));
+  for (const kept of held.values()) {
+    if (listedVersions.has(kept.version) || override?.manifest === undefined) continue;
+    const fresh = overridden(override, kept, confirmed.get(kept.version));
+    if (fresh.versionManifest !== kept.versionManifest) releases.push(fresh);
   }
   const complete = !gaps.some(gap => gap.version === undefined);
   const found = new Set(releases.map(release => release.version));
