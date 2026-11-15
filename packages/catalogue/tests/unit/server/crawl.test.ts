@@ -375,6 +375,8 @@ describe('crawlPackage, with an override', () => {
     });
   }
 
+  const TEMPLATE = 'https://files.test/midi-qol/v{version}/module.json';
+
   const crawlWith = (
     http: HttpClient,
     override: Parameters<typeof crawlPackage>[1]['override'],
@@ -400,10 +402,7 @@ describe('crawlPackage, with an override', () => {
 
   it('loads every version from the manifest the override gives, which each offers as its own', async () => {
     const { http, fetch } = misleading();
-    const found = await crawlWith(http, {
-      reason: 'Why',
-      manifest: 'https://files.test/midi-qol/v{version}/module.json',
-    });
+    const found = await crawlWith(http, { reason: 'Why', manifest: [TEMPLATE] });
     expect(found.releases.map(release => [release.version, release.detail, release.versionManifest])).toEqual([
       ['13.0.4', 'loaded', ownOf('13.0.4')],
       ['13.0.5', 'loaded', ownOf('13.0.5')],
@@ -415,26 +414,77 @@ describe('crawlPackage, with an override', () => {
     );
   });
 
-  it('offers the override’s manifest for a release held loaded, without loading it again', async () => {
+  /** A release of midi-qol held loaded, from the newest's manifest. */
+  const heldAt = (version: string, more: Partial<Release> = {}): Release => ({
+    package: MIDI,
+    version,
+    compatibility: { minimum: '13' },
+    relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
+    protected: false,
+    origin: LATEST,
+    detail: 'loaded',
+    ...more,
+  });
+  const urls = (fetch: ReturnType<typeof misleading>['fetch']) =>
+    fetch.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
+
+  it('offers the override’s manifest for a release held loaded once confirmed, without loading it again', async () => {
     const { http, fetch } = misleading();
-    const held: Release = {
-      package: MIDI,
-      version: '13.0.4',
-      compatibility: { minimum: '13' },
-      relationships: { requires: [], systems: [], conflicts: [], recommends: [] },
-      protected: false,
-      origin: LATEST,
-      detail: 'loaded',
-    };
-    const found = await crawlWith(
-      http,
-      { reason: 'Why', manifest: 'https://files.test/midi-qol/v{version}/module.json' },
-      [held],
-    );
+    const found = await crawlWith(http, { reason: 'Why', manifest: [TEMPLATE] }, [heldAt('13.0.4')]);
     expect(found.releases[0]).toMatchObject({ version: '13.0.4', origin: LATEST, versionManifest: ownOf('13.0.4') });
-    expect(fetch.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)))).not.toContain(
-      ownOf('13.0.4'),
-    );
+    // Fetched once, to confirm it, but the release is not loaded from it again: its origin stays.
+    expect(urls(fetch).filter(url => url === ownOf('13.0.4'))).toHaveLength(1);
+  });
+
+  // Regression: Baileywiki 1.0.37 was offered https://download.bailey.wiki/bcm/v1.0.37/module.json, which its author
+  // never published, as the override's template made it and nothing fetched it.
+  it('offers none of the override’s manifests that cannot be fetched, taking away one held unchecked', async () => {
+    const { http } = web({
+      'https://index.test/detail/midi-qol.json': {
+        versions: ['13.0.4', '13.1.0'].map(version => ({ version, manifest: LATEST, minimum: '13', verified: '13' })),
+      },
+      [LATEST]: manifest('13.1.0'),
+      [ownOf('13.0.4')]: manifest('13.0.4'),
+    });
+    const found = await crawlWith(http, { reason: 'Why', manifest: [TEMPLATE] }, [
+      heldAt('13.1.0', { versionManifest: ownOf('13.1.0') }),
+    ]);
+    expect(found.releases.map(release => [release.version, release.versionManifest])).toEqual([
+      ['13.0.4', ownOf('13.0.4')],
+      ['13.1.0', undefined],
+    ]);
+  });
+
+  it('takes the next template when the first gives no manifest of the version, as an author moves hosts', async () => {
+    const MODS = 'https://mods.test/manifest/midi-qol?version={version}';
+    const modsOf = (version: string) => MODS.replace('{version}', version);
+    const { http } = web({
+      'https://index.test/detail/midi-qol.json': {
+        versions: ['13.0.4', '13.1.0'].map(version => ({ version, manifest: LATEST, minimum: '13', verified: '13' })),
+      },
+      [LATEST]: manifest('13.1.0'),
+      [ownOf('13.0.4')]: manifest('13.0.4'),
+      // The new host answers a version it does not hold with its newest.
+      [modsOf('13.0.4')]: manifest('13.1.0'),
+      [modsOf('13.1.0')]: manifest('13.1.0'),
+    });
+    const found = await crawlWith(http, { reason: 'Why', manifest: [TEMPLATE, MODS] });
+    expect(found.releases.map(release => [release.version, release.detail, release.versionManifest])).toEqual([
+      ['13.0.4', 'loaded', ownOf('13.0.4')],
+      ['13.1.0', 'loaded', modsOf('13.1.0')],
+    ]);
+  });
+
+  it('saves again a release held that no source lists now, when its manifest is found not to be confirmed', async () => {
+    const { http } = misleading();
+    const found = await crawlWith(http, { reason: 'Why', manifest: [TEMPLATE] }, [
+      heldAt('13.2.0', { versionManifest: ownOf('13.2.0') }),
+      heldAt('13.0.9', { versionManifest: 'https://elsewhere.test/13.0.9.json' }),
+    ]);
+    const saved = found.releases.filter(release => ['13.2.0', '13.0.9'].includes(release.version));
+    // 13.2.0's was the template's, unconfirmed: taken away. 13.0.9's came from elsewhere and is unchanged: not saved.
+    expect(saved).toEqual([expect.objectContaining({ version: '13.2.0' })]);
+    expect(saved[0]).not.toHaveProperty('versionManifest');
   });
 
   it('leaves out the versions it ignores, and what could not be read of them', async () => {
