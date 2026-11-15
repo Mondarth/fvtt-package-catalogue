@@ -143,6 +143,14 @@ jobs:
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha,scope=image
 
+  prune-images:
+    name: Prune container images
+    needs: image
+    uses: ./.github/workflows/prune-images.yml
+    permissions:
+      contents: read
+      packages: write
+
   sync-dev:
     name: Bring dev up to date
     needs: release

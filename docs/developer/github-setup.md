@@ -120,16 +120,28 @@ Provenance needs the repository and the package to be public.
 ## The container image
 
 The release workflow pushes `ghcr.io/mondarth/fvtt-package-catalogue` with its own `GITHUB_TOKEN`. The first release
-(0.1.0) created the package public and linked to the repository, from the image's
-`org.opencontainers.image.source` label. Check it with a pull that has no credentials at all:
+(0.1.0) created the package and linked it to the repository, from the image's `org.opencontainers.image.source` label.
+
+The package is **private**: only those given access can pull it, and the server signs in to pull it (see
+[Deploying it](../user/deployment.md#setting-up)). Set its visibility under the organisation's **Packages** →
+`fvtt-package-catalogue` → **Package settings** → **Change visibility**; there is no API for it. Check it with a pull
+that has no credentials at all, which should be refused:
 
 ```shell
 mkdir -p /tmp/anon && echo '{}' > /tmp/anon/config.json
-DOCKER_CONFIG=/tmp/anon docker pull ghcr.io/mondarth/fvtt-package-catalogue:latest
+DOCKER_CONFIG=/tmp/anon docker pull ghcr.io/mondarth/fvtt-package-catalogue:latest   # denied
 ```
 
-If that is refused, set the package public under the organisation's **Packages** → `fvtt-package-catalogue` →
-**Package settings** → **Change visibility**. There is no API for it.
+A private package's storage counts towards the organisation's, 2 GB on Team, which Actions' artifacts share, and each
+release adds up to about 130 MB (65 MB for each platform, less what it shares with earlier ones). After each image it publishes, the release workflow calls
+*Prune container images* (`prune-images.yml`, `scripts/prune-images.ts`), which keeps the newest ten releases, every
+version that a moving tag (`latest`, `0`, `0.5`) still names, and the platform images and attestations each of those is
+made of, and deletes the rest. It can be run by hand too (Actions → *Prune container images* → *Run workflow*), as a dry
+run unless that is unticked, with another number to keep; its job summary lists what it deleted or would delete.
+
+Deleting a version needs the repository to have the **Admin** role on the package: **Package settings** → **Manage
+Actions access**. The repository that first published the package is given it; if the pruning is refused with 403, add
+the repository there with **Admin**.
 
 ## Pages
 
