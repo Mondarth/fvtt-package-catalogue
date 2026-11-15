@@ -54,7 +54,7 @@ function workerOver(connection: ReturnType<typeof connect>, overrides: PackageOv
       fetch: send,
       cache: through,
       budget: { maxRequests: config.CRAWL_MAX_REQUESTS },
-      userAgent: `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`,
+      userAgent: `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://mondarth.github.io/fvtt-package-catalogue/)`,
     });
   return createWorker({
     store: drizzleStore(connection.db),

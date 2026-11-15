@@ -1,6 +1,6 @@
 # @mondarth/fvtt-package-catalogue-contract
 
-The API contract of the [Foundry VTT package catalogue](https://github.com/Mondarth/fvtt-package-catalogue): a [zod](https://zod.dev) schema, and its TypeScript type, for every request and response of the catalogue's API.
+The API contract of the [Foundry VTT package catalogue](https://mondarth.github.io/fvtt-package-catalogue/): a [zod](https://zod.dev) schema, and its TypeScript type, for every request and response of the catalogue's API.
 
 > **Not ready for use.** Releases before 1.0.0 may change anything.
 

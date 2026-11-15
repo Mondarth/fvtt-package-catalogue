@@ -11,14 +11,11 @@
     "zod",
     "api-contract"
   ],
-  "homepage": "https://github.com/Mondarth/fvtt-package-catalogue/tree/main/packages/contract#readme",
+  "homepage": "https://mondarth.github.io/fvtt-package-catalogue/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Mondarth/fvtt-package-catalogue.git",
     "directory": "packages/contract"
-  },
-  "bugs": {
-    "url": "https://github.com/Mondarth/fvtt-package-catalogue/issues"
   },
   "exports": {
     ".": {
