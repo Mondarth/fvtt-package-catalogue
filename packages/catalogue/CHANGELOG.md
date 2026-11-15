@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.8.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.8.0...@mondarth/fvtt-package-catalogue-v0.8.1) (2026-11-15)
+
+### Bug Fixes
+
+* **catalogue:** confirm an override's manifest URL before offering it ([3a359ea](https://github.com/Mondarth/fvtt-package-catalogue/commit/3a359ea555f13459b541dfd7bf4d626c3409d3b8))
+
 ## [@mondarth/fvtt-package-catalogue-v0.8.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.7.2...@mondarth/fvtt-package-catalogue-v0.8.0) (2026-11-14)
 
 ### Features
