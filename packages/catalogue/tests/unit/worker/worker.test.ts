@@ -201,7 +201,7 @@ describe('the worker, with package overrides', () => {
     unavailable,
   });
   const overrides: PackageOverrides = {
-    'module:midi-qol': { reason: 'Why', manifest: 'https://files.test/midi-qol/v{version}/module.json' },
+    'module:midi-qol': { reason: 'Why', manifest: ['https://files.test/midi-qol/v{version}/module.json'] },
     'module:not-held': { reason: 'Why', ignoreVersions: ['99.test'] },
   };
 
@@ -361,15 +361,27 @@ describe('the worker, with package overrides', () => {
     expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [], expect.objectContaining({ remove: [] }));
   });
 
-  it('crawls a package with its override', async () => {
-    const { store, worker } = setUp({ overrides });
+  it('crawls a package with its override, offering the manifest it confirms', async () => {
+    const own = 'https://files.test/midi-qol/v13.0.4/module.json';
+    const send = vi.fn<typeof globalThis.fetch>(input =>
+      Promise.resolve(
+        String(input instanceof Request ? input.url : input) === own
+          ? Response.json({ id: 'midi-qol', version: '13.0.4' })
+          : new Response('', { status: 404 }),
+      ),
+    );
+    const { store, worker } = setUp({ overrides, send });
     store.nextCrawl.mockResolvedValueOnce(queued());
     await worker.drain();
-    expect(store.saveReleases).toHaveBeenCalledWith(
-      MIDI,
-      [{ ...release(), versionManifest: 'https://files.test/midi-qol/v13.0.4/module.json' }],
-      expect.anything(),
-    );
+    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [{ ...release(), versionManifest: own }], expect.anything());
+  });
+
+  it('offers none of its override’s manifests that it cannot confirm', async () => {
+    const send = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response('', { status: 404 })));
+    const { store, worker } = setUp({ overrides, send });
+    store.nextCrawl.mockResolvedValueOnce(queued());
+    await worker.drain();
+    expect(store.saveReleases).toHaveBeenCalledWith(MIDI, [release()], expect.anything());
   });
 });
 
