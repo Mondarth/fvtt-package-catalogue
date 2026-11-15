@@ -66,7 +66,7 @@ export const providers = signInProviders({ ...apps, testProviderUrl: testProvide
 // The versions of packages' own manifests rechecked, so that each is revalidated by its ETag, as the worker's are.
 const versions = versionsOnly(lruCache(5000));
 
-const userAgent = `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://github.com/Mondarth/fvtt-package-catalogue)`;
+const userAgent = `fvtt-package-catalogue/${__CATALOGUE_VERSION__} (+https://mondarth.github.io/fvtt-package-catalogue/)`;
 
 /** Fetches a URL a client gave, such as a manifest to install from, refusing what only the server may reach. */
 export const fetchGiven = (url: string) => safeFetch(url, { userAgent });

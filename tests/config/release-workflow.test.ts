@@ -51,6 +51,31 @@ describe('release workflow', () => {
   });
 });
 
+describe('prune-images workflow', () => {
+  const prune = read('prune-images.yml') as Workflow & {
+    on: { workflow_dispatch?: { inputs?: Record<string, { default?: unknown }> } };
+    jobs: Record<string, { needs?: string; permissions?: Record<string, string> }>;
+  };
+
+  it('runs after each image the release publishes, and may delete', () => {
+    const job = (workflow.jobs as typeof prune.jobs)['prune-images'];
+    expect(job?.needs).toBe('image');
+    expect(job?.uses).toBe('./.github/workflows/prune-images.yml');
+    expect(job?.permissions?.packages).toBe('write');
+  });
+
+  it('is a dry run when started by hand, unless told otherwise', () => {
+    expect(prune.on.workflow_dispatch?.inputs?.['dry-run']?.default).toBe(true);
+  });
+
+  // Regression guard: without `shell: bash`, Actions runs `bash -e` without pipefail, and tee hides a failure.
+  it('fails when the script does, though its output is piped', () => {
+    const step = prune.jobs.prune?.steps?.find(candidate => candidate.name === 'Prune') as Step & { shell?: string };
+    expect(step.run).toMatch(/\| tee /);
+    expect(step.shell).toBe('bash');
+  });
+});
+
 describe('docs workflow', () => {
   const docs = read('docs.yml');
 

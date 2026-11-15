@@ -1,0 +1,58 @@
+name: Prune container images
+
+# Deletes the container image's old versions (scripts/prune-images.ts), so that the private package stays within the
+# organisation's storage: it keeps the newest releases, every version a moving tag (latest, a major or a major.minor
+# line) still names, and what those are made of. The Release workflow calls it after each image it publishes. It can
+# also be run by hand (Actions > Prune container images > Run workflow), as a dry run unless that is unticked.
+on:
+  workflow_call:
+    inputs:
+      keep:
+        description: How many of the newest releases to keep
+        type: number
+        default: 10
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: How many of the newest releases to keep
+        type: number
+        default: 10
+      dry-run:
+        description: Only report what would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prune-images
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune the image's old versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Deleting a version needs the repository to have the Admin role on the package, which the repository that
+      # first published it is given.
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+            .nvmrc
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Prune
+        # `shell: bash` runs it with pipefail, so that the script failing fails the step, though tee does not.
+        shell: bash
+        run: node scripts/prune-images.ts | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          KEEP: ${{ inputs.keep }}
+          # A call from the Release workflow has no dry-run input, and deletes.
+          DRY_RUN: ${{ inputs.dry-run == true }}

@@ -4,7 +4,7 @@ import { packageRelease } from '../../release.base.js';
 export default packageRelease({
   prepare: ['pnpm build'],
   // pnpm publishes natively; under trusted publishing it authenticates with the workflow's OIDC
-  // token and attaches provenance itself.
+  // token. No provenance is attached, as npm gives none from a private repository; nothing asks for it.
   publishCmd: 'pnpm publish --no-git-checks',
   output: 'contract-tag',
 });

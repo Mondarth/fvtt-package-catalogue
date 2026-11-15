@@ -10,7 +10,23 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Code scanning and dependency review need GitHub Code Security on a private repository, which the organisation
+  # does not have: they run only while the repository is public, and are skipped, not failed, while it is private.
+  # Asked of the API, as a scheduled run's event does not reliably say. Neither is a required check.
+  visibility:
+    name: Repository visibility
+    runs-on: ubuntu-latest
+    outputs:
+      public: ${{ steps.ask.outputs.public }}
+    steps:
+      - id: ask
+        run: echo "public=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.private | not')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   review:
+    needs: visibility
+    if: ${{ needs.visibility.outputs.public == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -6,6 +6,7 @@
 | `e2e.yml` (E2E)         | Pull requests; pushes to `dev`; from release | Playwright: `api`, `chromium`, `firefox`, `webkit`, one runner each; **E2E passed** |
 | `release.yml` (Release) | Pushes to `main`; by hand                    | Dev CI and E2E, then semantic-release, the image, `dev` brought up to date, Pages |
 | `docs.yml`              | From Dev CI                                  | Builds this documentation in Docker                                  |
+| `prune-images.yml`      | From release; by hand                        | Deletes the image's old versions, keeping the newest ten releases    |
 | `codeql.yml`            | Pushes, pull requests, weekly                | CodeQL                                                               |
 | `dependency-review.yml` | Pull requests                                | Refuses dependencies with known vulnerabilities                      |
 
@@ -25,7 +26,8 @@ Merge the pull request from `dev` into `main`. The release workflow then:
 2. runs semantic-release in each package (`pnpm release`). Each package with commits that call for one gets a version,
    a changelog entry, a tag and a GitHub release. The contract is published to npm through trusted publishing;
 3. if the catalogue was released, builds its image from the release's tag for `linux/amd64` and `linux/arm64`, and
-   pushes it to `ghcr.io/mondarth/fvtt-package-catalogue` as `<version>`, `<major>.<minor>`, `<major>` and `latest`;
+   pushes it to `ghcr.io/mondarth/fvtt-package-catalogue` as `<version>`, `<major>.<minor>`, `<major>` and `latest`,
+   then deletes its old versions (see [the container image](github-setup.md#the-container-image));
 4. merges `main` back into `dev`, or opens a pull request to;
 5. publishes the documentation to GitHub Pages.
 
