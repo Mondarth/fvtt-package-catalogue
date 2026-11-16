@@ -1,3 +1,20 @@
+## [@mondarth/fvtt-package-catalogue-v0.9.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.8.1...@mondarth/fvtt-package-catalogue-v0.9.0) (2026-11-16)
+
+### Features
+
+* **catalogue:** add admins, viewing as a user, and an audit log ([6609570](https://github.com/Mondarth/fvtt-package-catalogue/commit/6609570f862aca8cb85ddc8a0dab10aa4637eedd))
+
+### Bug Fixes
+
+* **catalogue:** tell a banned user why, and show the admin rows' text ([e496d2f](https://github.com/Mondarth/fvtt-package-catalogue/commit/e496d2fc06fcad1ca85cb69a3e3008a91700c9df))
+
+### Build System
+
+* **deps-dev:** Bump @inlang/paraglide-js from 3.1.0 to 3.2.2 ([f5cf19b](https://github.com/Mondarth/fvtt-package-catalogue/commit/f5cf19b87d9f78496740a74291aff7c6f6df37b3))
+* **deps-dev:** Bump the database group across 1 directory with 2 updates ([53d3f30](https://github.com/Mondarth/fvtt-package-catalogue/commit/53d3f30fda2c87c61a3962b11cb306e1dac60cb9))
+* **deps-dev:** Bump the svelte group with 3 updates ([29b8da6](https://github.com/Mondarth/fvtt-package-catalogue/commit/29b8da612f0da81fd24076630bec7160209645c3))
+* **deps-dev:** Bump vite ([4ba505f](https://github.com/Mondarth/fvtt-package-catalogue/commit/4ba505f992f65aaa25be169985075acc9413f9bc))
+
 ## [@mondarth/fvtt-package-catalogue-v0.8.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.8.0...@mondarth/fvtt-package-catalogue-v0.8.1) (2026-11-15)
 
 ### Bug Fixes
