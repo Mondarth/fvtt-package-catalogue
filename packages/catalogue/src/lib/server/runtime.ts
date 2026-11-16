@@ -6,6 +6,7 @@ import { MAX_RECHECK_PACKAGES } from '@mondarth/fvtt-package-catalogue-contract'
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 
 import {
+  ADMIN_USER_IDS,
   API_KEYS,
   AUTH_DISCORD_ID,
   AUTH_DISCORD_SECRET,
@@ -22,6 +23,7 @@ import {
   SITE_URL,
 } from '$app/env/private';
 
+import { auditStore } from './accounts/audit.js';
 import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
@@ -48,6 +50,12 @@ const apps = {
 /** The stand-in provider: the one the end-to-end tests run, or, on the development server, its own (dev-provider.ts). */
 const testProvider = testProviderUrl(AUTH_TEST_PROVIDER_URL, SITE_URL, import.meta.env.DEV);
 
+/** What admins have done. */
+export const audit = auditStore(connection.db);
+
+/** The users who are admins whatever their role. */
+export const adminUserIds: readonly string[] = ADMIN_USER_IDS;
+
 /** Signing in to the website. */
 export const auth = createAuth({
   db: connection.db,
@@ -55,6 +63,8 @@ export const auth = createAuth({
   siteUrl: SITE_URL,
   ...apps,
   testProviderUrl: testProvider,
+  adminUserIds,
+  audit,
 });
 
 /** The accounts' tables, beyond what Better Auth does itself. */

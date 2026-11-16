@@ -1,5 +1,6 @@
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Auth, SignedIn } from '#lib/server/accounts/auth.js';
+import type { AuditStore } from '#lib/server/accounts/audit.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Logger } from '#lib/server/log.js';
 import type { SafeFetched } from '#lib/server/safe-fetch.js';
@@ -29,6 +30,12 @@ declare global {
       accounts: AccountsStore;
       /** The ids of the providers the sign-in page offers, on the website's requests. */
       providers: readonly string[];
+      /** Whether whoever is signed in is an admin: by their role, or as `ADMIN_USER_IDS` names them. */
+      isAdmin: boolean;
+      /** What admins have done, on the website's requests. */
+      audit: AuditStore;
+      /** The users who are admins whatever their role, on the website's requests. */
+      adminUserIds: readonly string[];
     }
   }
 }

@@ -19,6 +19,20 @@ export const ApiKeys = z
   )
   .pipe(z.array(z.string().min(1)).min(1, 'at least one API key is needed'));
 
+/**
+ * The users who are admins whatever their role, by their user ids, separated by commas; none by default. The first
+ * admin is made so: an admin can then make others admins from the admin pages.
+ */
+export const AdminUserIds = z
+  .string()
+  .optional()
+  .transform(value =>
+    (value ?? '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(id => id !== ''),
+  );
+
 export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
 
 /** The lowest level logged. */

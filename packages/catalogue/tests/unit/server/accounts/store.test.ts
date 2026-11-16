@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { accounts, users } from '../../../../src/lib/server/accounts/schema.js';
+import { accounts, sessions, users } from '../../../../src/lib/server/accounts/schema.js';
 import { accountsStore } from '../../../../src/lib/server/accounts/store.js';
 import { testDatabase } from '../../support/pglite.js';
 
@@ -61,5 +61,67 @@ describe('linkedProviders', () => {
       { providerId: 'github', linkedAt: at(1) },
       { providerId: 'google', linkedAt: at(2) },
     ]);
+  });
+});
+
+describe('listUsers', () => {
+  beforeEach(async () => {
+    await db
+      .insert(users)
+      .values([
+        { id: 'u3', name: 'Ann 100%_off', email: 'ann@example.test', handle: 'calm-elk-ash-03', nickname: 'Annie' },
+      ]);
+  });
+
+  it('lists every user, the newest first, with how many there are', async () => {
+    const { users: found, total } = await accountsStore(db).listUsers({ limit: 10, offset: 0 });
+    expect(total).toBe(3);
+    expect(found.map(user => user.id).sort()).toEqual(['u1', 'u2', 'u3']);
+    expect(found[0]).toMatchObject({ banned: false, role: null });
+  });
+
+  it('finds users by handle, nickname, name or email, whatever the case', async () => {
+    const ids = async (search: string) =>
+      (await accountsStore(db).listUsers({ search, limit: 10, offset: 0 })).users.map(user => user.id).sort();
+    expect(await ids('BOLD-owl')).toEqual(['u2']);
+    expect(await ids('annie')).toEqual(['u3']);
+    expect(await ids('one')).toEqual(['u1']);
+    expect(await ids('two@example')).toEqual(['u2']);
+    expect(await ids('   ')).toEqual(['u1', 'u2', 'u3']);
+  });
+
+  it("matches a search's wildcards as themselves", async () => {
+    const ids = async (search: string) =>
+      (await accountsStore(db).listUsers({ search, limit: 10, offset: 0 })).users.map(user => user.id);
+    expect(await ids('%_')).toEqual(['u3']);
+    expect(await ids('_')).toEqual(['u3']);
+    expect(await ids('\\')).toEqual([]);
+  });
+
+  it('gives a page at a time', async () => {
+    const store = accountsStore(db);
+    const first = await store.listUsers({ limit: 2, offset: 0 });
+    const second = await store.listUsers({ limit: 2, offset: 2 });
+    expect(first.users).toHaveLength(2);
+    expect(second.users).toHaveLength(1);
+    expect(first.total).toBe(3);
+  });
+});
+
+describe('userDetail', () => {
+  it('gives what is held of a user: their providers, ban and how many sessions are signed in now', async () => {
+    const later = new Date(Date.now() + 60_000);
+    await db.insert(accounts).values({ id: 'a1', accountId: 'gh-1', providerId: 'github', userId: 'u1' });
+    await db.insert(sessions).values([
+      { id: 's1', token: 't1', userId: 'u1', expiresAt: later },
+      { id: 's2', token: 't2', userId: 'u1', expiresAt: new Date(Date.now() - 60_000) },
+    ]);
+    const detail = await accountsStore(db).userDetail('u1');
+    expect(detail).toMatchObject({ id: 'u1', handle: 'amber-fox-oak-01', banned: false, banReason: null, sessions: 1 });
+    expect(detail?.providers.map(provider => provider.providerId)).toEqual(['github']);
+  });
+
+  it('is nothing for a user there is not', async () => {
+    expect(await accountsStore(db).userDetail('nobody')).toBeUndefined();
   });
 });

@@ -63,6 +63,9 @@ has no way out. Nothing is published on the host.
    : Signing in with GitHub, Google, Discord and Patreon (see [Signing in](#signing-in)). Each provider is offered only
      with both its id and its secret.
 
+   `ADMIN_USER_IDS` (optional)
+   : The user ids of admins whatever their role, separated by commas (see [Admins](#admins)).
+
    `GITHUB_TOKEN`, `GITLAB_TOKEN` (optional)
    : Raise the worker's limit on GitHub's API from 60 requests an hour to 5000; a token needs no scopes. Without one,
      packages listed by Foundry VTT still crawl in full, as their manifests are not fetched through the API.
@@ -120,6 +123,31 @@ visitor can delete their profile, and all of it with it, from their profile page
 and links to that page, before any provider is chosen.
 
 The API is not signed in to: it keeps its keys.
+
+## Admins
+
+An admin may, from the website's admin pages (`/admin`, offered in the bar along the top to admins alone, and not
+found by anyone else): find users by their user id, nickname, name or email address; set their role, `user` or
+`admin`; ban them, for good or for so many days, with a reason they are shown when they try to sign in; sign them out
+everywhere; view the site as them, for an hour at most, to help with a problem they report; and read the audit log, of
+what admins have done and what was done while an admin viewed the site as someone. While viewing the site as someone,
+a banner on every page says so, and nothing an admin does, nor deleting the profile, is allowed until they stop.
+
+The first admin is named in `.env`:
+
+1. Sign in to the website once, so that your profile is made.
+2. Find its id in the database. It is not the user id the profile page shows (such as `amber-falcon-ridge-42`), which
+   is its `handle`:
+
+   ```shell
+   docker compose exec db psql -U catalogue -c "select id, handle, email from users"
+   ```
+
+3. Set `ADMIN_USER_IDS` to that id (several, separated by commas), and `docker compose up -d app`.
+
+An admin so named is an admin whatever their role says, and only `.env` changes it: the admin pages offer no change
+to their role or ban. Any admin can make others admins by role from the admin pages; an admin cannot change their own
+role, ban themselves, or view the site as another admin.
 
 ## The worker
 

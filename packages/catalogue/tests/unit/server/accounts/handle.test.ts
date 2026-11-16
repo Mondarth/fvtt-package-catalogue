@@ -4,6 +4,7 @@ import { createAccountsHandle, isAuthPath } from '../../../../src/lib/server/acc
 import { fakeEvent } from '../../support/event.js';
 
 import type { RequestEvent } from '@sveltejs/kit';
+import type { AuditStore } from '../../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore } from '../../../../src/lib/server/accounts/store.js';
 
@@ -18,7 +19,13 @@ function setUp(found: { user: typeof USER; session: typeof SESSION } | null) {
     api: { getSession: vi.fn(() => Promise.resolve({ headers: cookies, response: found })) },
   };
   const accounts = {} as AccountsStore;
-  const handle = createAccountsHandle(auth as unknown as Auth, accounts, ['github']);
+  const audit = {} as AuditStore;
+  const handle = createAccountsHandle(auth as unknown as Auth, {
+    accounts,
+    providers: ['github'],
+    audit,
+    adminUserIds: ['u-admin'],
+  });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(new Response('page')));
   const run = (path: string) => {
     const event = fakeEvent({ url: `http://catalogue.test${path}` });

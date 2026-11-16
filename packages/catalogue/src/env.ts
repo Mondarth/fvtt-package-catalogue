@@ -1,6 +1,7 @@
 import { defineEnvVars } from '@sveltejs/kit/env';
 
 import {
+  AdminUserIds,
   ApiKeys,
   AuthSecret,
   DatabaseUrl,
@@ -46,6 +47,11 @@ export const variables = defineEnvVars({
     schema: ProviderCredential,
   },
   AUTH_PATREON_SECRET: { description: "The Patreon client's secret.", schema: ProviderCredential },
+  ADMIN_USER_IDS: {
+    description:
+      'The user ids of admins whatever their role, separated by commas, such as the first admin; none by default.',
+    schema: AdminUserIds,
+  },
   AUTH_TEST_PROVIDER_URL: {
     description: 'A stand-in sign-in provider, for the end-to-end tests alone. Never set in a deployment.',
     schema: TestProviderUrl,
