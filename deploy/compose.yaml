@@ -69,6 +69,7 @@ services:
       AUTH_DISCORD_SECRET: ${AUTH_DISCORD_SECRET:-}
       AUTH_PATREON_ID: ${AUTH_PATREON_ID:-}
       AUTH_PATREON_SECRET: ${AUTH_PATREON_SECRET:-}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       PORT: '3000'
       # SWAG is the only proxy in front: trust what it says of the client and the original request.

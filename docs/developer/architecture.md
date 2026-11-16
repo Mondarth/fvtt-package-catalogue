@@ -189,7 +189,7 @@ from the catalogue so that it can move to a service of its own, shared by every 
 - Better Auth answers under `/auth` (its callbacks from the providers at `/auth/callback/<provider>`), not its default
   `/api/auth`, which is the API's and needs a key. The accounts' `handle` hook (`accounts/handle.ts`) gives it those
   paths, and gives every other page of the website who is signed in, in `locals.user`; the API is never signed in to.
-- Its tables (`users`, `sessions`, `accounts`, `verifications`) are in `accounts/schema.ts`, migrated with the rest by
+- Its tables (`users`, `sessions`, `accounts`, `verifications`, and the website's `audit_log`) are in `accounts/schema.ts`, migrated with the rest by
   drizzle-kit, with two of the catalogue's own on `users`: the `handle`, three words and two digits given at random
   when the profile is made, and the `nickname` the user may choose, unique whatever its case.
 - The site needs no script to sign in: signing in, signing out and deleting the profile are forms posted to small
@@ -197,6 +197,22 @@ from the catalogue so that it can move to a service of its own, shared by every 
   server and pass its cookies on with a redirect.
 - `lib/stored.ts` lists what each row of the "What we store" page covers, by column; a test checks it against the
   tables as the migrations make them, so that a column added must be added to the page too.
+- **Admins** have Better Auth's admin plugin, with the website's roles and permissions (`accounts/permissions.ts`): a
+  `user`, or an `admin`, who may list users, set their roles, ban them, sign them out everywhere, view the site as them
+  (impersonate) for an hour at most, and read the audit log. An admin is one by their role, or by being named in
+  `ADMIN_USER_IDS`, which makes the first; `locals.isAdmin` says which. The admin pages (`routes/admin/`) answer 404 to
+  anyone else, and call the plugin's endpoints through `auth.api`.
+- **Better Auth's hooks** (`accounts/admin-hooks.ts`) hold for every call of those endpoints, the admin pages' and
+  anyone's straight to `/auth/admin/…` alike. Before: they refuse what even an admin may not do (anything an admin does,
+  or deleting the profile, while viewing the site as someone; an admin's role, ban or sign-out on themselves; the role
+  or ban of an admin `ADMIN_USER_IDS` names; viewing the site as another admin, which Better Auth would let those
+  admins do; a role there is not), each refusal with a code the pages name (`REFUSED_<WHY>`). After: they record what
+  succeeded in the audit log (`accounts/audit.ts`, the `audit_log` table), with how it was and is. The plugin's
+  endpoints the website does not offer (creating users, setting passwords or other fields, removing users, revoking
+  one session) are `disabledPaths`.
+- The **audit log** records who did it, as whom (while impersonating), what, to whom, and the change. The website's own
+  changes made while impersonating, such as a nickname, are recorded by the routes that make them. Deleting a profile
+  keeps the entries about it, but forgets what they held of it (their before and after).
 - The end-to-end tests sign in through a stand-in provider (`tests/e2e/fake-provider.ts`), offered only when
   `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
   (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
@@ -217,6 +233,7 @@ read and validated again at start-up, come from the environment the server runs 
 | `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
 | `SITE_URL`     | yes      | The website's address as visitors reach it                 |
 | `AUTH_<PROVIDER>_ID`, `AUTH_<PROVIDER>_SECRET` | no | A provider's app, for `GITHUB`, `GOOGLE`, `DISCORD` and `PATREON`; each is offered only with both |
+| `ADMIN_USER_IDS` | no | The user ids of admins whatever their role, separated by commas, such as the first admin |
 | `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
 | `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
 

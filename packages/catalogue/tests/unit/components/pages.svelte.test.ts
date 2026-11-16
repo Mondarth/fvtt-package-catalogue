@@ -104,13 +104,34 @@ describe('the layout', () => {
   });
 
   it('puts the workspace bar along the top once signed in, the profile button at its far right', () => {
-    render(Layout, { children, params: {}, data: { signedIn: { name: 'Ulenar' } } });
+    render(Layout, { children, params: {}, data: { signedIn: { name: 'Ulenar', admin: false, impersonated: false } } });
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
     const profile = screen.getByRole('link', { name: en.profile_button_label.replace('{name}', 'Ulenar') });
     expect(profile).toHaveTextContent(/^\s*Ulenar\s*$/);
     expect(profile).toHaveAttribute('href', '/profile');
     expect(bar.lastElementChild).toBe(profile);
     expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
+  });
+});
+
+describe('the layout, for an admin and while an admin views the site as someone', () => {
+  const children = createRawSnippet(() => ({ render: () => '<p>The page</p>' }));
+
+  it('links the admin pages in the bar for an admin alone', () => {
+    render(Layout, { children, params: {}, data: { signedIn: { name: 'Ulenar', admin: true, impersonated: false } } });
+    expect(screen.getByRole('link', { name: en.admin_link })).toHaveAttribute('href', '/admin');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('says on every page whom the site is viewed as, with a button to stop', () => {
+    render(Layout, { children, params: {}, data: { signedIn: { name: 'Ulenar', admin: false, impersonated: true } } });
+    expect(screen.queryByRole('link', { name: en.admin_link })).not.toBeInTheDocument();
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveTextContent(en.impersonation_banner.replace('{name}', 'Ulenar'));
+    expect(screen.getByRole('button', { name: en.impersonation_stop }).closest('form')).toHaveAttribute(
+      'action',
+      '/impersonation/stop',
+    );
   });
 });
 

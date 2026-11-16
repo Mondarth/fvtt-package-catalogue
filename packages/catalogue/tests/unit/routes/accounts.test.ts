@@ -9,6 +9,7 @@ import { POST as signIn } from '../../../src/routes/sign-in/[provider]/+server.j
 import { POST as signOut } from '../../../src/routes/sign-out/+server.js';
 import { fakeEvent, invoke } from '../support/event.js';
 
+import type { AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore } from '../../../src/lib/server/accounts/store.js';
 
@@ -20,6 +21,8 @@ const USER = {
   image: null,
   handle: 'amber-fox-oak-01',
   nickname: null,
+  role: 'user',
+  banned: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -135,6 +138,23 @@ describe('POST /profile/delete', () => {
     expect((await post(undefined)).headers.get('Location')).toBe('/profile?problem=unconfirmed');
   });
 
+  it('refuses while an admin views the site as the user, without asking Better Auth', async () => {
+    const deleteUser = vi.fn(() => Promise.resolve(answer({ success: true })));
+    const response = await invoke(deleteProfile, {
+      url: 'http://catalogue.test/profile/delete',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'confirm=yes',
+      locals: {
+        user: USER,
+        session: { ...SESSION, impersonatedBy: 'admin' } as never,
+        auth: fakeAuth({ deleteUser }),
+      },
+    });
+    expect(response.headers.get('Location')).toBe('/profile?problem=impersonating');
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
   it('asks a session over a day old to sign in again first', async () => {
     const response = await post('yes', () => Promise.resolve(answer({ code: 'SESSION_EXPIRED' }, 400)));
     expect(response.headers.get('Location')).toBe('/profile?problem=stale');
@@ -153,10 +173,18 @@ describe('POST /profile/delete', () => {
 });
 
 describe('the pages', () => {
-  it('give every page the name the user is shown by, and nothing more', () => {
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER } }))).toEqual({ signedIn: { name: USER.handle } });
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: { ...USER, nickname: 'Ulenar' } } }))).toEqual({
-      signedIn: { name: 'Ulenar' },
+  it('give every page the name the user is shown by, whether they are an admin, and whether one views as them', () => {
+    const signedIn = { name: USER.handle, admin: false, impersonated: false };
+    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: false } }))).toEqual({ signedIn });
+    expect(
+      layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: { ...USER, nickname: 'Ulenar' }, isAdmin: false } })),
+    ).toEqual({ signedIn: { ...signedIn, name: 'Ulenar' } });
+    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: true } }))).toEqual({
+      signedIn: { ...signedIn, admin: true },
+    });
+    const viewedAs = { ...SESSION, impersonatedBy: 'u-admin' } as never;
+    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, session: viewedAs, isAdmin: false } }))).toEqual({
+      signedIn: { ...signedIn, impersonated: true },
     });
     expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).toEqual({ signedIn: null });
   });
@@ -230,6 +258,40 @@ describe('the profile page', () => {
       const error = await thrown(() => post('nickname=++Ulenar++', setNickname));
       expect(isRedirect(error) && error.location).toBe('/profile?saved');
       expect(setNickname).toHaveBeenCalledWith('u1', 'Ulenar');
+    });
+
+    it('records a change made while an admin views the site as the user, as the admin, done as the user', async () => {
+      const setNickname = vi.fn<AccountsStore['setNickname']>(() => Promise.resolve('ok'));
+      const record = vi.fn<AuditStore['record']>(() => Promise.resolve());
+      const run = (session: unknown) =>
+        thrown(() =>
+          nickname(
+            fakeEvent<NicknameEvent>({
+              url: 'http://catalogue.test/profile?/nickname',
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'nickname=Ulenar',
+              locals: {
+                user: USER,
+                session: session as never,
+                accounts: accounts({ setNickname }),
+                audit: { record } as unknown as AuditStore,
+              },
+            }),
+          ),
+        );
+      await run(SESSION);
+      expect(record).not.toHaveBeenCalled();
+      await run({ ...SESSION, impersonatedBy: 'admin' });
+      expect(record).toHaveBeenCalledWith({
+        actorId: 'admin',
+        asUserId: 'u1',
+        action: 'profile.nickname',
+        subjectId: 'u1',
+        before: { nickname: null },
+        after: { nickname: 'Ulenar' },
+        requestId: 'request-1',
+      });
     });
 
     it('clears it when none is given', async () => {

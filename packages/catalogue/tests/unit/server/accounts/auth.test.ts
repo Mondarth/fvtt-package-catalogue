@@ -7,6 +7,7 @@ import {
   signInProviders,
   TEST_PROVIDER,
 } from '../../../../src/lib/server/accounts/auth.js';
+import { auditStore } from '../../../../src/lib/server/accounts/audit.js';
 import { users } from '../../../../src/lib/server/accounts/schema.js';
 import { testDatabase } from '../../support/pglite.js';
 
@@ -50,6 +51,7 @@ describe('createAuth', () => {
   it('answers under /auth, with GitHub and the stand-in provider where they are set up', () => {
     const auth = createAuth({
       db,
+      audit: auditStore(db),
       secret: SECRET,
       siteUrl: 'https://catalogue.test',
       github,
@@ -57,7 +59,7 @@ describe('createAuth', () => {
     });
     expect(auth.options.basePath).toBe(AUTH_PATH);
     expect(auth.options.socialProviders.github).toEqual(github);
-    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth']);
+    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth', 'admin']);
     expect(auth.options.account.encryptOAuthTokens).toBe(true);
   });
 
@@ -65,9 +67,17 @@ describe('createAuth', () => {
     const google = { clientId: 'g-id', clientSecret: 'g-secret' };
     const discord = { clientId: 'd-id', clientSecret: 'd-secret' };
     const patreon = { clientId: 'p-id', clientSecret: 'p-secret' };
-    const auth = createAuth({ db, secret: SECRET, siteUrl: 'https://catalogue.test', google, discord, patreon });
+    const auth = createAuth({
+      db,
+      audit: auditStore(db),
+      secret: SECRET,
+      siteUrl: 'https://catalogue.test',
+      google,
+      discord,
+      patreon,
+    });
     expect(auth.options.socialProviders).toEqual({ google, discord });
-    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth']);
+    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth', 'admin']);
     const { socialProviders } = await auth.$context;
     expect(socialProviders.map(provider => provider.id).sort()).toEqual(['discord', 'google', 'patreon']);
   });
@@ -79,17 +89,24 @@ describe('createAuth', () => {
     ['patreon', 'www.patreon.com'],
   ])('sends a sign-in with %s to it, to come back to /auth/callback/%s', async (provider, host) => {
     const app = { clientId: 'id', clientSecret: 'secret' };
-    const auth = createAuth({ db, secret: SECRET, siteUrl: 'https://catalogue.test', [provider]: app });
+    const auth = createAuth({
+      db,
+      audit: auditStore(db),
+      secret: SECRET,
+      siteUrl: 'https://catalogue.test',
+      [provider]: app,
+    });
     const { url } = await auth.api.signInSocial({ body: { provider, callbackURL: '/' } });
     const sent = new URL(url ?? '');
     expect(sent.host).toBe(host);
     expect(sent.searchParams.get('redirect_uri')).toBe(`https://catalogue.test/auth/callback/${provider}`);
   });
 
-  it('offers no provider that is not set up', () => {
-    const auth = createAuth({ db, secret: SECRET, siteUrl: 'https://catalogue.test' });
+  it('offers no provider that is not set up', async () => {
+    const auth = createAuth({ db, audit: auditStore(db), secret: SECRET, siteUrl: 'https://catalogue.test' });
     expect(auth.options.socialProviders).toEqual({});
-    expect(auth.options.plugins).toEqual([]);
+    const { socialProviders } = await auth.$context;
+    expect(socialProviders).toEqual([]);
   });
 
   it('gives each new user a handle no one else has', async () => {
@@ -99,7 +116,7 @@ describe('createAuth', () => {
     // The first handle made is the one taken: then the next.
     let n = 0;
     const random = (bound: number) => (n++ < 4 ? 0 : 1) % bound;
-    const auth = createAuth({ db, secret: SECRET, siteUrl: 'https://catalogue.test', random });
+    const auth = createAuth({ db, audit: auditStore(db), secret: SECRET, siteUrl: 'https://catalogue.test', random });
     const { internalAdapter } = await auth.$context;
 
     const user = await internalAdapter.createUser(
