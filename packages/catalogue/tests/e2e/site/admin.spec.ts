@@ -45,8 +45,11 @@ test.describe('the admin pages, for anyone but an admin', () => {
   });
 });
 
-test('an admin finds a user, views the site as them, and bans them, all recorded', async ({ page }, info) => {
-  const handle = await aUser(page, nameFor('dave', info));
+test('an admin finds a user, views the site as them, and bans them, who is told why, all recorded', async ({
+  page,
+}, info) => {
+  const dave = nameFor('dave', info);
+  const handle = await aUser(page, dave);
   const nickname = `Dave ${info.project.name} ${String(Date.now()).slice(-6)}`;
 
   const bar = await signInAs(page, E2E_ADMIN);
@@ -85,6 +88,27 @@ test('an admin finds a user, views the site as them, and bans them, all recorded
   await page.getByRole('button', { name: en.admin_ban_button }).click();
   await expect(page.getByRole('status').filter({ hasText: en.admin_done_ban })).toBeVisible();
   await expect(page.getByText(en.admin_banned_forever)).toBeVisible();
+
+  // The banned user, signing in, is told so, and why.
+  await page
+    .getByRole('navigation', { name: en.workspace_label })
+    .getByRole('link', { name: /^Your profile/ })
+    .click();
+  await page.getByRole('button', { name: en.sign_out }).click();
+  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  await page.goto(`${FAKE_PROVIDER_URL}/as/${dave}`);
+  await page.goto('/');
+  await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
+  const refused = page.getByRole('alert');
+  await expect(refused).toContainText(en.sign_in_banned_forever);
+  await expect(refused).toContainText(en.sign_in_banned_reason.replace('{reason}', 'Testing bans'));
+
+  // Back as the admin, to lift it.
+  await signInAs(page, E2E_ADMIN);
+  await page.goto('/admin/users');
+  await page.getByRole('searchbox', { name: en.admin_search_label }).fill(handle);
+  await page.getByRole('button', { name: en.admin_search_button }).click();
+  await page.getByRole('table').getByRole('link', { name: nickname, exact: true }).click();
   await page.getByRole('button', { name: en.admin_unban_button }).click();
   await expect(page.getByRole('status').filter({ hasText: en.admin_done_unban })).toBeVisible();
 

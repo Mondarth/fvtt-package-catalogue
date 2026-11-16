@@ -10,6 +10,7 @@ import { AUTH_PATH } from './auth.js';
 import { isAdmin } from './permissions.js';
 
 import type { AuditStore } from './audit.js';
+import type { BanNotices } from './ban-notice.js';
 import type { Auth } from './auth.js';
 import type { AccountsStore } from './store.js';
 
@@ -21,6 +22,8 @@ export interface AccountsHandleOptions {
   readonly audit: AuditStore;
   /** The users who are admins whatever their role (`ADMIN_USER_IDS`). */
   readonly adminUserIds: readonly string[];
+  /** Reads the notice a banned user's sign-in comes back with. */
+  readonly banNotices: BanNotices;
 }
 
 /**
@@ -41,7 +44,7 @@ export function isAuthPath(pathname: string): boolean {
  * @returns The hook
  */
 export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions): Handle {
-  const { accounts, providers, audit, adminUserIds } = options;
+  const { accounts, providers, audit, adminUserIds, banNotices } = options;
   return async ({ event, resolve }) => {
     // No one, until the session says otherwise: an API request's error page, such as its 404, renders the website's
     // layout, which reads them.
@@ -57,6 +60,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.providers = providers;
     event.locals.audit = audit;
     event.locals.adminUserIds = adminUserIds;
+    event.locals.banNotices = banNotices;
     // Reading the session may renew it, which sets its cookie again.
     const { headers, response: found } = await auth.api.getSession({
       headers: event.request.headers,

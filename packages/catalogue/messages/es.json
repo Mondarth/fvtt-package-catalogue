@@ -170,5 +170,9 @@
   "privacy_impersonation_what": "Qué administrador, si alguno, ve el sitio como tú en una sesión",
   "privacy_impersonation_why": "Un administrador puede ver el sitio como tú durante una hora como máximo, para ayudarte con un problema que le planteas. Esa sesión queda marcada, y todo lo que se hace en ella se registra a nombre del administrador.",
   "privacy_audit_what": "Un registro de lo que hicieron los administradores: quién, como quién, qué, a qué id de usuario, cuándo y qué cambió",
-  "privacy_audit_why": "Que los administradores rindan cuentas. Cuando eliminas tu perfil, el registro conserva solo que se hizo algo a tu id de usuario, y cuándo; lo que contenía de ti, como tu apodo, se elimina."
+  "privacy_audit_why": "Que los administradores rindan cuentas. Cuando eliminas tu perfil, el registro conserva solo que se hizo algo a tu id de usuario, y cuándo; lo que contenía de ti, como tu apodo, se elimina.",
+  "sign_in_banned": "Este perfil está bloqueado y no puede iniciar sesión.",
+  "sign_in_banned_forever": "Tu perfil está bloqueado hasta que un administrador lo desbloquee.",
+  "sign_in_banned_until": "Tu perfil está bloqueado hasta el {date}.",
+  "sign_in_banned_reason": "Motivo: {reason}"
 }

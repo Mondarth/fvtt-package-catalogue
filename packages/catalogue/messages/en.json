@@ -170,5 +170,9 @@
   "privacy_impersonation_what": "Which admin, if any, is viewing the site as you in a session",
   "privacy_impersonation_why": "An admin may view the site as you for up to an hour, to help with a problem you ask about. Such a session is marked, and everything done in it is recorded as the admin's.",
   "privacy_audit_what": "A record of what admins did: who, as whom, what, to which user id, when, and what changed",
-  "privacy_audit_why": "Holding admins to account. When you delete your profile, the record keeps only that something was done to your user id, and when; what it held of you, such as your nickname, is removed."
+  "privacy_audit_why": "Holding admins to account. When you delete your profile, the record keeps only that something was done to your user id, and when; what it held of you, such as your nickname, is removed.",
+  "sign_in_banned": "This profile is banned, and cannot sign in.",
+  "sign_in_banned_forever": "Your profile is banned, until an admin lifts the ban.",
+  "sign_in_banned_until": "Your profile is banned until {date}.",
+  "sign_in_banned_reason": "Reason: {reason}"
 }

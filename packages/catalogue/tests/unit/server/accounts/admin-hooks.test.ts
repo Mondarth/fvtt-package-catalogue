@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 
 import { refusalOf, REFUSALS } from '../../../../src/lib/server/accounts/admin-hooks.js';
 import { auditStore } from '../../../../src/lib/server/accounts/audit.js';
+import { BANNED_CODE, banNotices } from '../../../../src/lib/server/accounts/ban-notice.js';
 import { AUTH_PATH, createAuth } from '../../../../src/lib/server/accounts/auth.js';
 import { auditLog, sessions, users } from '../../../../src/lib/server/accounts/schema.js';
 import { testDatabase } from '../../support/pglite.js';
@@ -231,6 +232,18 @@ describe('viewing the site as someone', () => {
     const minutes = ((viewed?.session.expiresAt.getTime() ?? 0) - Date.now()) / 60_000;
     expect(minutes).toBeGreaterThan(59);
     expect(minutes).toBeLessThanOrEqual(60);
+  });
+});
+
+describe('a banned user signing in', () => {
+  it('is refused with a notice naming them, which the sign-in page can read', async () => {
+    await auth.api.banUser({ body: { userId: 'user', banReason: 'Spam' }, headers: await signedIn('admin') });
+    const error = await signedIn('user').then(
+      () => undefined,
+      (refused: unknown) => refused as { body?: { code?: string; message?: string } },
+    );
+    expect(error?.body?.code).toBe(BANNED_CODE);
+    expect(banNotices(SECRET).read(error?.body?.message ?? '')).toBe('user');
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { banNotices } from '../../../../src/lib/server/accounts/ban-notice.js';
 import { createAccountsHandle, isAuthPath } from '../../../../src/lib/server/accounts/handle.js';
 import { fakeEvent } from '../../support/event.js';
 
@@ -25,6 +26,7 @@ function setUp(found: { user: typeof USER; session: typeof SESSION } | null) {
     providers: ['github'],
     audit,
     adminUserIds: ['u-admin'],
+    banNotices: banNotices('a-test-secret-a-test-secret-a-test-secret'),
   });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(new Response('page')));
   const run = (path: string) => {
