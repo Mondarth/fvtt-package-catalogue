@@ -6,7 +6,7 @@
  *
  * What these tables hold is what the website's "What we store" page (`/privacy`) lays out: change one, change both.
  */
-import { boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigserial, boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { sql } from 'drizzle-orm';
 
@@ -29,6 +29,12 @@ export const users = pgTable(
     handle: text().notNull().unique(),
     /** The name the user chose to be shown by, if any. */
     nickname: text(),
+    /** Their role: `user`, or `admin` (see `permissions.ts`); none is a user's. Set by an admin. */
+    role: text(),
+    /** Whether an admin has stopped them signing in, why, and until when; for good when no end is set. */
+    banned: boolean().default(false),
+    banReason: text(),
+    banExpires: timestamp({ withTimezone: true }),
     createdAt,
     updatedAt,
   },
@@ -52,6 +58,8 @@ export const sessions = pgTable(
     ipAddress: text(),
     /** What the browser said it was. */
     userAgent: text(),
+    /** The admin viewing the site as this session's user, for an impersonation's session: it lasts an hour. */
+    impersonatedBy: text(),
     createdAt,
     updatedAt,
   },
@@ -100,4 +108,35 @@ export const verifications = pgTable(
     updatedAt,
   },
   table => [index('verifications_identifier').on(table.identifier)],
+);
+
+/**
+ * What admins have done, and what anyone did while an admin viewed the site as them: who, as whom, what, to whom, and
+ * how it was before and after. Users are named by their ids alone, and no foreign key holds them, so that the record
+ * outlasts a profile deleted.
+ */
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /** The admin who did it: the one viewing the site as someone, while impersonating. */
+    actorId: text().notNull(),
+    /** The user it was done as, while an admin viewed the site as them. */
+    asUserId: text(),
+    /** What was done, such as `user.set-role`: see `audit.ts`. */
+    action: text().notNull(),
+    /** The user it was done to, if anyone. */
+    subjectId: text(),
+    /** What it changed, from and to, such as a role. */
+    before: jsonb(),
+    after: jsonb(),
+    /** The request's id, as the logs give it. */
+    requestId: text(),
+  },
+  table => [
+    index('audit_log_at').on(table.at),
+    index('audit_log_actor_id').on(table.actorId),
+    index('audit_log_subject_id').on(table.subjectId),
+  ],
 );

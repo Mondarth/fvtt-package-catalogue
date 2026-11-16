@@ -11,6 +11,10 @@ import type { RequestHandler } from './$types';
  */
 export const POST: RequestHandler = async ({ locals, request }) => {
   if (locals.user === null) return redirectWithCookies('/', new Headers());
+  // An admin viewing the site as the user may not delete their profile; Better Auth's hooks refuse it too.
+  if (typeof locals.session?.impersonatedBy === 'string') {
+    return redirectWithCookies('/profile?problem=impersonating', new Headers());
+  }
   const form = await request.formData();
   if (form.get('confirm') !== 'yes') return redirectWithCookies('/profile?problem=unconfirmed', new Headers());
   const response = await locals.auth.api.deleteUser({ body: {}, headers: request.headers, asResponse: true });

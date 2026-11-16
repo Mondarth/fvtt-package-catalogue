@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AdminUserIds,
   ApiKeys,
   AuthSecret,
   DatabaseUrl,
@@ -20,6 +21,14 @@ describe('DatabaseUrl', () => {
 
   it.each(['mysql://localhost/catalogue', 'catalogue'])('rejects %s', url => {
     expect(DatabaseUrl.safeParse(url).success).toBe(false);
+  });
+});
+
+describe('AdminUserIds', () => {
+  it('reads the ids separated by commas, and none when unset or empty', () => {
+    expect(AdminUserIds.parse(' u1, u2 ,,u3 ')).toEqual(['u1', 'u2', 'u3']);
+    expect(AdminUserIds.parse('')).toEqual([]);
+    expect(AdminUserIds.parse(undefined)).toEqual([]);
   });
 });
 

@@ -17,7 +17,11 @@
     taken: m.nickname_problem_taken,
   };
 
-  const DELETE_PROBLEMS = { unconfirmed: m.delete_unconfirmed, stale: m.delete_stale };
+  const DELETE_PROBLEMS = {
+    unconfirmed: m.delete_unconfirmed,
+    stale: m.delete_stale,
+    impersonating: m.delete_impersonating,
+  };
 
   const profile = $derived(data.profile);
   const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);

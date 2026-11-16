@@ -24,6 +24,8 @@ export const STORED: readonly StoredItem[] = [
   { id: 'picture', from: 'provider', columns: ['users.image'] },
   { id: 'handle', from: 'us', columns: ['users.id', 'users.handle'] },
   { id: 'nickname', from: 'you', columns: ['users.nickname'] },
+  { id: 'role', from: 'us', columns: ['users.role'] },
+  { id: 'ban', from: 'us', columns: ['users.banned', 'users.ban_reason', 'users.ban_expires'] },
   {
     id: 'account',
     from: 'provider',
@@ -43,6 +45,22 @@ export const STORED: readonly StoredItem[] = [
   },
   { id: 'session', from: 'us', columns: ['sessions.id', 'sessions.token', 'sessions.user_id', 'sessions.expires_at'] },
   { id: 'device', from: 'browser', columns: ['sessions.ip_address', 'sessions.user_agent'] },
+  { id: 'impersonation', from: 'us', columns: ['sessions.impersonated_by'] },
+  {
+    id: 'audit',
+    from: 'us',
+    columns: [
+      'audit_log.id',
+      'audit_log.at',
+      'audit_log.actor_id',
+      'audit_log.as_user_id',
+      'audit_log.action',
+      'audit_log.subject_id',
+      'audit_log.before',
+      'audit_log.after',
+      'audit_log.request_id',
+    ],
+  },
   {
     id: 'pending',
     from: 'us',

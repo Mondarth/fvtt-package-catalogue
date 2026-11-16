@@ -5,7 +5,7 @@ import { checkNickname } from '#lib/server/accounts/nickname.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Why the profile page was come back to: a deletion it could not make. */
-const PROBLEMS = ['unconfirmed', 'stale'] as const;
+const PROBLEMS = ['unconfirmed', 'stale', 'impersonating'] as const;
 type Problem = (typeof PROBLEMS)[number];
 
 const isProblem = (value: string | null): value is Problem => (PROBLEMS as readonly (string | null)[]).includes(value);
@@ -43,6 +43,19 @@ export const actions: Actions = {
     if (!checked.ok) return fail(400, { given, problem: checked.problem });
     if ((await locals.accounts.setNickname(user.id, checked.nickname)) === 'taken') {
       return fail(400, { given, problem: 'taken' as const });
+    }
+    // Done by the admin viewing the site as them: recorded as theirs, done as the user.
+    const admin = locals.session?.impersonatedBy;
+    if (typeof admin === 'string') {
+      await locals.audit.record({
+        actorId: admin,
+        asUserId: user.id,
+        action: 'profile.nickname',
+        subjectId: user.id,
+        before: { nickname: user.nickname ?? null },
+        after: { nickname: checked.nickname },
+        requestId: locals.requestId,
+      });
     }
     redirect(303, '/profile?saved');
   },

@@ -21,9 +21,19 @@
   {#if data.signedIn === null}
     <LanguagePicker />
   {:else}
-    <TopBar name={data.signedIn.name} />
+    <TopBar name={data.signedIn.name} admin={data.signedIn.admin} />
   {/if}
 </header>
+
+{#if data.signedIn?.impersonated === true}
+  <!-- On every page while an admin views the site as someone, so that it is never forgotten. -->
+  <div class="impersonating" role="status">
+    <span>{m.impersonation_banner({ name: data.signedIn.name })}</span>
+    <form method="POST" action="/impersonation/stop">
+      <button type="submit">{m.impersonation_stop()}</button>
+    </form>
+  </div>
+{/if}
 
 <main>
   <MachineTranslationNotice />
@@ -83,5 +93,26 @@
 
   main {
     padding-block: 1rem 2rem;
+  }
+
+  .impersonating {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .impersonating form {
+    margin: 0;
+  }
+
+  .impersonating button {
+    padding: 0.2rem 0.8rem;
+    font: inherit;
+    cursor: pointer;
   }
 </style>

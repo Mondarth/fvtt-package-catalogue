@@ -1,6 +1,6 @@
 <!--
-  The workspace's bar along the top of every page while signed in: its menu, which has nothing in it yet, the language
-  picker, and, at the far right, the button to the user's profile, showing the name they are shown by.
+  The workspace's bar along the top of every page while signed in: its menu, which has the admin pages for an admin,
+  the language picker, and, at the far right, the button to the user's profile, showing the name they are shown by.
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
@@ -10,13 +10,19 @@
   interface Props {
     /** The name the user is shown by: their nickname, or else their user id. */
     name: string;
+    /** Whether they are an admin, who is offered the admin pages. */
+    admin?: boolean;
   }
 
-  let { name }: Props = $props();
+  let { name, admin = false }: Props = $props();
 </script>
 
 <nav aria-label={m.workspace_label()}>
-  <ul class="menu"></ul>
+  <ul class="menu">
+    {#if admin}
+      <li><a href={resolve('/admin')}>{m.admin_link()}</a></li>
+    {/if}
+  </ul>
   <LanguagePicker />
   <a class="profile" href={resolve('/profile')} aria-label={m.profile_button_label({ name })}>
     {name}
@@ -64,5 +70,9 @@
     height: 0.6rem;
     border-radius: 50%;
     background: var(--accent);
+  }
+
+  .menu a {
+    color: var(--accent);
   }
 </style>
