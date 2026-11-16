@@ -210,6 +210,11 @@ from the catalogue so that it can move to a service of its own, shared by every 
   succeeded in the audit log (`accounts/audit.ts`, the `audit_log` table), with how it was and is. The plugin's
   endpoints the website does not offer (creating users, setting passwords or other fields, removing users, revoking
   one session) are `disabledPaths`.
+- A **banned** user's sign-in is refused by Better Auth, which sends the browser back to the sign-in page with
+  `error=BANNED_USER` and its message as `error_description`, text anyone could put in a link. So the message is a
+  notice signed with `AUTH_SECRET`, naming the user and good for ten minutes (`accounts/ban-notice.ts`); the sign-in
+  page reads the ban's end and reason from the database for a notice it can verify, and for any other says only that
+  the profile is banned.
 - The **audit log** records who did it, as whom (while impersonating), what, to whom, and the change. The website's own
   changes made while impersonating, such as a nickname, are recorded by the routes that make them. Deleting a profile
   keeps the entries about it, but forgets what they held of it (their before and after).

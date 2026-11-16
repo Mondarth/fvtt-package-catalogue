@@ -9,6 +9,7 @@ import {
   apiKeys,
   audit,
   auth,
+  banNotices,
   fetchGiven,
   http,
   log,
@@ -21,7 +22,7 @@ import type { HandleServerError } from '@sveltejs/kit/hooks';
 /** Request ids, logging, CORS and keys first; then signing in, and the website's localisation. */
 export const handle = sequence(
   createHandle({ store, apiKeys, log, http, fetchGiven }),
-  createAccountsHandle(auth, { accounts, providers, audit, adminUserIds }),
+  createAccountsHandle(auth, { accounts, providers, audit, adminUserIds, banNotices }),
   handleI18n,
 );
 

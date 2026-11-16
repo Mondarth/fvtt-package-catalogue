@@ -16,6 +16,7 @@ import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 import { eq } from 'drizzle-orm';
 
 import { adminHooks, DISABLED_ADMIN_PATHS } from './admin-hooks.js';
+import { banNotices } from './ban-notice.js';
 import { freeHandle } from './handles.js';
 import { ac, roles } from './permissions.js';
 import { accounts, sessions, users, verifications } from './schema.js';
@@ -109,6 +110,7 @@ const appOf = ({ clientId, clientSecret }: ProviderApp) => ({ clientId, clientSe
  */
 export function createAuth(options: AuthOptions) {
   const { db, github, google, discord, testProviderUrl, random, audit } = options;
+  const notices = banNotices(options.secret);
   const adminUserIds = [...(options.adminUserIds ?? [])];
   const generic = [
     ...(options.patreon === undefined ? [] : [patreon(appOf(options.patreon))]),
@@ -146,7 +148,16 @@ export function createAuth(options: AuthOptions) {
       // Patreon is not among Better Auth's own providers, and the stand-in is no one's: both come through its plugin,
       // which has nothing to do where neither is set up.
       genericOAuth({ config: generic }),
-      admin({ ac, roles, defaultRole: 'user', adminUserIds, impersonationSessionDuration: IMPERSONATION_SECONDS }),
+      admin({
+        ac,
+        roles,
+        defaultRole: 'user',
+        adminUserIds,
+        impersonationSessionDuration: IMPERSONATION_SECONDS,
+        // Sent back to the sign-in page as the error's description: a signed notice naming the user, from which the
+        // page reads why they are banned (see `ban-notice.ts`), never text of its own.
+        bannedUserMessage: user => notices.make(user.id),
+      }),
     ],
     disabledPaths: DISABLED_ADMIN_PATHS,
     hooks: adminHooks({ db, audit, adminUserIds }),

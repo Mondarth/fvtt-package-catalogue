@@ -11,7 +11,7 @@
 </script>
 
 {#if data.signedIn === null}
-  <SignIn providers={data.providers} failed={data.failed} />
+  <SignIn providers={data.providers} failed={data.failed} banned={data.banned} />
 {:else}
   <h1 class="visually-hidden">{m.workspace_label()}</h1>
 {/if}

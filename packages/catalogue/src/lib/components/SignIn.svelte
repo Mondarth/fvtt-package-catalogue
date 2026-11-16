@@ -6,6 +6,7 @@
   import { resolve } from '$app/paths';
   import Logo from '#lib/components/Logo.svelte';
   import { m } from '#lib/paraglide/messages.js';
+  import { getLocale } from '#lib/paraglide/runtime.js';
   import { providerName } from '#lib/providers.js';
 
   interface Props {
@@ -13,16 +14,34 @@
     providers: readonly string[];
     /** Whether the last sign-in did not work. */
     failed?: boolean;
+    /**
+     * Whether it did not as its user is banned: with until when and why, where the page could tell; none for another
+     * failure.
+     */
+    banned?: { known: false } | { known: true; reason: string | null; until: Date | null } | null;
   }
 
-  let { providers, failed = false }: Props = $props();
+  let { providers, failed = false, banned = null }: Props = $props();
 </script>
 
 <div class="logo"><Logo height="6rem" /></div>
 <h1>{m.sign_in_heading()}</h1>
 <p class="lede">{m.sign_in_lede()}</p>
 
-{#if failed}
+{#if banned !== null}
+  <div role="alert" class="failed">
+    {#if !banned.known}
+      <p>{m.sign_in_banned()}</p>
+    {:else}
+      <p>
+        {banned.until === null
+          ? m.sign_in_banned_forever()
+          : m.sign_in_banned_until({ date: banned.until.toLocaleString(getLocale()) })}
+      </p>
+      {#if banned.reason !== null}<p>{m.sign_in_banned_reason({ reason: banned.reason })}</p>{/if}
+    {/if}
+  </div>
+{:else if failed}
   <p role="alert" class="failed">{m.sign_in_failed()}</p>
 {/if}
 
@@ -63,6 +82,14 @@
     padding: 0.5rem 0.8rem;
     border-left: 3px solid var(--accent);
     background: var(--note-bg);
+  }
+
+  .failed p {
+    margin: 0;
+  }
+
+  .failed p + p {
+    margin-top: 0.3rem;
   }
 
   .providers {

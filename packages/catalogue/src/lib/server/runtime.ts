@@ -25,6 +25,7 @@ import {
 
 import { auditStore } from './accounts/audit.js';
 import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
+import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
 
@@ -55,6 +56,9 @@ export const audit = auditStore(connection.db);
 
 /** The users who are admins whatever their role. */
 export const adminUserIds: readonly string[] = ADMIN_USER_IDS;
+
+/** The notices a banned user's sign-in comes back with, signed with the site's secret as Better Auth's are. */
+export const banNotices = signedBanNotices(AUTH_SECRET);
 
 /** Signing in to the website. */
 export const auth = createAuth({

@@ -17,8 +17,8 @@ const en = messagesOf('en');
 const es = messagesOf('es');
 
 describe('the home page', () => {
-  const home = (data: { signedIn: { name: string } | null; providers: string[]; failed: boolean }) =>
-    render(Page, { data, params: {}, form: undefined } as never);
+  const home = (data: { signedIn: { name: string } | null; providers: string[]; failed: boolean; banned?: unknown }) =>
+    render(Page, { data: { banned: null, ...data }, params: {}, form: undefined } as never);
 
   it('asks a visitor to sign in, saying first what that stores, with a button for each provider', () => {
     home({ signedIn: null, providers: ['github', 'test'], failed: false });
@@ -46,6 +46,27 @@ describe('the home page', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(en.sign_in_failed);
     expect(screen.getByText(en.sign_in_none)).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  // Regression: a banned user was told only that signing in did not work.
+  it('tells a banned user until when, and why', () => {
+    const until = new Date('2026-12-01T00:00:00Z');
+    home({ signedIn: null, providers: [], failed: true, banned: { known: true, reason: 'Spam', until } });
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(en.sign_in_banned_until.replace('{date}', until.toLocaleString('en')));
+    expect(alert).toHaveTextContent(en.sign_in_banned_reason.replace('{reason}', 'Spam'));
+    expect(alert).not.toHaveTextContent(en.sign_in_failed);
+  });
+
+  it('tells a user banned for good, without a reason given, so', () => {
+    home({ signedIn: null, providers: [], failed: true, banned: { known: true, reason: null, until: null } });
+    expect(screen.getByRole('alert')).toHaveTextContent(en.sign_in_banned_forever);
+    expect(screen.getByRole('alert')).not.toHaveTextContent(en.sign_in_banned_reason.replace('{reason}', ''));
+  });
+
+  it('says only that the profile is banned when the page cannot tell more', () => {
+    home({ signedIn: null, providers: [], failed: true, banned: { known: false } });
+    expect(screen.getByRole('alert')).toHaveTextContent(en.sign_in_banned);
   });
 
   it('is the workspace once signed in', () => {

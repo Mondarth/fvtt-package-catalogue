@@ -1,6 +1,7 @@
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Auth, SignedIn } from '#lib/server/accounts/auth.js';
 import type { AuditStore } from '#lib/server/accounts/audit.js';
+import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Logger } from '#lib/server/log.js';
 import type { SafeFetched } from '#lib/server/safe-fetch.js';
@@ -36,6 +37,8 @@ declare global {
       audit: AuditStore;
       /** The users who are admins whatever their role, on the website's requests. */
       adminUserIds: readonly string[];
+      /** Reads the notice a banned user's sign-in comes back with, on the website's requests. */
+      banNotices: BanNotices;
     }
   }
 }

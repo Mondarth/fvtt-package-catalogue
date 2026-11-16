@@ -9,9 +9,11 @@ import { POST as signIn } from '../../../src/routes/sign-in/[provider]/+server.j
 import { POST as signOut } from '../../../src/routes/sign-out/+server.js';
 import { fakeEvent, invoke } from '../support/event.js';
 
+import { banNotices } from '../../../src/lib/server/accounts/ban-notice.js';
+
 import type { AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../src/lib/server/accounts/auth.js';
-import type { AccountsStore } from '../../../src/lib/server/accounts/store.js';
+import type { AccountsStore, UserDetail } from '../../../src/lib/server/accounts/store.js';
 
 const USER = {
   id: 'u1',
@@ -189,12 +191,74 @@ describe('the pages', () => {
     expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).toEqual({ signedIn: null });
   });
 
-  it('give the sign-in page its providers, and say when a sign-in failed', () => {
+  it('give the sign-in page its providers, and say when a sign-in failed', async () => {
     const page = (user: unknown, url = 'http://catalogue.test/') =>
       homeLoad(fakeEvent<HomeEvent>({ url, locals: { user: user as never, providers: ['github'] } }));
-    expect(page(null)).toEqual({ providers: ['github'], failed: false });
-    expect(page(null, 'http://catalogue.test/?error=sign-in')).toEqual({ providers: ['github'], failed: true });
-    expect(page(USER)).toEqual({ providers: [], failed: false });
+    await expect(page(null)).resolves.toEqual({ providers: ['github'], failed: false, banned: null });
+    await expect(page(null, 'http://catalogue.test/?error=sign-in')).resolves.toEqual({
+      providers: ['github'],
+      failed: true,
+      banned: null,
+    });
+    await expect(page(USER)).resolves.toEqual({ providers: [], failed: false, banned: null });
+  });
+
+  // Regression: a banned user was told only that signing in did not work.
+  describe('for a sign-in refused as its user is banned', () => {
+    const notices = banNotices('a-test-secret-a-test-secret-a-test-secret');
+    const banned = (description: string, detail?: Partial<UserDetail>) =>
+      homeLoad(
+        fakeEvent<HomeEvent>({
+          url: `http://catalogue.test/?error=sign-in&error=BANNED_USER&error_description=${encodeURIComponent(description)}`,
+          locals: {
+            user: null,
+            providers: ['github'],
+            banNotices: notices,
+            accounts: {
+              userDetail: (id: string) =>
+                Promise.resolve(detail === undefined || id !== 'u1' ? undefined : (detail as UserDetail)),
+            } as unknown as AccountsStore,
+          },
+        }),
+      );
+
+    it('says until when, and why, from the database, for a notice the site made', async () => {
+      const until = new Date('2026-12-01T00:00:00Z');
+      await expect(
+        banned(notices.make('u1'), { banned: true, banReason: 'Spam', banExpires: until }),
+      ).resolves.toMatchObject({ failed: true, banned: { known: true, reason: 'Spam', until } });
+      await expect(
+        banned(notices.make('u1'), { banned: true, banReason: null, banExpires: null }),
+      ).resolves.toMatchObject({ banned: { known: true, reason: null, until: null } });
+    });
+
+    it('says only that the profile is banned for a notice it cannot read, or a user no longer banned', async () => {
+      await expect(banned('You have been banned: call this number')).resolves.toMatchObject({
+        banned: { known: false },
+      });
+      await expect(banned(notices.make('u1'), { banned: false })).resolves.toMatchObject({ banned: { known: false } });
+      await expect(banned(notices.make('u2'), { banned: true })).resolves.toMatchObject({ banned: { known: false } });
+    });
+
+    it('reads no notice once signed in', async () => {
+      const result = await homeLoad(
+        fakeEvent<HomeEvent>({
+          url: 'http://catalogue.test/?error=BANNED_USER',
+          locals: { user: USER, providers: ['github'] },
+        }),
+      );
+      expect(result).toMatchObject({ banned: null, failed: true });
+    });
+
+    it('takes a missing description as a notice it cannot read', async () => {
+      const result = await homeLoad(
+        fakeEvent<HomeEvent>({
+          url: 'http://catalogue.test/?error=BANNED_USER',
+          locals: { user: null, providers: [], banNotices: notices },
+        }),
+      );
+      expect(result).toMatchObject({ banned: { known: false } });
+    });
   });
 });
 

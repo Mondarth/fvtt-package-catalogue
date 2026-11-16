@@ -30,6 +30,19 @@ describe('the "What we store" page', () => {
     expect(screen.getByRole('region', { name: en.privacy_cookies_heading })).toHaveTextContent(en.privacy_cookies);
   });
 
+  // Regression: the rows added with the admin pages (role, ban, impersonation, audit log) had no text, as the page's
+  // own map of messages lacked them, though the messages were there.
+  it('says what each row is, and why it is kept, in its own words', () => {
+    render(Privacy);
+    const messages: Record<string, string> = en;
+    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    for (const { id } of STORED) {
+      const row = rows.find(candidate => candidate.dataset.stored === id);
+      expect(row, id).toHaveTextContent(messages[`privacy_${id}_what`] ?? `no privacy_${id}_what`);
+      expect(row, id).toHaveTextContent(messages[`privacy_${id}_why`] ?? `no privacy_${id}_why`);
+    }
+  });
+
   it('is in Spanish for a Spanish visitor', () => {
     inLocale('es');
     render(Privacy);
