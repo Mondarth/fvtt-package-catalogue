@@ -3,10 +3,12 @@
   one on sale, and the form for a new one.
 -->
 <script lang="ts">
+  import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
   import { formatPrice } from '#lib/prices.js';
+  import { MAX_DAYS, MAX_MONTHS } from '#lib/subscription-limits.js';
 
   import type { PageProps } from './$types';
 
@@ -89,34 +91,82 @@
 
 <section aria-labelledby="new-offer">
   <h2 id="new-offer">{m.admin_offer_new_heading()}</h2>
-  {#if problem !== undefined}
-    <p role="alert" class="problem">
-      {#if problem === 'name'}
-        {m.admin_offer_problem_name()}
-      {:else if problem === 'period'}
-        {m.admin_problem_period()}
-      {:else if problem === 'prices'}
-        {form !== null && 'line' in form && form.line !== ''
-          ? m.admin_offer_problem_prices({ line: form.line })
-          : m.admin_offer_problem_no_prices()}
-      {:else}
-        {m.admin_offer_problem_dates()}
-      {/if}
-    </p>
-  {/if}
   <form method="POST" action="?/create" class="new">
+    {#if problem !== undefined}
+      <!-- In the form, by the fields it is about, and taking the focus, so that it is seen. -->
+      <Callout id="offer-problem">
+        {#if problem === 'name'}
+          {m.admin_offer_problem_name()}
+        {:else if problem === 'period'}
+          {m.admin_problem_period()}
+        {:else if problem === 'prices'}
+          {form !== null && 'line' in form && form.line !== ''
+            ? m.admin_offer_problem_prices({ line: form.line })
+            : m.admin_offer_problem_no_prices()}
+        {:else}
+          {m.admin_offer_problem_dates()}
+        {/if}
+      </Callout>
+    {/if}
     <label for="name">{m.admin_offer_name()}</label>
-    <input id="name" name="name" maxlength="80" value={given('name')} required />
+    <input
+      id="name"
+      name="name"
+      maxlength="80"
+      value={given('name')}
+      required
+      aria-invalid={problem === 'name'}
+      aria-describedby={problem === 'name' ? 'offer-problem' : undefined} />
     <div class="period">
-      <label
-        >{m.admin_grant_months()} <input name="months" type="number" min="0" step="1" value={given('months')} /></label>
-      <label>{m.admin_grant_days()} <input name="days" type="number" min="0" step="1" value={given('days')} /></label>
+      <label>
+        {m.admin_grant_months()}
+        <input
+          name="months"
+          type="number"
+          min="0"
+          max={MAX_MONTHS}
+          step="1"
+          value={given('months')}
+          aria-invalid={problem === 'period'}
+          aria-describedby={problem === 'period' ? 'offer-problem' : undefined} />
+      </label>
+      <label>
+        {m.admin_grant_days()}
+        <input
+          name="days"
+          type="number"
+          min="0"
+          max={MAX_DAYS}
+          step="1"
+          value={given('days')}
+          aria-invalid={problem === 'period'}
+          aria-describedby={problem === 'period' ? 'offer-problem' : undefined} />
+      </label>
     </div>
     <label for="prices">{m.admin_offer_prices()}</label>
-    <textarea id="prices" name="prices" rows="3">{given('prices')}</textarea>
+    <textarea
+      id="prices"
+      name="prices"
+      rows="3"
+      aria-invalid={problem === 'prices'}
+      aria-describedby={problem === 'prices' ? 'offer-problem' : undefined}>{given('prices')}</textarea>
     <div class="period">
-      <label>{m.admin_offer_available_from()} <input name="from" type="date" /></label>
-      <label>{m.admin_offer_available_until()} <input name="until" type="date" /></label>
+      <label>
+        {m.admin_offer_available_from()}
+        <input
+          name="from"
+          type="date"
+          aria-invalid={problem === 'dates'}
+          aria-describedby={problem === 'dates' ? 'offer-problem' : undefined} />
+      </label>
+      <label>
+        {m.admin_offer_available_until()}
+        <input
+          name="until"
+          type="date"
+          aria-invalid={problem === 'dates'}
+          aria-describedby={problem === 'dates' ? 'offer-problem' : undefined} />
+      </label>
     </div>
     <button type="submit">{m.admin_offer_create()}</button>
   </form>
@@ -144,10 +194,6 @@
     display: block;
     color: var(--muted);
     font-size: 0.9rem;
-  }
-
-  .problem {
-    color: var(--accent);
   }
 
   section {

@@ -124,6 +124,18 @@ describe('the offers page', () => {
     expect(screen.getByRole('spinbutton', { name: en.admin_grant_months })).toHaveValue(3);
   });
 
+  it('says what is wrong in the form, drawing the eye to it, and marks the fields, with the limits the browser checks', () => {
+    show([], { form: { name: '', months: '9999', days: '', prices: 'GBP 1', problem: 'period' } });
+    const callout = screen.getByRole('alert');
+    expect(callout).toHaveFocus();
+    expect(callout.closest('form')).toHaveAttribute('action', '?/create');
+    const months = screen.getByRole('spinbutton', { name: en.admin_grant_months });
+    expect(months).toHaveAttribute('aria-invalid', 'true');
+    expect(months).toHaveAttribute('aria-describedby', 'offer-problem');
+    expect(months).toHaveAttribute('max', '120');
+    expect(screen.getByRole('textbox', { name: en.admin_offer_name })).toHaveAttribute('aria-invalid', 'false');
+  });
+
   it('ignores what it was told was done that it does not know', () => {
     show([], { done: 'other' });
     expect(screen.queryByRole('status')).not.toBeInTheDocument();

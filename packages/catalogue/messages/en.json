@@ -257,5 +257,6 @@
   "privacy_subscription_what": "Your subscription's time: each span, from and until when, where it came from (granted by an admin, Patreon or a payment), its period, and, for one an admin granted, who and their note",
   "privacy_subscription_why": "Knowing whether you are subscribed, and until when. Deleting your profile deletes it.",
   "privacy_payment_what": "For a payment: which payment provider took it, what it was paid with (such as a card), and the provider's reference for it",
-  "privacy_payment_why": "Matching a payment to the time it bought, and finding it with the provider if you ask about it. No card numbers, names, addresses or amounts are kept: the provider keeps the invoice."
+  "privacy_payment_why": "Matching a payment to the time it bought, and finding it with the provider if you ask about it. No card numbers, names, addresses or amounts are kept: the provider keeps the invoice.",
+  "admin_problem_ban_days": "Give a whole number of days, at most 3660 (ten years), or leave it empty for a ban until lifted."
 }

@@ -188,7 +188,6 @@ describe("a user's admin page's actions", () => {
     ['role', { role: 'admin' }, { userId: 'u1', role: 'admin' }],
     ['ban', { reason: ' Spam ', days: '7' }, { userId: 'u1', banReason: 'Spam', banExpiresIn: 7 * 24 * 60 * 60 }],
     ['ban', { reason: '', days: '' }, { userId: 'u1' }],
-    ['ban', { days: '0' }, { userId: 'u1' }],
     ['unban', {}, { userId: 'u1' }],
     ['signOut', {}, { userId: 'u1' }],
   ] as const)('%s asks Better Auth, and comes back to the page saying it is done', async (action, form, body) => {
@@ -210,13 +209,16 @@ describe("a user's admin page's actions", () => {
     expect(isActionFailure(result) && result).toMatchObject({ status: 500, data: { refusal: null } });
   });
 
-  it('refuses a role there is not, and a reason too long, without asking', async () => {
+  it('refuses a role there is not, a reason too long, and days that are not a ban’s, without asking', async () => {
     const call = vi.fn(() => Promise.resolve(answer({})));
     expect(await act('role', { role: 'superuser' }, call)).toMatchObject({ status: 400, data: { refusal: 'role' } });
     expect(await act('ban', { reason: 'x'.repeat(201) }, call)).toMatchObject({
       status: 400,
-      data: { reasonTooLong: true },
+      data: { problem: 'reason' },
     });
+    for (const days of ['0', '-1', '1.5', '3661', '10000000000000', 'soon']) {
+      expect(await act('ban', { days }, call)).toMatchObject({ status: 400, data: { problem: 'banDays' } });
+    }
     expect(call).not.toHaveBeenCalled();
   });
 });

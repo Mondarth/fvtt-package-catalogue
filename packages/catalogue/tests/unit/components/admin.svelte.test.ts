@@ -200,12 +200,50 @@ describe("a user's admin page", () => {
   it.each([
     [{ form: { action: 'role', refusal: 'self' } }, en.admin_refused_self],
     [{ form: { action: 'unban', refusal: null } }, en.admin_refused_failed],
-    [{ form: { action: 'ban', refusal: null, reasonTooLong: true } }, en.admin_ban_reason_too_long],
+    [{ form: { action: 'ban', refusal: null, problem: 'reason' } }, en.admin_ban_reason_too_long],
+    [{ form: { action: 'ban', refusal: null, problem: 'banDays' } }, en.admin_problem_ban_days],
     [{ refused: 'admin' }, en.admin_refused_admin],
     [{ refused: 'unknown' }, en.admin_refused_failed],
   ])('says why something was refused', (more, said) => {
     page({}, more);
     expect(screen.getByRole('alert')).toHaveTextContent(said);
+  });
+
+  // Regression: a grant of 10000000000000 months was refused by the server with a small line at the top of the page,
+  // where it was easily missed, while the browser flagged a negative one by the field.
+  it('says what went wrong beside the form it is about, drawing the eye to it, and marks the fields', () => {
+    page({}, { form: { action: 'grant', refusal: null, problem: 'period' } });
+    const callout = screen.getByRole('alert');
+    expect(callout).toHaveTextContent(en.admin_problem_period);
+    expect(callout).toHaveFocus();
+    expect(callout.closest('form')).toHaveAttribute('action', '?/grant');
+    const months = screen.getByRole('spinbutton', { name: en.admin_grant_months });
+    expect(months).toHaveAttribute('aria-invalid', 'true');
+    expect(months).toHaveAttribute('aria-describedby', 'grant-problem');
+    expect(months).toHaveAttribute('max', '120');
+    expect(screen.getByRole('spinbutton', { name: en.admin_grant_days })).toHaveAttribute('max', '3660');
+    expect(document.getElementById('grant-note')).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it.each([
+    [{ action: 'setEnd', refusal: null, problem: 'date' }, 'setEnd'],
+    [{ action: 'ban', refusal: null, problem: 'banDays' }, 'ban'],
+    [{ action: 'role', refusal: 'configured' }, 'role'],
+    [{ action: 'signOut', refusal: null }, 'sessions'],
+  ])('shows a failure of %o in its own section', (form, section) => {
+    page({}, { form });
+    expect(screen.getByRole('alert')).toHaveAttribute('id', `${section}-problem`);
+    expect(screen.getByRole('alert').closest('section')).toHaveAttribute(
+      'aria-labelledby',
+      section === 'setEnd' ? 'subscription' : section,
+    );
+  });
+
+  it('shows at the top a refusal to view the site as them, as its section may not be shown', () => {
+    page({ admin: true }, { refused: 'admin' });
+    const callout = screen.getByRole('alert');
+    expect(callout).toHaveAttribute('id', 'top-problem');
+    expect(callout.closest('section')).toBeNull();
   });
 
   it('lists what admins did about them, with what changed', () => {

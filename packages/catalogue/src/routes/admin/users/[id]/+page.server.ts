@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 
-import { BAN_REASON_MAX } from '#lib/admin.js';
+import { BAN_DAYS_MAX, BAN_REASON_MAX } from '#lib/admin.js';
 import { actorOf } from '#lib/server/accounts/actor.js';
 import { refusalOf } from '#lib/server/accounts/admin-hooks.js';
 import { dayOf, field, periodOf } from '#lib/server/form.js';
@@ -136,13 +136,18 @@ export const actions: Actions = {
   ban: async ({ locals, params, request }) => {
     const form = await request.formData();
     const reason = field(form, 'reason');
-    const days = Number.parseInt(field(form, 'days'), 10);
-    if (reason.length > BAN_REASON_MAX) return fail(400, { action: 'ban', refusal: null, reasonTooLong: true });
+    const given = field(form, 'days');
+    const days = /^\d+$/.test(given) ? Number(given) : Number.NaN;
+    if (reason.length > BAN_REASON_MAX) return fail(400, { action: 'ban', refusal: null, problem: 'reason' as const });
+    // Whole days, from one to ten years; none is a ban until lifted.
+    if (given !== '' && !(days >= 1 && days <= BAN_DAYS_MAX)) {
+      return fail(400, { action: 'ban', refusal: null, problem: 'banDays' as const });
+    }
     const response = await locals.auth.api.banUser({
       body: {
         userId: params.id,
         ...(reason !== '' && { banReason: reason }),
-        ...(Number.isInteger(days) && days > 0 && { banExpiresIn: days * 24 * 60 * 60 }),
+        ...(given !== '' && { banExpiresIn: days * 24 * 60 * 60 }),
       },
       headers: request.headers,
       asResponse: true,

@@ -257,5 +257,6 @@
   "privacy_subscription_what": "El tiempo de tu suscripción: cada tramo, desde y hasta cuándo, de dónde vino (concedido por un administrador, Patreon o un pago), su periodo y, si lo concedió un administrador, quién y su nota",
   "privacy_subscription_why": "Saber si estás suscrito, y hasta cuándo. Eliminar tu perfil lo elimina.",
   "privacy_payment_what": "En un pago: qué proveedor de pagos lo cobró, con qué se pagó (por ejemplo, una tarjeta) y la referencia del proveedor",
-  "privacy_payment_why": "Relacionar un pago con el tiempo que compró, y encontrarlo con el proveedor si preguntas por él. No se guardan números de tarjeta, nombres, direcciones ni importes: el proveedor conserva la factura."
+  "privacy_payment_why": "Relacionar un pago con el tiempo que compró, y encontrarlo con el proveedor si preguntas por él. No se guardan números de tarjeta, nombres, direcciones ni importes: el proveedor conserva la factura.",
+  "admin_problem_ban_days": "Indica un número entero de días, como máximo 3660 (diez años), o déjalo vacío para un bloqueo hasta que se levante."
 }

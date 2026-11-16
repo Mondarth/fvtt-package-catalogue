@@ -3,16 +3,16 @@
  * calendar months, so that twelve from 3 March end on 3 March next year; a month that is shorter ends on its last day,
  * so that one from 31 January ends on 28 or 29 February, never in March. Worked in UTC.
  */
+import { MAX_DAYS, MAX_MONTHS } from '../../subscription-limits.js';
+
+/** The longest period one grant or offer may give: ten years. */
+export { MAX_DAYS, MAX_MONTHS };
 
 /** So many calendar months and days. */
 export interface Period {
   readonly months: number;
   readonly days: number;
 }
-
-/** The longest period one grant or offer may give: ten years. */
-export const MAX_MONTHS = 120;
-export const MAX_DAYS = 3660;
 
 const DAY = 24 * 60 * 60 * 1000;
 

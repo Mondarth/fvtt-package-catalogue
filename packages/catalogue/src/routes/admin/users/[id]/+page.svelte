@@ -5,12 +5,14 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { BAN_REASON_MAX } from '#lib/admin.js';
+  import { BAN_DAYS_MAX, BAN_REASON_MAX } from '#lib/admin.js';
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
+  import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
   import { providerName } from '#lib/providers.js';
+  import { MAX_DAYS, MAX_MONTHS } from '#lib/subscription-limits.js';
 
   import type { PageProps } from './$types';
 
@@ -26,11 +28,24 @@
     revoke: m.admin_done_revoke,
   };
 
-  /** A subscription form's problem, by what it was. */
+  /** A form's problem, by what it was. */
   const PROBLEMS: Readonly<Record<string, () => string>> = {
     period: m.admin_problem_period,
     note: m.admin_problem_note,
     date: m.admin_problem_date,
+    reason: m.admin_ban_reason_too_long,
+    banDays: m.admin_problem_ban_days,
+  };
+
+  /** The section each action's form is in, where what went wrong with it is shown. */
+  const SECTIONS: Readonly<Record<string, string>> = {
+    role: 'role',
+    ban: 'ban',
+    unban: 'ban',
+    signOut: 'sessions',
+    grant: 'grant',
+    setEnd: 'setEnd',
+    revoke: 'grant',
   };
 
   const SOURCES: Readonly<Record<string, () => string>> = {
@@ -51,15 +66,28 @@
   const user = $derived(data.user);
   const date = (when: Date) => when.toLocaleDateString(getLocale());
   const time = (when: Date) => when.toLocaleString(getLocale());
-  // A subscription form's problem; else a form's refusal, or the refusal viewing the site as them came back with.
-  const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
-  const refusal = $derived(
-    problem !== undefined
+  // What went wrong, and in which section: a form's problem or refusal, beside its form; or the refusal viewing the
+  // site as them came back with, at the top, as its section is not shown for everyone.
+  const result = $derived(form as { action?: string; refusal?: string | null; problem?: string } | null);
+  const failure = $derived.by(() => {
+    if (result?.action !== undefined) {
+      const said =
+        result.problem !== undefined
+          ? PROBLEMS[result.problem]
+          : (REFUSED[result.refusal ?? 'failed'] ?? REFUSED.failed);
+      return {
+        section: SECTIONS[result.action] ?? 'top',
+        problem: result.problem,
+        message: (said ?? REFUSED.failed)?.() ?? '',
+      };
+    }
+    return data.refused === null
       ? undefined
-      : form !== null && 'refusal' in form
-        ? (form.refusal ?? 'failed')
-        : (data.refused ?? undefined),
-  );
+      : { section: 'top', problem: undefined, message: (REFUSED[data.refused] ?? REFUSED.failed)?.() ?? '' };
+  });
+  /** Whether a field is what went wrong, for `aria-invalid`. */
+  const invalid = (section: string, ...problems: string[]) =>
+    failure?.section === section && failure.problem !== undefined && problems.includes(failure.problem);
   // Only what may be done to them is offered.
   const manageable = $derived(!user.self && !user.configured);
 </script>
@@ -73,16 +101,13 @@
 {#if data.done !== null && DONE[data.done] !== undefined}
   <p role="status">{DONE[data.done]?.()}</p>
 {/if}
-{#if refusal !== undefined}
-  <p role="alert" class="problem">
-    {form !== null && 'reasonTooLong' in form
-      ? m.admin_ban_reason_too_long()
-      : (REFUSED[refusal] ?? REFUSED.failed)?.()}
-  </p>
-{/if}
-{#if problem !== undefined}
-  <p role="alert" class="problem">{PROBLEMS[problem]?.()}</p>
-{/if}
+{#snippet failed(section: string)}
+  {#if failure?.section === section}
+    <Callout id="{section}-problem">{failure.message}</Callout>
+  {/if}
+{/snippet}
+
+{@render failed('top')}
 {#if user.self}
   <p class="hint">{m.admin_self()}</p>
 {:else if user.configured}
@@ -107,6 +132,7 @@
 <section aria-labelledby="role">
   <h2 id="role">{m.admin_role_heading()}</h2>
   {#if manageable}
+    {@render failed('role')}
     <form method="POST" action="?/role" class="row">
       <label class="visually-hidden" for="role-choice">{m.admin_role_heading()}</label>
       <select id="role-choice" name="role" value={user.admin ? 'admin' : 'user'}>
@@ -122,6 +148,7 @@
 
 <section aria-labelledby="ban">
   <h2 id="ban">{m.admin_ban_heading()}</h2>
+  {@render failed('ban')}
   {#if user.banned}
     <p>
       {user.banExpires === null ? m.admin_banned_forever() : m.admin_banned_until({ date: time(user.banExpires) })}
@@ -135,9 +162,22 @@
   {:else if manageable}
     <form method="POST" action="?/ban" class="ban">
       <label for="reason">{m.admin_ban_reason()}</label>
-      <input id="reason" name="reason" maxlength={BAN_REASON_MAX} />
+      <input
+        id="reason"
+        name="reason"
+        maxlength={BAN_REASON_MAX}
+        aria-invalid={invalid('ban', 'reason')}
+        aria-describedby={invalid('ban', 'reason') ? 'ban-problem' : undefined} />
       <label for="days">{m.admin_ban_days()}</label>
-      <input id="days" name="days" type="number" min="1" step="1" />
+      <input
+        id="days"
+        name="days"
+        type="number"
+        min="1"
+        max={BAN_DAYS_MAX}
+        step="1"
+        aria-invalid={invalid('ban', 'banDays')}
+        aria-describedby={invalid('ban', 'banDays') ? 'ban-problem' : undefined} />
       <button type="submit" class="danger">{m.admin_ban_button()}</button>
     </form>
   {/if}
@@ -146,6 +186,7 @@
 {#if !user.self}
   <section aria-labelledby="sessions">
     <h2 id="sessions">{m.admin_sessions_heading()}</h2>
+    {@render failed('sessions')}
     <form method="POST" action="?/signOut">
       <button type="submit">{m.admin_sign_out_button()}</button>
     </form>
@@ -167,20 +208,53 @@
   <form method="POST" action="?/grant" class="subscription">
     <h3>{m.admin_grant_heading()}</h3>
     <p class="hint">{m.admin_grant_hint()}</p>
+    {@render failed('grant')}
     <div class="row">
-      <label>{m.admin_grant_months()} <input name="months" type="number" min="0" step="1" /></label>
-      <label>{m.admin_grant_days()} <input name="days" type="number" min="0" step="1" /></label>
+      <label>
+        {m.admin_grant_months()}
+        <input
+          name="months"
+          type="number"
+          min="0"
+          max={MAX_MONTHS}
+          step="1"
+          aria-invalid={invalid('grant', 'period')}
+          aria-describedby={invalid('grant', 'period') ? 'grant-problem' : undefined} />
+      </label>
+      <label>
+        {m.admin_grant_days()}
+        <input
+          name="days"
+          type="number"
+          min="0"
+          max={MAX_DAYS}
+          step="1"
+          aria-invalid={invalid('grant', 'period')}
+          aria-describedby={invalid('grant', 'period') ? 'grant-problem' : undefined} />
+      </label>
     </div>
     <label for="grant-note">{m.admin_note()}</label>
-    <input id="grant-note" name="note" maxlength="200" />
+    <input
+      id="grant-note"
+      name="note"
+      maxlength="200"
+      aria-invalid={invalid('grant', 'note')}
+      aria-describedby={invalid('grant', 'note') ? 'grant-problem' : undefined} />
     <button type="submit">{m.admin_grant_button()}</button>
   </form>
 
   <form method="POST" action="?/setEnd" class="subscription">
     <h3>{m.admin_set_end_heading()}</h3>
     <p class="hint">{m.admin_set_end_hint()}</p>
+    {@render failed('setEnd')}
     <label for="end">{m.admin_set_end_date()}</label>
-    <input id="end" name="end" type="date" required />
+    <input
+      id="end"
+      name="end"
+      type="date"
+      required
+      aria-invalid={invalid('setEnd', 'date')}
+      aria-describedby={invalid('setEnd', 'date') ? 'setEnd-problem' : undefined} />
     <label for="end-note">{m.admin_note()}</label>
     <input id="end-note" name="note" maxlength="200" />
     <button type="submit">{m.admin_set_end_button()}</button>
@@ -314,10 +388,6 @@
   .hint {
     color: var(--muted);
     font-size: 0.9rem;
-  }
-
-  .problem {
-    color: var(--accent);
   }
 
   .audit {
