@@ -18,6 +18,11 @@ export const AUDIT_ACTIONS = [
   'user.stop-impersonating',
   'user.revoke-sessions',
   'profile.nickname',
+  'subscription.grant',
+  'subscription.set-end',
+  'subscription.revoke',
+  'offer.create',
+  'offer.retire',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

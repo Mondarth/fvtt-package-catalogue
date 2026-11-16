@@ -9,6 +9,7 @@
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
+  import { periodLabel } from '#lib/period-label.js';
   import { providerName } from '#lib/providers.js';
 
   import type { PageProps } from './$types';
@@ -20,6 +21,22 @@
     ban: m.admin_done_ban,
     unban: m.admin_done_unban,
     signOut: m.admin_done_sign_out,
+    grant: m.admin_done_grant,
+    setEnd: m.admin_done_set_end,
+    revoke: m.admin_done_revoke,
+  };
+
+  /** A subscription form's problem, by what it was. */
+  const PROBLEMS: Readonly<Record<string, () => string>> = {
+    period: m.admin_problem_period,
+    note: m.admin_problem_note,
+    date: m.admin_problem_date,
+  };
+
+  const SOURCES: Readonly<Record<string, () => string>> = {
+    grant: m.subscription_source_grant,
+    patreon: m.subscription_source_patreon,
+    payment: m.subscription_source_payment,
   };
 
   const REFUSED: Readonly<Record<string, () => string>> = {
@@ -34,9 +51,14 @@
   const user = $derived(data.user);
   const date = (when: Date) => when.toLocaleDateString(getLocale());
   const time = (when: Date) => when.toLocaleString(getLocale());
-  // A form's refusal, or the refusal viewing the site as them came back with.
+  // A subscription form's problem; else a form's refusal, or the refusal viewing the site as them came back with.
+  const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
   const refusal = $derived(
-    form !== null && 'refusal' in form ? (form.refusal ?? 'failed') : (data.refused ?? undefined),
+    problem !== undefined
+      ? undefined
+      : form !== null && 'refusal' in form
+        ? (form.refusal ?? 'failed')
+        : (data.refused ?? undefined),
   );
   // Only what may be done to them is offered.
   const manageable = $derived(!user.self && !user.configured);
@@ -57,6 +79,9 @@
       ? m.admin_ban_reason_too_long()
       : (REFUSED[refusal] ?? REFUSED.failed)?.()}
   </p>
+{/if}
+{#if problem !== undefined}
+  <p role="alert" class="problem">{PROBLEMS[problem]?.()}</p>
 {/if}
 {#if user.self}
   <p class="hint">{m.admin_self()}</p>
@@ -126,6 +151,86 @@
     </form>
   </section>
 {/if}
+
+<section aria-labelledby="subscription">
+  <h2 id="subscription">{m.admin_subscription_heading()}</h2>
+  <p>
+    {#if data.subscription.active && data.subscription.paidUntil !== null}
+      {m.admin_subscription_until({ date: time(data.subscription.paidUntil) })}
+    {:else if data.subscription.paidUntil !== null}
+      {m.admin_subscription_ended({ date: time(data.subscription.paidUntil) })}
+    {:else}
+      {m.admin_subscription_none()}
+    {/if}
+  </p>
+
+  <form method="POST" action="?/grant" class="subscription">
+    <h3>{m.admin_grant_heading()}</h3>
+    <p class="hint">{m.admin_grant_hint()}</p>
+    <div class="row">
+      <label>{m.admin_grant_months()} <input name="months" type="number" min="0" step="1" /></label>
+      <label>{m.admin_grant_days()} <input name="days" type="number" min="0" step="1" /></label>
+    </div>
+    <label for="grant-note">{m.admin_note()}</label>
+    <input id="grant-note" name="note" maxlength="200" />
+    <button type="submit">{m.admin_grant_button()}</button>
+  </form>
+
+  <form method="POST" action="?/setEnd" class="subscription">
+    <h3>{m.admin_set_end_heading()}</h3>
+    <p class="hint">{m.admin_set_end_hint()}</p>
+    <label for="end">{m.admin_set_end_date()}</label>
+    <input id="end" name="end" type="date" required />
+    <label for="end-note">{m.admin_note()}</label>
+    <input id="end-note" name="note" maxlength="200" />
+    <button type="submit">{m.admin_set_end_button()}</button>
+  </form>
+
+  {#if data.subscription.active}
+    <form method="POST" action="?/revoke">
+      <button type="submit" class="danger">{m.admin_revoke_button()}</button>
+    </form>
+  {/if}
+
+  <h3>{m.admin_credits_heading()}</h3>
+  {#if data.credits.length === 0}
+    <p>{m.admin_credits_none()}</p>
+  {:else}
+    <table class="credits">
+      <thead>
+        <tr>
+          <th scope="col">{m.subscription_column_from()}</th>
+          <th scope="col">{m.subscription_column_until()}</th>
+          <th scope="col">{m.subscription_column_source()}</th>
+          <th scope="col">{m.subscription_column_period()}</th>
+          <th scope="col">{m.admin_credit_column_by()}</th>
+          <th scope="col">{m.admin_credit_column_note()}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.credits as credit (credit.id)}
+          <tr>
+            <td>{date(credit.startsAt)}</td>
+            <td>{date(credit.endsAt)}</td>
+            <td>
+              {SOURCES[credit.source]?.() ?? credit.source}
+              {#if credit.provider !== null}<span class="hint"
+                  >{credit.provider}{credit.externalRef === null ? '' : ` ${credit.externalRef}`}</span
+                >{/if}
+            </td>
+            <td>{credit.months + credit.days > 0 ? periodLabel(credit) : '–'}</td>
+            <td>
+              {#if credit.grantedBy !== null}<a href={resolve('/admin/users/[id]', { id: credit.grantedBy })}
+                  ><code>{credit.grantedBy}</code></a
+                >{/if}
+            </td>
+            <td>{credit.note ?? ''}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</section>
 
 {#if !user.self && !user.admin}
   <section aria-labelledby="impersonate">
@@ -236,5 +341,43 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  .subscription {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    align-items: start;
+    margin-block: 1rem;
+  }
+
+  .subscription h3 {
+    margin: 0;
+  }
+
+  .subscription input[type='number'] {
+    width: 6rem;
+  }
+
+  .subscription input:not([type]) {
+    width: min(100%, 30rem);
+  }
+
+  .credits {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .credits th,
+  .credits td {
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--note-bg);
+    text-align: start;
+    overflow-wrap: anywhere;
+  }
+
+  .credits .hint {
+    display: block;
   }
 </style>

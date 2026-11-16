@@ -114,7 +114,14 @@ describe("a user's admin page", () => {
 
   const page = (
     user: Partial<typeof USER> = {},
-    more: { done?: string | null; refused?: string | null; audit?: AuditRow[]; form?: unknown } = {},
+    more: {
+      done?: string | null;
+      refused?: string | null;
+      audit?: AuditRow[];
+      form?: unknown;
+      subscription?: { paidUntil: Date | null; active: boolean };
+      credits?: unknown[];
+    } = {},
   ) =>
     render(User, {
       data: {
@@ -122,6 +129,8 @@ describe("a user's admin page", () => {
         audit: more.audit ?? [],
         done: more.done ?? null,
         refused: more.refused ?? null,
+        subscription: more.subscription ?? { paidUntil: null, active: false },
+        credits: more.credits ?? [],
       },
       form: more.form ?? null,
       params: { id: 'u1' },
@@ -145,7 +154,14 @@ describe("a user's admin page", () => {
   it('offers nothing an admin does to others on themselves', () => {
     page({ self: true, admin: true });
     expect(screen.getByText(en.admin_self)).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    for (const name of [
+      en.admin_role_save,
+      en.admin_ban_button,
+      en.admin_sign_out_button,
+      en.admin_impersonate_button,
+    ]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
     expect(screen.getByText(en.admin_role_admin)).toBeInTheDocument();
   });
 

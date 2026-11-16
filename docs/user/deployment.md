@@ -149,6 +149,21 @@ An admin so named is an admin whatever their role says, and only `.env` changes 
 to their role or ban. Any admin can make others admins by role from the admin pages; an admin cannot change their own
 role, ban themselves, or view the site as another admin.
 
+### Subscriptions
+
+A user's subscription is the time they are subscribed for: until the latest of its credits ends. Each user sees theirs
+on their **Subscription** page. An admin, on a user's admin page, can grant them so many months and days (added after
+the subscription's end, or from now if it has ended), set the day it ends (a later day adds time; an earlier one cuts
+it back), or end it now. Each is recorded in the audit log, with how the subscription ended before and after. Admins
+are always entitled to what a subscription gives, subscribed or not.
+
+Subscriptions are bought by **offers**, made on the admin pages' **Subscriptions** page: a name, a period in months and
+days, a price in each currency (one a line, such as `GBP 30.00`), and, if wanted, the days it is on sale between. An
+offer is never changed once made, so that what was bought by it stays as it was: to change a price or a period, make a
+new offer and retire the old one. The shortest offer on sale is the least that can be bought. Buying is not yet on
+the site: payment providers come later, each through its own hosted checkout, and the catalogue keeps no payment
+details, only the provider's reference for each payment.
+
 ## The worker
 
 The worker crawls every package a client asks for that the catalogue does not hold, and what its releases require or

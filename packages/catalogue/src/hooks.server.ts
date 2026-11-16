@@ -15,6 +15,7 @@ import {
   log,
   providers,
   store,
+  subscriptions,
 } from '#lib/server/runtime.js';
 
 import type { HandleServerError } from '@sveltejs/kit/hooks';
@@ -22,7 +23,7 @@ import type { HandleServerError } from '@sveltejs/kit/hooks';
 /** Request ids, logging, CORS and keys first; then signing in, and the website's localisation. */
 export const handle = sequence(
   createHandle({ store, apiKeys, log, http, fetchGiven }),
-  createAccountsHandle(auth, { accounts, providers, audit, adminUserIds, banNotices }),
+  createAccountsHandle(auth, { accounts, providers, audit, adminUserIds, banNotices, subscriptions }),
   handleI18n,
 );
 

@@ -130,3 +130,57 @@ test("an admin's own page offers nothing an admin does to others", async ({ page
   await expect(page.getByRole('button', { name: en.admin_ban_button })).toHaveCount(0);
   await expect(page.getByRole('button', { name: en.admin_impersonate_button })).toHaveCount(0);
 });
+
+test('an admin grants a user a month, which the user sees, and makes and retires an offer', async ({ page }, info) => {
+  const erin = nameFor('erin', info);
+  const handle = await aUser(page, erin);
+  const offerName = `Offer ${info.project.name} ${String(Date.now()).slice(-6)}`;
+
+  const bar = await signInAs(page, E2E_ADMIN);
+  await bar.getByRole('link', { name: en.admin_link, exact: true }).click();
+  await page.getByRole('searchbox', { name: en.admin_search_label }).fill(handle);
+  await page.getByRole('button', { name: en.admin_search_button }).click();
+  await page.getByRole('table').getByRole('link', { name: handle, exact: true }).click();
+
+  const subscription = page.getByRole('region', { name: en.admin_subscription_heading });
+  await expect(subscription).toContainText(en.admin_subscription_none);
+  await subscription.getByRole('spinbutton', { name: en.admin_grant_months }).fill('1');
+  await subscription.getByRole('textbox', { name: en.admin_note }).first().fill('Welcome');
+  await subscription.getByRole('button', { name: en.admin_grant_button }).click();
+  await expect(page.getByRole('status').filter({ hasText: en.admin_done_grant })).toBeVisible();
+  await expect(subscription).toContainText('Welcome');
+  await expect(page.getByRole('region', { name: en.admin_user_audit_heading })).toContainText(
+    en.audit_action_subscription_grant,
+  );
+
+  // An offer, made and retired.
+  await page
+    .getByRole('navigation', { name: en.admin_nav_label })
+    .getByRole('link', { name: en.admin_nav_subscriptions })
+    .click();
+  await page.getByRole('textbox', { name: en.admin_offer_name }).fill(offerName);
+  await page.getByRole('spinbutton', { name: en.admin_grant_months }).fill('12');
+  await page.getByRole('textbox', { name: en.admin_offer_prices }).fill('GBP 30.00\nEUR 35.00');
+  await page.getByRole('button', { name: en.admin_offer_create }).click();
+  await expect(page.getByRole('status').filter({ hasText: en.admin_done_create })).toBeVisible();
+  const row = page.getByRole('row').filter({ hasText: offerName });
+  await expect(row).toContainText('£30.00');
+  await row.getByRole('button', { name: `${en.admin_offer_retire}: ${offerName}` }).click();
+  await expect(page.getByRole('status').filter({ hasText: en.admin_done_retire })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: offerName })).not.toContainText(en.admin_offer_on_sale);
+
+  // The user sees their month.
+  await page
+    .getByRole('navigation', { name: en.workspace_label })
+    .getByRole('link', { name: /^Your profile/ })
+    .click();
+  await page.getByRole('button', { name: en.sign_out }).click();
+  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  const own = await signInAs(page, erin);
+  await own.getByRole('link', { name: en.subscription_link }).click();
+  await expect(page.getByRole('heading', { level: 1, name: en.subscription_heading })).toBeVisible();
+  await expect(page.getByText(/^Subscribed until /)).toBeVisible();
+  await expect(page.getByRole('table')).toContainText(en.subscription_source_grant);
+  await expect(page.getByRole('table')).toContainText('1 month');
+  await expect(page.getByRole('table')).not.toContainText('Welcome');
+});

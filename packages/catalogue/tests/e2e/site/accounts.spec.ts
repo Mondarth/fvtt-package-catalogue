@@ -23,7 +23,7 @@ async function signInAs(page: Page, name: string) {
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
   await expect(page.getByRole('navigation', { name: en.workspace_label })).toBeVisible();
-  return page.getByRole('navigation', { name: en.workspace_label }).getByRole('link');
+  return page.getByRole('navigation', { name: en.workspace_label }).getByRole('link', { name: /^Your profile/ });
 }
 
 test('signing in makes a profile with a random user id, shown at the far right of the workspace', async ({

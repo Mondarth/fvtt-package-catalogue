@@ -62,6 +62,33 @@ export const STORED: readonly StoredItem[] = [
     ],
   },
   {
+    id: 'subscription',
+    from: 'us',
+    columns: [
+      'subscription_credits.id',
+      'subscription_credits.user_id',
+      'subscription_credits.source',
+      'subscription_credits.offer_id',
+      'subscription_credits.months',
+      'subscription_credits.days',
+      'subscription_credits.starts_at',
+      'subscription_credits.ends_at',
+      'subscription_credits.granted_by',
+      'subscription_credits.note',
+      'subscription_credits.created_at',
+    ],
+  },
+  {
+    id: 'payment',
+    from: 'us',
+    columns: [
+      'subscription_credits.provider',
+      'subscription_credits.method',
+      'subscription_credits.external_ref',
+      'subscription_credits.provider_account',
+    ],
+  },
+  {
     id: 'pending',
     from: 'us',
     columns: ['verifications.id', 'verifications.identifier', 'verifications.value', 'verifications.expires_at'],

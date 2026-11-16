@@ -14,6 +14,7 @@ import { fakeEvent, invoke } from '../support/event.js';
 import type { AuditRow, AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore, UserDetail, UserSummary } from '../../../src/lib/server/accounts/store.js';
+import type { SubscriptionStore } from '../../../src/lib/server/subscriptions/store.js';
 
 const ADMIN = { id: 'admin', handle: 'admin-handle', nickname: null, role: 'admin' };
 const SUMMARY: UserSummary = {
@@ -132,6 +133,10 @@ describe("a user's admin page", () => {
               Promise.resolve(userId === 'nobody' ? undefined : { ...DETAIL, id: userId }),
           } as unknown as AccountsStore,
           audit: { recent } as unknown as AuditStore,
+          subscriptions: {
+            status: () => Promise.resolve({ paidUntil: null, active: false }),
+            history: () => Promise.resolve([]),
+          } as unknown as SubscriptionStore,
           adminUserIds,
         },
       }),
@@ -139,6 +144,8 @@ describe("a user's admin page", () => {
 
   it('shows what is held of the user, and what admins did about them', async () => {
     await expect(loaded('u1', 'http://catalogue.test/admin/users/u1?done=ban')).resolves.toMatchObject({
+      subscription: { paidUntil: null, active: false },
+      credits: [],
       user: { id: 'u1', providers: ['github'], sessions: 2, admin: false, configured: false, self: false },
       audit: [],
       done: 'ban',

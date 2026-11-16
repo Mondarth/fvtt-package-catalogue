@@ -223,6 +223,26 @@ from the catalogue so that it can move to a service of its own, shared by every 
   (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
   {doc}`setup`.
 
+### Subscriptions
+
+`lib/server/subscriptions/` keeps subscriptions, beside the accounts:
+
+- **Credits** (`subscription_credits`): each a span of time a user is subscribed for, with where it came from (`grant`,
+  `patreon` or `payment`), the provider, method and provider's reference of a payment, the offer it was bought by, its
+  period, and the admin who granted it with their note. A user is subscribed until the latest credit ends.
+  `(provider, external_ref)` is unique, so a payment its provider reports twice is credited once.
+- **The credit rule** (`store.ts`): time starts at the later of now and the subscription's end, and runs for its period
+  in calendar months and days (`period.ts`: twelve months from 31 January end on 31 January; one month from it, on the
+  last day of February). Each change is made in a transaction that holds the user's profile (`FOR UPDATE`), so that
+  two cannot start from the same end. Setting an earlier end cuts every credit back to it.
+- **Offers** (`subscription_offers`): a period, a price in each currency in its minor unit (`lib/prices.ts`), the dates
+  it is on sale between, and when it was retired. Never edited: a change is a new offer.
+- **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
+  subscription gives (an admin always may), read once a request and only when asked. A feature that needs it calls
+  `requireEntitled` in its form actions, so that without a subscription its pages load but change nothing.
+- Admins grant, set the end of and revoke subscriptions, and make and retire offers, from the admin pages, each
+  recorded in the audit log (`subscription.*`, `offer.*`).
+
 ### The environment
 
 `src/env.ts` declares the server's variables with `defineEnvVars`, each with a zod schema from `lib/server/config.ts`,

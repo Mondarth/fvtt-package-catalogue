@@ -99,6 +99,13 @@
       "when": 1794834716465,
       "tag": "0013_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794847674084,
+      "tag": "0014_subscriptions",
+      "breakpoints": true
     }
   ]
 }
