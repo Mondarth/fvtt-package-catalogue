@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AUTHORIZATION_HEADER,
   ErrorResponse,
+  ME_PATH,
+  MeResponse,
   HealthResponse,
   STATUS_PATH,
   StatusResponse,
@@ -58,5 +61,33 @@ describe('responses', () => {
     const error = { error: { code: 'not-found', message: 'No such package', requestId: 'abc' } };
     expect(ErrorResponse.parse(error)).toEqual(error);
     expect(ErrorResponse.safeParse({ error: { code: 'teapot', message: '' } }).success).toBe(false);
+  });
+});
+
+describe('who is asking', () => {
+  it('is said by a key, or by a user’s token, which answers who it is for', () => {
+    expect(AUTHORIZATION_HEADER).toBe('Authorization');
+    expect(ME_PATH).toBe('/api/v2/me');
+    const me = {
+      user: { handle: 'amber-fox-oak-01', nickname: null, role: 'user' },
+      subscription: { paidUntil: '2027-01-01T00:00:00.000Z', active: true },
+      entitled: true,
+    };
+    expect(MeResponse.parse(me)).toEqual(me);
+    expect(
+      MeResponse.parse({ ...me, subscription: { paidUntil: null, active: false } }).subscription.paidUntil,
+    ).toBeNull();
+    expect(MeResponse.safeParse({ ...me, user: { ...me.user, role: 'owner' } }).success).toBe(false);
+  });
+
+  it('is refused as forbidden, or for want of a subscription, saying when it ended', () => {
+    const ended = { error: { code: 'subscription-required', message: 'Renew', paidUntil: '2026-11-01T00:00:00.000Z' } };
+    expect(ErrorResponse.parse(ended)).toEqual(ended);
+    const never = { error: { code: 'subscription-required', message: 'Subscribe', paidUntil: null } };
+    expect(ErrorResponse.parse(never)).toEqual(never);
+    expect(ErrorResponse.parse({ error: { code: 'forbidden', message: 'Not for a module' } }).error.code).toBe(
+      'forbidden',
+    );
+    expect(ErrorResponse.safeParse({ error: { ...ended.error, paidUntil: 'soon' } }).success).toBe(false);
   });
 });
