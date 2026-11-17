@@ -221,7 +221,9 @@ from the catalogue so that it can move to a service of its own, shared by every 
   for a session's token. The session is marked with its client (`sessions.client_id`, by a `session.create` database
   hook on the token endpoint), so that the profile's list of signed-in devices can say what each is. The device codes
   (`device_codes`) expire after ten minutes, and are deleted as a client asks for new ones. Approving or denying a
-  device, and signing a user's sessions out, are refused while an admin views the site as them.
+  device, and signing a user's sessions out, are refused while an admin views the site as them. The profile lists and
+  ends a user's sessions from the tables itself (`AccountsStore.sessionsOf`, `endSessions`): Better Auth's own listing
+  and revoking ask for a session signed in within the day, which would refuse anyone signed in for longer.
 - The **audit log** records who did it, as whom (while impersonating), what, to whom, and the change. The website's own
   changes made while impersonating, such as a nickname, are recorded by the routes that make them. Deleting a profile
   keeps the entries about it, but forgets what they held of it (their before and after).
