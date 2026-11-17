@@ -1,6 +1,7 @@
 /**
  * The server's request handling, before any route: request ids, logging, CORS, and who is asking the API, by its key or
- * its user's token, what they may reach (see `access.ts`), and how often.
+ * its user's token, what they may reach (see `access.ts`), and how often. A device signing in, such as EMMA's browser
+ * extension, is let call the two endpoints it needs from any origin too (see {@link DEVICE_CORS_PATHS}).
  */
 import {
   API_KEY_HEADER,
@@ -12,6 +13,8 @@ import type { Handle } from '@sveltejs/kit/hooks';
 
 import type { ErrorCode } from '@mondarth/fvtt-package-catalogue-contract';
 
+import { AUTH_PATH } from '../accounts/auth.js';
+import { DEVICE_CODE_PATH, DEVICE_TOKEN_PATH } from '../accounts/device.js';
 import { bearerToken, keyReaches } from './access.js';
 import { keyMatcher } from './auth.js';
 import { isApiPath } from './paths.js';
@@ -80,10 +83,28 @@ export const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Max-Age': '86400',
 };
 
-/** A response with the CORS headers added. A response from `fetch` has immutable headers, so it is copied. */
-function withCors(response: Response): Response {
+/**
+ * The endpoints a device signing in calls, which any origin may call: a browser extension's background script asks from
+ * its own origin. Neither takes the website's cookie: a device asks for its codes, then polls for its token, with the
+ * device code alone. Better Auth checks the origin of any request that does send a cookie.
+ */
+export const DEVICE_CORS_PATHS: ReadonlySet<string> = new Set([
+  `${AUTH_PATH}${DEVICE_CODE_PATH}`,
+  `${AUTH_PATH}${DEVICE_TOKEN_PATH}`,
+]);
+
+/** The CORS headers of a device's endpoints: posts of JSON, and no credentials, as `*` allows none. */
+export const DEVICE_CORS_HEADERS: Readonly<Record<string, string>> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+/** A response with CORS headers added. A response from `fetch` has immutable headers, so it is copied. */
+function withCors(response: Response, headers: Readonly<Record<string, string>> = CORS_HEADERS): Response {
   const copy = new Response(response.body, response);
-  for (const [name, value] of Object.entries(CORS_HEADERS)) copy.headers.set(name, value);
+  for (const [name, value] of Object.entries(headers)) copy.headers.set(name, value);
   return copy;
 }
 
@@ -188,7 +209,12 @@ export function createHandle({
 
     const { pathname } = event.url;
     let response: Response;
-    if (!isApiPath(pathname)) {
+    if (DEVICE_CORS_PATHS.has(pathname)) {
+      response =
+        event.request.method === 'OPTIONS'
+          ? withCors(new Response(null, { status: 204 }), DEVICE_CORS_HEADERS)
+          : withCors(await resolve(event), DEVICE_CORS_HEADERS);
+    } else if (!isApiPath(pathname)) {
       response = await resolve(event);
     } else if (event.request.method === 'OPTIONS') {
       // The CORS preflight carries no key.
