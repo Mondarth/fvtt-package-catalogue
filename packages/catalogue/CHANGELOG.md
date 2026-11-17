@@ -1,3 +1,17 @@
+## [@mondarth/fvtt-package-catalogue-v0.10.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.9.0...@mondarth/fvtt-package-catalogue-v0.10.0) (2026-11-17)
+
+### Features
+
+* **catalogue:** add subscriptions, granted by admins, and offers ([3f1ba4a](https://github.com/Mondarth/fvtt-package-catalogue/commit/3f1ba4a1615e1e542236641d72b02bd0818f7eae))
+* **catalogue:** sign a device in, and list the signed-in devices ([11ca6e6](https://github.com/Mondarth/fvtt-package-catalogue/commit/11ca6e62e15555e9c6bd336f03206096d975426b))
+* **catalogue:** take users' tokens on the API, and limit module keys ([5bcf1b2](https://github.com/Mondarth/fvtt-package-catalogue/commit/5bcf1b24d94d2eb1e501ba7ab317a27f7b4611e4))
+
+### Bug Fixes
+
+* **catalogue:** limit a module's key to lookups, what EMMA's calls ([2e94896](https://github.com/Mondarth/fvtt-package-catalogue/commit/2e948969e8b619b12d11877b83fd180878b6e971))
+* **catalogue:** list and end sessions however long ago one began ([965eb3e](https://github.com/Mondarth/fvtt-package-catalogue/commit/965eb3e426a9c8ab6ad93e64bb226501bcb03640))
+* **catalogue:** show a form's problem beside it, and limit its fields ([254e7b9](https://github.com/Mondarth/fvtt-package-catalogue/commit/254e7b9d758e014104eef016f94fc51f9918388b))
+
 ## [@mondarth/fvtt-package-catalogue-v0.9.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.8.1...@mondarth/fvtt-package-catalogue-v0.9.0) (2026-11-16)
 
 ### Features
