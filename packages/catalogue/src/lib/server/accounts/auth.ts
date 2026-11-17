@@ -11,6 +11,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { admin } from 'better-auth/plugins/admin';
+import { bearer } from 'better-auth/plugins/bearer';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
 import { eq } from 'drizzle-orm';
@@ -158,6 +159,8 @@ export function createAuth(options: AuthOptions) {
         // page reads why they are banned (see `ban-notice.ts`), never text of its own.
         bannedUserMessage: user => notices.make(user.id),
       }),
+      // A session's token, as `Authorization: Bearer`, for the API (see `http/access.ts`).
+      bearer(),
     ],
     disabledPaths: DISABLED_ADMIN_PATHS,
     hooks: adminHooks({ db, audit, adminUserIds }),

@@ -37,10 +37,13 @@ test('the API page introduces the catalogue and lists its endpoints, from the si
   await expect(page).toHaveURL(/\/developers$/);
   await expect(page.getByRole('heading', { level: 1, name: en.developers_heading })).toBeVisible();
   const endpoints = page.getByRole('region', { name: en.endpoints_heading }).getByRole('listitem');
-  await expect(endpoints).toHaveCount(6);
+  await expect(endpoints).toHaveCount(7);
   await expect(endpoints.first()).toContainText('POST');
   await expect(endpoints.first()).toContainText('/api/v2/lookup');
+  await expect(endpoints.first()).toContainText(en.endpoint_callers_module);
   await expect(endpoints.nth(1)).toContainText('GET');
+  await expect(endpoints.last()).toContainText('/api/v2/me');
+  await expect(page.getByText(en.developers_auth)).toBeVisible();
 });
 
 test.describe('a page that does not exist', () => {

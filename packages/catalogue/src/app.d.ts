@@ -1,6 +1,7 @@
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Auth, SignedIn } from '#lib/server/accounts/auth.js';
 import type { AuditStore } from '#lib/server/accounts/audit.js';
+import type { ApiCaller } from '#lib/server/http/handle.js';
 import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
@@ -17,6 +18,8 @@ declare global {
     interface Locals {
       /** Identifies the request in the logs and in error responses. */
       requestId: string;
+      /** Who is asking the API, by their key or their user's token, on the API's requests. */
+      caller?: ApiCaller;
       store: CatalogueStore;
       log: Logger;
       /** A client for a request that fetches, such as a recheck of packages' own manifests, with a budget of its own. */

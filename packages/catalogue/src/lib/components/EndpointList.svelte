@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { CALLERS } from '#lib/endpoints.js';
+
   import type { Endpoint } from '#lib/endpoints.js';
   import { m } from '#lib/paraglide/messages.js';
 
@@ -15,10 +17,11 @@
     <p>{m.endpoints_none()}</p>
   {:else}
     <ul>
-      {#each endpoints as { method, path, summary } (`${method} ${path}`)}
+      {#each endpoints as { method, path, summary, callers } (`${method} ${path}`)}
         <li>
           <code><span class="method">{method}</span> {path}</code>
           <span>{summary()}</span>
+          <span class="callers">{CALLERS[callers]()}</span>
         </li>
       {/each}
     </ul>
@@ -40,6 +43,11 @@
 
   code {
     overflow-wrap: anywhere;
+  }
+
+  .callers {
+    color: var(--muted);
+    font-size: 0.9rem;
   }
 
   .method {

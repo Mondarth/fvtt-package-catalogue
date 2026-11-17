@@ -3,6 +3,7 @@ import { defineEnvVars } from '@sveltejs/kit/env';
 import {
   AdminUserIds,
   ApiKeys,
+  ApiRatePerMinute,
   AuthSecret,
   DatabaseUrl,
   LogLevel,
@@ -15,10 +16,15 @@ import {
 export const variables = defineEnvVars({
   DATABASE_URL: { description: 'The PostgreSQL connection string.', schema: DatabaseUrl },
   API_KEYS: {
-    description: 'The API keys accepted, separated by commas. Several, so that a key can be rotated.',
+    description:
+      "The API keys accepted, separated by commas, each module:<key> for the EMMA module's, or the key alone for one that reaches every endpoint. Several, so that a key can be rotated.",
     schema: ApiKeys,
   },
   LOG_LEVEL: { description: 'debug, info, warn or error; info by default.', schema: LogLevel },
+  API_RATE_PER_MINUTE: {
+    description: 'The most API requests one key or user may make in a minute; 300 by default.',
+    schema: ApiRatePerMinute,
+  },
   AUTH_SECRET: {
     description: "Signs the website's cookies and encrypts sign-in providers' tokens: at least 32 random characters.",
     schema: AuthSecret,

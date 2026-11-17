@@ -243,6 +243,22 @@ from the catalogue so that it can move to a service of its own, shared by every 
 - Admins grant, set the end of and revoke subscriptions, and make and retire offers, from the admin pages, each
   recorded in the audit log (`subscription.*`, `offer.*`).
 
+### Who may call the API
+
+`lib/server/http/access.ts` holds who may call which endpoint, and `http/handle.ts` applies it before any route. A
+request says who is asking with an API key (`X-API-Key`) or a user's token (`Authorization: Bearer`, through Better
+Auth's `bearer` plugin), never the session cookie: the runtime hands Better Auth the bearer header alone
+(`runtime.ts`, `apiUsers`).
+
+- A key's kind comes from `API_KEYS`: `module:<key>` reaches lookups, the listing, the builds and manifests
+  (`MODULE_PATHS`); a key alone, every endpoint but `/me`.
+- A user's token reaches `/me`, and everything else while they are entitled (`subscriptions/entitlement.ts`,
+  `cachedEntitlements`, kept a minute per user); otherwise `subscription-required`, with `paidUntil`. A session an
+  admin is viewing the site in is `forbidden`.
+- Each key and user has `API_RATE_PER_MINUTE` requests a minute (`rateLimiter`).
+- The endpoint is given `locals.caller`: the key's kind, or the user and their entitlement. `/me` answers from it.
+- `lib/endpoints.ts` says who may call each endpoint for `/developers`; a test checks it against `access.ts`.
+
 ### The environment
 
 `src/env.ts` declares the server's variables with `defineEnvVars`, each with a zod schema from `lib/server/config.ts`,
@@ -253,7 +269,8 @@ read and validated again at start-up, come from the environment the server runs 
 | Variable       | Required | Meaning                                                    |
 | -------------- | -------- | ---------------------------------------------------------- |
 | `DATABASE_URL` | yes      | The PostgreSQL connection string                           |
-| `API_KEYS`     | yes      | The keys accepted, separated by commas                     |
+| `API_KEYS`     | yes      | The keys accepted, separated by commas; `module:<key>` for the EMMA module's |
+| `API_RATE_PER_MINUTE` | no | The most API requests one key or user may make in a minute; 300 by default |
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
 | `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
 | `SITE_URL`     | yes      | The website's address as visitors reach it                 |

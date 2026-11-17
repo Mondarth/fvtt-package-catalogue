@@ -258,5 +258,10 @@
   "privacy_subscription_why": "Saber si estás suscrito, y hasta cuándo. Eliminar tu perfil lo elimina.",
   "privacy_payment_what": "En un pago: qué proveedor de pagos lo cobró, con qué se pagó (por ejemplo, una tarjeta) y la referencia del proveedor",
   "privacy_payment_why": "Relacionar un pago con el tiempo que compró, y encontrarlo con el proveedor si preguntas por él. No se guardan números de tarjeta, nombres, direcciones ni importes: el proveedor conserva la factura.",
-  "admin_problem_ban_days": "Indica un número entero de días, como máximo 3660 (diez años), o déjalo vacío para un bloqueo hasta que se levante."
+  "admin_problem_ban_days": "Indica un número entero de días, como máximo 3660 (diez años), o déjalo vacío para un bloqueo hasta que se levante.",
+  "endpoint_me_summary": "Para quién es el token de un usuario, y su suscripción.",
+  "endpoint_callers_module": "Una clave, entre ellas la del módulo EMMA, o el token de un suscriptor.",
+  "endpoint_callers_full": "Una clave que no sea la de un módulo, o el token de un suscriptor.",
+  "endpoint_callers_user": "El token de un usuario, esté suscrito o no.",
+  "developers_auth": "Cada petición dice quién pregunta: una clave de la API, en la cabecera X-API-Key, o el token de un usuario que ha iniciado sesión, como Authorization: Bearer <token>. El token de un usuario llega a todos los puntos de acceso mientras está suscrito; sin suscripción, la API responde subscription-required, indicando cuándo terminó."
 }

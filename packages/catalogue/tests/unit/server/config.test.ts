@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AdminUserIds,
   ApiKeys,
+  ApiRatePerMinute,
   AuthSecret,
   DatabaseUrl,
   LogLevel,
@@ -33,12 +34,35 @@ describe('AdminUserIds', () => {
 });
 
 describe('ApiKeys', () => {
-  it('splits keys on commas, trimmed, dropping empty ones', () => {
-    expect(ApiKeys.parse(' one, two ,,three ')).toEqual(['one', 'two', 'three']);
+  it('splits keys on commas, trimmed, dropping empty ones, each reaching every endpoint', () => {
+    expect(ApiKeys.parse(' one, two ,,three ')).toEqual([
+      { kind: 'full', key: 'one' },
+      { kind: 'full', key: 'two' },
+      { kind: 'full', key: 'three' },
+    ]);
   });
 
-  it.each(['', ' , ', undefined])('needs at least one key, not %j', value => {
+  it("reads a module's key by its prefix", () => {
+    expect(ApiKeys.parse('module:abc, full-key')).toEqual([
+      { kind: 'module', key: 'abc' },
+      { kind: 'full', key: 'full-key' },
+    ]);
+  });
+
+  it.each(['', ' , ', undefined, 'module:'])('needs at least one key, not %j', value => {
     expect(ApiKeys.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('ApiRatePerMinute', () => {
+  it('is 300 unless set, or set empty', () => {
+    expect(ApiRatePerMinute.parse(undefined)).toBe(300);
+    expect(ApiRatePerMinute.parse(' ')).toBe(300);
+    expect(ApiRatePerMinute.parse('60')).toBe(60);
+  });
+
+  it.each(['0', '-1', '1.5', 'many'])('refuses %j', value => {
+    expect(ApiRatePerMinute.safeParse(value).success).toBe(false);
   });
 });
 
