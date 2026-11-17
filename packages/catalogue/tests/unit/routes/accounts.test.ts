@@ -274,8 +274,7 @@ describe('the profile page', () => {
           locals: {
             user: user as never,
             session: SESSION as never,
-            accounts: accounts({ linkedProviders }),
-            auth: { api: { listSessions: () => Promise.resolve([]) } } as unknown as Auth,
+            accounts: accounts({ linkedProviders, sessionsOf: () => Promise.resolve([]) }),
           },
         }),
       );
