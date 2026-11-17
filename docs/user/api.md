@@ -44,6 +44,10 @@ authorization grant (RFC 8628). Only the clients the catalogue knows may: `emma-
    answers `authorization_pending` (or `slow_down`, if asked too often); then `access_denied`, or the token as
    `access_token`. A code not used within its ten minutes answers `expired_token`.
 
+Both endpoints may be called from any origin, such as a browser extension's background script: they answer CORS
+preflights, and send `Access-Control-Allow-Origin: *`, allowing no credentials. Send no cookies; ask with a JSON body
+(`Content-Type: application/json`).
+
 The token is a session of the user's, which they see in their profile's list of signed-in devices, by the client's
 name, and can sign out there. It lasts 30 days, renewed while it is used. An admin viewing the site as a user cannot
 approve a device for them.
