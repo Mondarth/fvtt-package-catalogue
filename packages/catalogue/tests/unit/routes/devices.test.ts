@@ -14,32 +14,34 @@ const at = (iso: string) => new Date(iso);
 const SESSIONS = [
   {
     id: 'old-web',
-    token: 't1',
     createdAt: at('2026-11-01T00:00:00Z'),
     updatedAt: at('2026-11-02T00:00:00Z'),
     userAgent: null,
+    clientId: null,
+    impersonatedBy: null,
   },
   {
     id: 'here',
-    token: 't2',
     createdAt: at('2026-11-03T00:00:00Z'),
     updatedAt: at('2026-11-04T00:00:00Z'),
     userAgent: FIREFOX,
+    clientId: null,
+    impersonatedBy: null,
   },
   {
     id: 'extension',
-    token: 't3',
     createdAt: at('2026-11-05T00:00:00Z'),
     updatedAt: at('2026-11-06T00:00:00Z'),
     userAgent: FIREFOX,
     clientId: 'emma-extension',
+    impersonatedBy: null,
   },
   {
     id: 'viewed',
-    token: 't4',
     createdAt: at('2026-11-07T00:00:00Z'),
     updatedAt: at('2026-11-07T00:00:00Z'),
     userAgent: null,
+    clientId: null,
     impersonatedBy: 'admin',
   },
 ];
@@ -56,19 +58,38 @@ async function thrown(run: () => unknown): Promise<unknown> {
   throw new Error('Nothing was thrown');
 }
 
-const api = (more: Record<string, unknown> = {}) =>
-  ({ api: { listSessions: () => Promise.resolve(SESSIONS), ...more } }) as unknown as Auth;
+/** The accounts' tables, holding the user's sessions, ending those asked for. */
+function store(endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(1))) {
+  return {
+    endSessions,
+    accounts: {
+      sessionsOf: () => Promise.resolve(SESSIONS),
+      linkedProviders: () => Promise.resolve([]),
+      endSessions,
+    } as unknown as AccountsStore,
+  };
+}
+
+/** Better Auth, whose own listing refuses a session not signed in within the day. */
+const staleAuth = {
+  api: {
+    listSessions: () => Promise.reject(new Error('Session is not fresh')),
+    revokeSession: () => Promise.reject(new Error('Session is not fresh')),
+  },
+} as unknown as Auth;
 
 describe("the profile's signed-in devices", () => {
-  it('lists each session, this browser first, then the newest, with what signed in, and never a token', async () => {
+  // Regression: the list was Better Auth's own, which asks for a session signed in within the day, so the profile of
+  // anyone signed in longer failed with a 500, "Session is not fresh".
+  it('lists each session, this browser first, then the newest, with what signed in, however long ago this one began', async () => {
     const result = (await load(
       fakeEvent<LoadEvent>({
         url: 'http://catalogue.test/profile?signed-out=one',
         locals: {
           user: USER as never,
           session: { id: 'here' } as never,
-          auth: api(),
-          accounts: { linkedProviders: () => Promise.resolve([]) } as unknown as AccountsStore,
+          auth: staleAuth,
+          accounts: store().accounts,
         },
       }),
     )) as { devices: Device[]; signedOut: string | null; impersonated: boolean };
@@ -82,46 +103,66 @@ describe("the profile's signed-in devices", () => {
     expect(result).toMatchObject({ signedOut: 'one', impersonated: false });
   });
 
-  function act(action: 'signOut' | 'signOutOthers', body: string, more: Record<string, unknown>, user: unknown = USER) {
+  function act(
+    action: 'signOut' | 'signOutOthers',
+    body: string,
+    endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(1)),
+    more: { user?: unknown; session?: unknown } = {},
+  ) {
     return actions[action]?.(
       fakeEvent<ActionEvent>({
         url: `http://catalogue.test/profile?/${action}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
-        locals: { user: user as never, auth: api(more) },
+        locals: {
+          user: ('user' in more ? more.user : USER) as never,
+          session: ('session' in more ? more.session : { id: 'here' }) as never,
+          auth: staleAuth,
+          accounts: store(endSessions).accounts,
+        },
       }),
     );
   }
 
-  it('signs one out by its id, finding its token here', async () => {
-    const revokeSession = vi.fn(() => Promise.resolve(Response.json({ status: true })));
-    const error = await thrown(() => act('signOut', 'session=extension', { revokeSession }));
+  it('signs one out by its id, the user’s alone, however long ago this session began', async () => {
+    const endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(1));
+    const error = await thrown(() => act('signOut', 'session=extension', endSessions));
     expect(isRedirect(error) && error.location).toBe('/profile?signed-out=one');
-    expect(revokeSession).toHaveBeenCalledWith(expect.objectContaining({ body: { token: 't3' } }));
+    expect(endSessions).toHaveBeenCalledWith('ada', { only: 'extension' });
   });
 
-  it('refuses a session that is not the user’s, or that Better Auth will not sign out', async () => {
-    const revokeSession = vi.fn(() => Promise.resolve(new Response('no', { status: 403 })));
-    const unknown = await act('signOut', 'session=someone-elses', { revokeSession });
+  it('refuses a session that is not the user’s, or this one', async () => {
+    const none = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(0));
+    const unknown = await act('signOut', 'session=someone-elses', none);
     expect(isActionFailure(unknown) && unknown.data).toEqual({ devices: 'refused' });
-    expect(revokeSession).not.toHaveBeenCalled();
-    const refused = await act('signOut', 'session=extension', { revokeSession });
-    expect(isActionFailure(refused) && refused.status).toBe(403);
+    const endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(1));
+    const here = await act('signOut', 'session=here', endSessions);
+    expect(isActionFailure(here) && here.status).toBe(404);
+    expect(endSessions).not.toHaveBeenCalled();
   });
 
   it('signs out every other session', async () => {
-    const revokeOtherSessions = vi.fn(() => Promise.resolve(Response.json({ status: true })));
-    const error = await thrown(() => act('signOutOthers', '', { revokeOtherSessions }));
+    const endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(3));
+    const error = await thrown(() => act('signOutOthers', '', endSessions));
     expect(isRedirect(error) && error.location).toBe('/profile?signed-out=others');
-    const refused = await act('signOutOthers', '', {
-      revokeOtherSessions: () => Promise.resolve(new Response('no', { status: 403 })),
-    });
-    expect(isActionFailure(refused) && refused.data).toEqual({ devices: 'refused' });
+    expect(endSessions).toHaveBeenCalledWith('ada', { except: 'here' });
   });
 
+  it.each(['signOut', 'signOutOthers'] as const)(
+    '%s is refused while an admin views the site as the user',
+    async action => {
+      const endSessions = vi.fn<AccountsStore['endSessions']>(() => Promise.resolve(1));
+      const result = await act(action, 'session=extension', endSessions, {
+        session: { id: 'here', impersonatedBy: 'admin' },
+      });
+      expect(isActionFailure(result) && result.status).toBe(403);
+      expect(endSessions).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['signOut', 'signOutOthers'] as const)('%s goes home for anyone not signed in', async action => {
-    const error = await thrown(() => act(action, '', {}, null));
+    const error = await thrown(() => act(action, '', undefined, { user: null, session: null }));
     expect(isRedirect(error) && error.location).toBe('/');
   });
 });

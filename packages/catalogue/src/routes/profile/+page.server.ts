@@ -23,28 +23,26 @@ export interface Device {
   readonly agent: string | null;
 }
 
-/** The user's sessions, the current first, then the newest. */
-async function devicesOf(locals: App.Locals, headers: Headers): Promise<Device[]> {
-  const sessions = await locals.auth.api.listSessions({ headers });
+/**
+ * The user's sessions, the current first, then the newest, read from the accounts' tables: Better Auth's own listing
+ * asks for a session signed in within the day, which looking at one's own devices should not.
+ */
+async function devicesOf(locals: App.Locals, userId: string): Promise<Device[]> {
+  const sessions = await locals.accounts.sessionsOf(userId);
   return sessions
     .map(session => ({
       id: session.id,
-      kind:
-        typeof session.impersonatedBy === 'string'
-          ? 'impersonation'
-          : typeof session.clientId === 'string'
-            ? session.clientId
-            : 'website',
+      kind: session.impersonatedBy !== null ? 'impersonation' : (session.clientId ?? 'website'),
       current: session.id === locals.session?.id,
-      createdAt: new Date(session.createdAt),
-      updatedAt: new Date(session.updatedAt),
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
       agent: describeAgent(session.userAgent),
     }))
     .sort((a, b) => Number(b.current) - Number(a.current) || b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /** The signed-in user's profile, and what is stored about them; the sign-in page for anyone else. */
-export const load: PageServerLoad = async ({ locals, url, request }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const { user } = locals;
   if (user === null) redirect(303, '/');
   const problem = url.searchParams.get('problem');
@@ -59,7 +57,7 @@ export const load: PageServerLoad = async ({ locals, url, request }) => {
     },
     problem: isProblem(problem) ? problem : null,
     saved: url.searchParams.has('saved'),
-    devices: await devicesOf(locals, request.headers),
+    devices: await devicesOf(locals, user.id),
     signedOut: url.searchParams.get('signed-out'),
     // An admin viewing the site as the user may not sign their devices out; Better Auth's hooks refuse it too.
     impersonated: typeof locals.session?.impersonatedBy === 'string',
@@ -97,27 +95,28 @@ export const actions: Actions = {
     redirect(303, '/profile?saved');
   },
 
-  /** Signs one of the user's sessions out, by its id: its token is found here, never sent to the page. */
+  /**
+   * Signs one of the user's sessions out, by its id, ending it at once: theirs alone. Better Auth's own revoking asks
+   * for a session signed in within the day, which would have someone who fears a session stolen sign in again first.
+   * An admin viewing the site as the user may not.
+   */
   signOut: async ({ locals, request }) => {
-    if (locals.user === null) redirect(303, '/');
+    const { user } = locals;
+    if (user === null) redirect(303, '/');
+    if (typeof locals.session?.impersonatedBy === 'string') return fail(403, { devices: 'refused' as const });
     const id = field(await request.formData(), 'session');
-    const sessions = await locals.auth.api.listSessions({ headers: request.headers });
-    const token = sessions.find(session => session.id === id)?.token;
-    if (token === undefined) return fail(404, { devices: 'refused' as const });
-    const response = await locals.auth.api.revokeSession({
-      body: { token },
-      headers: request.headers,
-      asResponse: true,
-    });
-    if (!response.ok) return fail(response.status, { devices: 'refused' as const });
+    if (id === locals.session?.id || (await locals.accounts.endSessions(user.id, { only: id })) === 0) {
+      return fail(404, { devices: 'refused' as const });
+    }
     redirect(303, '/profile?signed-out=one');
   },
 
   /** Signs every session out but this one. */
-  signOutOthers: async ({ locals, request }) => {
-    if (locals.user === null) redirect(303, '/');
-    const response = await locals.auth.api.revokeOtherSessions({ headers: request.headers, asResponse: true });
-    if (!response.ok) return fail(response.status, { devices: 'refused' as const });
+  signOutOthers: async ({ locals }) => {
+    const { user, session } = locals;
+    if (user === null || session === null) redirect(303, '/');
+    if (typeof session.impersonatedBy === 'string') return fail(403, { devices: 'refused' as const });
+    await locals.accounts.endSessions(user.id, { except: session.id });
     redirect(303, '/profile?signed-out=others');
   },
 };
