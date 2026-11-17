@@ -1,3 +1,14 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.6.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.5.0...@mondarth/fvtt-package-catalogue-contract-v0.6.0) (2026-11-17)
+
+### Features
+
+* **contract:** add users' tokens, /me, and refusals for access ([fcf2d52](https://github.com/Mondarth/fvtt-package-catalogue/commit/fcf2d527ba41d6c18c3948b28f16de82f62eff59))
+
+### Build System
+
+* **contract:** test against @mondarth/fvtt-resolver 0.11.5 ([5aa6d92](https://github.com/Mondarth/fvtt-package-catalogue/commit/5aa6d92700d552e308adb739b7fb3e03c79bb2c9))
+* **deps-dev:** Bump the vite group across 1 directory with 2 updates ([912b109](https://github.com/Mondarth/fvtt-package-catalogue/commit/912b1099b175ac89ef4599f4183660e5094c8311))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.5.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.4.1...@mondarth/fvtt-package-catalogue-contract-v0.5.0) (2026-11-07)
 
 ### Features
