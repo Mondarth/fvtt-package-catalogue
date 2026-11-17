@@ -18,10 +18,8 @@ async function client(
 const LOOKUP = { packages: [{ type: 'module', id: 'e2e-module' }] };
 
 test.describe("a module's key", () => {
-  test('reaches what the module needs', async ({ playwright, baseURL }) => {
+  test('reaches lookups, what the module calls', async ({ playwright, baseURL }) => {
     const module = await client(playwright, baseURL, { 'X-API-Key': E2E_MODULE_KEY });
-    expect((await module.get('/api/v2/listing')).status()).toBe(200);
-    expect((await module.get('/api/v2/core')).status()).toBe(200);
     expect((await module.post('/api/v2/lookup', { data: LOOKUP })).status()).toBe(200);
     await module.dispose();
   });
@@ -29,6 +27,9 @@ test.describe("a module's key", () => {
   test('is forbidden the rest', async ({ playwright, baseURL }) => {
     const module = await client(playwright, baseURL, { 'X-API-Key': E2E_MODULE_KEY });
     for (const response of [
+      await module.get('/api/v2/listing'),
+      await module.get('/api/v2/core'),
+      await module.post('/api/v2/manifest', { data: { url: 'https://example.test/module.json', type: 'module' } }),
       await module.get('/api/v2/status'),
       await module.post('/api/v2/recheck', { data: { packages: [] } }),
       await module.get('/api/v2/me'),

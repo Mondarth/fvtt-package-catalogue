@@ -20,9 +20,9 @@ curl -H "Authorization: Bearer $TOKEN" https://catalogue.example.com/api/v2/me
 **A key** ships inside the clients that use it, so it cannot be kept secret. It identifies a client and keeps out
 traffic that is not theirs; the data is public. The server accepts several keys at once (`API_KEYS`), so that a key can
 be replaced while clients move to the new one. A **module's key** (`module:<key>` in `API_KEYS`) reaches only what the
-EMMA module needs: lookups, the listing, Foundry VTT's builds and reading a manifest. A key without the prefix reaches
-every endpoint but `/me`, as every key did before keys had kinds; it is kept while EMMA's browser extension calls the
-API with one, until it signs its users in.
+EMMA module calls: lookups, which give Foundry VTT's builds too. A key without the prefix reaches every endpoint but
+`/me`, as every key did before keys had kinds; it is kept while EMMA's browser extension calls the API with one, until
+it signs its users in.
 
 **A user's token** is the token of their session on the website. It reaches `/me` at any time, and every other
 endpoint while they are subscribed, or an admin; otherwise the API answers `subscription-required`, saying when the

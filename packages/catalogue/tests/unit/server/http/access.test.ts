@@ -3,10 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { bearerToken, keyReaches, MODULE_PATHS } from '../../../../src/lib/server/http/access.js';
 
 describe('keyReaches', () => {
-  it("lets a module's key call lookups, the listing, the builds and manifests, and nothing else", () => {
-    expect([...MODULE_PATHS].sort()).toEqual(['/api/v2/core', '/api/v2/listing', '/api/v2/lookup', '/api/v2/manifest']);
-    for (const path of MODULE_PATHS) expect(keyReaches('module', path)).toBe(true);
-    for (const path of ['/api/v2/recheck', '/api/v2/status', '/api/v2/me', '/api/v9/lookup']) {
+  it("lets a module's key call lookups, the one endpoint the EMMA module calls, and nothing else", () => {
+    expect([...MODULE_PATHS]).toEqual(['/api/v2/lookup']);
+    expect(keyReaches('module', '/api/v2/lookup')).toBe(true);
+    for (const path of [
+      '/api/v2/listing',
+      '/api/v2/core',
+      '/api/v2/manifest',
+      '/api/v2/recheck',
+      '/api/v2/status',
+      '/api/v2/me',
+      '/api/v9/lookup',
+    ]) {
       expect(keyReaches('module', path)).toBe(false);
     }
   });
