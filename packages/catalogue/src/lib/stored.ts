@@ -46,6 +46,23 @@ export const STORED: readonly StoredItem[] = [
   { id: 'session', from: 'us', columns: ['sessions.id', 'sessions.token', 'sessions.user_id', 'sessions.expires_at'] },
   { id: 'device', from: 'browser', columns: ['sessions.ip_address', 'sessions.user_agent'] },
   { id: 'impersonation', from: 'us', columns: ['sessions.impersonated_by'] },
+  { id: 'client', from: 'us', columns: ['sessions.client_id'] },
+  {
+    id: 'device_sign_in',
+    from: 'us',
+    columns: [
+      'device_codes.id',
+      'device_codes.device_code',
+      'device_codes.user_code',
+      'device_codes.user_id',
+      'device_codes.expires_at',
+      'device_codes.status',
+      'device_codes.last_polled_at',
+      'device_codes.polling_interval',
+      'device_codes.client_id',
+      'device_codes.scope',
+    ],
+  },
   {
     id: 'audit',
     from: 'us',

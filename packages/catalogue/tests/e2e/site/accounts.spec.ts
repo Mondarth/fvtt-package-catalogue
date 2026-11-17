@@ -56,7 +56,7 @@ test.describe('a nickname', () => {
     await expect(page.getByRole('status')).toHaveText(en.nickname_saved);
     await expect(profile).toHaveText(nickname);
 
-    await page.getByRole('button', { name: en.sign_out }).click();
+    await page.getByRole('button', { name: en.sign_out, exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
 
     profile = await signInAs(page, nameFor('carol', info));
@@ -71,7 +71,7 @@ test.describe('a nickname', () => {
 test('signing out ends the session', async ({ page }, info) => {
   const profile = await signInAs(page, nameFor('dave', info));
   await profile.click();
-  await page.getByRole('button', { name: en.sign_out }).click();
+  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
 
   await page.goto('/profile');
