@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.10.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.10.0...@mondarth/fvtt-package-catalogue-v0.10.1) (2026-11-17)
+
+### Bug Fixes
+
+* **catalogue:** let a device ask for codes and its token from any origin ([6b9b42c](https://github.com/Mondarth/fvtt-package-catalogue/commit/6b9b42c2af2770af1124ede15a3813531ae4c2d6))
+
 ## [@mondarth/fvtt-package-catalogue-v0.10.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.9.0...@mondarth/fvtt-package-catalogue-v0.10.0) (2026-11-17)
 
 ### Features
