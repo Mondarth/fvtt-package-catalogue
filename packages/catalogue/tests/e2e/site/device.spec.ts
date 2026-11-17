@@ -88,3 +88,35 @@ test('a code no device is waiting with is said to be so', async ({ page }, info)
   await expect(page.getByRole('alert')).toHaveText(en.device_unknown);
   await expect(page.getByRole('button', { name: en.device_approve })).toHaveCount(0);
 });
+
+test("a browser extension's background script may ask for codes and the token, from its own origin", async ({
+  request,
+}) => {
+  const origin = 'chrome-extension://emma-extension-id';
+  for (const path of ['/auth/device/code', '/auth/device/token']) {
+    const preflight = await request.fetch(path, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    });
+    expect(preflight.status(), path).toBe(204);
+    expect(preflight.headers()['access-control-allow-origin'], path).toBe('*');
+    expect(preflight.headers()['access-control-allow-headers'], path).toBe('Content-Type');
+  }
+  const asked = await request.post('/auth/device/code', {
+    headers: { Origin: origin },
+    data: { client_id: 'emma-extension' },
+  });
+  expect(asked.status()).toBe(200);
+  expect(asked.headers()['access-control-allow-origin']).toBe('*');
+  const { device_code: deviceCode } = (await asked.json()) as { device_code: string };
+  const polled = await request.post('/auth/device/token', {
+    headers: { Origin: origin },
+    data: { grant_type: GRANT, device_code: deviceCode, client_id: 'emma-extension' },
+  });
+  expect(polled.headers()['access-control-allow-origin']).toBe('*');
+  expect(await polled.json()).toMatchObject({ error: 'authorization_pending' });
+});

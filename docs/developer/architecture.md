@@ -219,8 +219,10 @@ from the catalogue so that it can move to a service of its own, shared by every 
   knows (`DEVICE_CLIENTS`, `emma-extension` for now) asks for codes, its user approves it on `routes/device`, signed
   in (the sign-in route takes `next`, a path of this site, to come back to: `accounts/next.ts`), and the client polls
   for a session's token. The session is marked with its client (`sessions.client_id`, by a `session.create` database
-  hook on the token endpoint), so that the profile's list of signed-in devices can say what each is. The device codes
-  (`device_codes`) expire after ten minutes, and are deleted as a client asks for new ones. Approving or denying a
+  hook on the token endpoint), so that the profile's list of signed-in devices can say what each is. `/auth/device/code` and `/auth/device/token` answer
+  CORS for any origin, without credentials (`http/handle.ts`, `DEVICE_CORS_PATHS`), so that an extension's
+  background script can call them; neither takes a cookie, and Better Auth checks the origin of any request that sends
+  one. The device codes (`device_codes`) expire after ten minutes, and are deleted as a client asks for new ones. Approving or denying a
   device, and signing a user's sessions out, are refused while an admin views the site as them. The profile lists and
   ends a user's sessions from the tables itself (`AccountsStore.sessionsOf`, `endSessions`): Better Auth's own listing
   and revoking ask for a session signed in within the day, which would refuse anyone signed in for longer.
