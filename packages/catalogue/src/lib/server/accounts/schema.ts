@@ -6,7 +6,7 @@
  *
  * What these tables hold is what the website's "What we store" page (`/privacy`) lays out: change one, change both.
  */
-import { bigserial, boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { sql } from 'drizzle-orm';
 
@@ -60,6 +60,8 @@ export const sessions = pgTable(
     userAgent: text(),
     /** The admin viewing the site as this session's user, for an impersonation's session: it lasts an hour. */
     impersonatedBy: text(),
+    /** The client a device signed in for, such as `emma-extension`; none for the website's own. */
+    clientId: text(),
     createdAt,
     updatedAt,
   },
@@ -139,4 +141,31 @@ export const auditLog = pgTable(
     index('audit_log_actor_id').on(table.actorId),
     index('audit_log_subject_id').on(table.subjectId),
   ],
+);
+
+/**
+ * A device signing in, such as EMMA's browser extension (`device.ts`): the code it polls with, the code its user enters
+ * or confirms, whose it is once they have looked, and whether they approved it. Kept until its codes expire, ten
+ * minutes on, or the device has its token.
+ */
+export const deviceCodes = pgTable(
+  'device_codes',
+  {
+    id: text().primaryKey(),
+    /** The code the device polls with, which it keeps to itself. */
+    deviceCode: text().notNull().unique(),
+    /** The code its user enters or confirms, such as `WDJBMJHT`. */
+    userCode: text().notNull().unique(),
+    /** The user who looked at it, signed in, and so may approve it. */
+    userId: text().references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    /** `pending`, `approved` or `denied`. */
+    status: text().notNull(),
+    lastPolledAt: timestamp({ withTimezone: true }),
+    pollingInterval: integer(),
+    /** The client signing in, such as `emma-extension`. */
+    clientId: text(),
+    scope: text(),
+  },
+  table => [index('device_codes_user_id').on(table.userId)],
 );

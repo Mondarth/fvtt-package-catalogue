@@ -59,7 +59,12 @@ describe('createAuth', () => {
     });
     expect(auth.options.basePath).toBe(AUTH_PATH);
     expect(auth.options.socialProviders.github).toEqual(github);
-    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth', 'admin', 'bearer']);
+    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual([
+      'generic-oauth',
+      'admin',
+      'bearer',
+      'device-authorization',
+    ]);
     expect(auth.options.account.encryptOAuthTokens).toBe(true);
   });
 
@@ -77,7 +82,12 @@ describe('createAuth', () => {
       patreon,
     });
     expect(auth.options.socialProviders).toEqual({ google, discord });
-    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual(['generic-oauth', 'admin', 'bearer']);
+    expect(auth.options.plugins.map(plugin => plugin.id)).toEqual([
+      'generic-oauth',
+      'admin',
+      'bearer',
+      'device-authorization',
+    ]);
     const { socialProviders } = await auth.$context;
     expect(socialProviders.map(provider => provider.id).sort()).toEqual(['discord', 'google', 'patreon']);
   });

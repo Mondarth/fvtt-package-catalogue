@@ -3,7 +3,10 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import Callout from '#lib/components/Callout.svelte';
+  import { clientName } from '#lib/device-clients.js';
   import { m } from '#lib/paraglide/messages.js';
+  import { getLocale } from '#lib/paraglide/runtime.js';
   import { providerName } from '#lib/providers.js';
 
   import type { PageProps } from './$types';
@@ -24,6 +27,11 @@
   };
 
   const profile = $derived(data.profile);
+  const date = (when: Date) => when.toLocaleString(getLocale());
+
+  /** What signed in, by its kind. */
+  const kindOf = (kind: string) =>
+    kind === 'website' ? m.devices_website() : kind === 'impersonation' ? m.devices_impersonation() : clientName(kind);
   const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
 </script>
 
@@ -77,6 +85,50 @@
 <form method="POST" action="/sign-out">
   <button type="submit">{m.sign_out()}</button>
 </form>
+
+<section aria-labelledby="devices">
+  <h2 id="devices">{m.devices_heading()}</h2>
+  <p class="hint">{m.devices_lede()}</p>
+  {#if form !== null && 'devices' in form}
+    <Callout>{m.devices_refused()}</Callout>
+  {:else if data.signedOut === 'one'}
+    <p role="status">{m.devices_signed_out()}</p>
+  {:else if data.signedOut === 'others'}
+    <p role="status">{m.devices_signed_out_others()}</p>
+  {/if}
+  <ul class="devices">
+    {#each data.devices as device (device.id)}
+      <li>
+        <div>
+          <strong>{kindOf(device.kind)}</strong>
+          {#if device.current}<span class="this">{m.devices_this()}</span>{/if}
+          {#if device.agent !== null}<span class="hint">{device.agent}</span>{/if}
+          <span class="hint">
+            {m.devices_created({ date: date(device.createdAt) })} · {m.devices_renewed({
+              date: date(device.updatedAt),
+            })}
+          </span>
+        </div>
+        {#if !device.current && !data.impersonated}
+          <form method="POST" action="?/signOut">
+            <input type="hidden" name="session" value={device.id} />
+            <button
+              type="submit"
+              aria-label={m.devices_sign_out_named({
+                device: kindOf(device.kind),
+                date: m.devices_created({ date: date(device.createdAt) }),
+              })}>{m.devices_sign_out()}</button>
+          </form>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+  {#if data.devices.length > 1 && !data.impersonated}
+    <form method="POST" action="?/signOutOthers">
+      <button type="submit">{m.devices_sign_out_others()}</button>
+    </form>
+  {/if}
+</section>
 
 <section aria-labelledby="delete" class="delete">
   <h2 id="delete">{m.delete_heading()}</h2>
@@ -159,5 +211,32 @@
     border: 1px solid var(--accent);
     color: var(--accent);
     background: none;
+  }
+
+  .devices {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .devices li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--note-bg);
+  }
+
+  .devices li div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .this {
+    color: var(--accent);
+    font-size: 0.9rem;
   }
 </style>

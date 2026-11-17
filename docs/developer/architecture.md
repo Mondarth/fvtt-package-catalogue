@@ -215,6 +215,13 @@ from the catalogue so that it can move to a service of its own, shared by every 
   notice signed with `AUTH_SECRET`, naming the user and good for ten minutes (`accounts/ban-notice.ts`); the sign-in
   page reads the ban's end and reason from the database for a notice it can verify, and for any other says only that
   the profile is banned.
+- **Devices sign in** by Better Auth's `device-authorization` plugin (`accounts/device.ts`): a client the catalogue
+  knows (`DEVICE_CLIENTS`, `emma-extension` for now) asks for codes, its user approves it on `routes/device`, signed
+  in (the sign-in route takes `next`, a path of this site, to come back to: `accounts/next.ts`), and the client polls
+  for a session's token. The session is marked with its client (`sessions.client_id`, by a `session.create` database
+  hook on the token endpoint), so that the profile's list of signed-in devices can say what each is. The device codes
+  (`device_codes`) expire after ten minutes, and are deleted as a client asks for new ones. Approving or denying a
+  device, and signing a user's sessions out, are refused while an admin views the site as them.
 - The **audit log** records who did it, as whom (while impersonating), what, to whom, and the change. The website's own
   changes made while impersonating, such as a nickname, are recorded by the routes that make them. Deleting a profile
   keeps the entries about it, but forgets what they held of it (their before and after).

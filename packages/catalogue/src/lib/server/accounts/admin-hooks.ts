@@ -1,11 +1,12 @@
 /**
- * Better Auth's hooks for its admin endpoints: what is refused even an admin, and the audit log of what admins did.
+ * Better Auth's hooks for its admin endpoints: what is refused even an admin, and the audit log of what admins did;
+ * and, as a device asks for codes, the deletion of those expired (see `device.ts`).
  * Hooks run for every call of an endpoint, the admin pages' and anyone's straight to `/auth/admin/…` alike, so these
  * hold however the endpoint is reached.
  *
  * Refused:
- * - while viewing the site as someone (impersonating): anything an admin does, deleting the profile, and linking or
- *   unlinking its providers, all but stopping;
+ * - while viewing the site as someone (impersonating): anything an admin does, deleting the profile, linking or
+ *   unlinking its providers, approving or denying a device, and signing its sessions out, all but stopping;
  * - an admin's role changed, banning or signing out by themselves;
  * - the role or ban of an admin named in `ADMIN_USER_IDS`, which only the deployment changes;
  * - viewing the site as another admin, even for those `ADMIN_USER_IDS` names, whom Better Auth would let;
@@ -18,6 +19,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from 'b
 
 import { eq } from 'drizzle-orm';
 
+import { DEVICE_CODE_PATH, deleteExpiredDeviceCodes } from './device.js';
 import { isAdmin, isRole } from './permissions.js';
 import { users } from './schema.js';
 
@@ -43,12 +45,17 @@ const AUDITED: Readonly<Record<string, AuditAction>> = {
   '/admin/revoke-user-sessions': 'user.revoke-sessions',
 };
 
-/** Endpoints refused while viewing the site as someone. */
+/** Endpoints refused while viewing the site as someone: an admin may not give a device, so themselves, the user's token. */
 const REFUSED_WHILE_IMPERSONATING = new Set([
   '/delete-user',
   '/link-social',
   '/unlink-account',
   '/oauth2/link',
+  '/device/approve',
+  '/device/deny',
+  '/revoke-session',
+  '/revoke-sessions',
+  '/revoke-other-sessions',
   ...Object.keys(AUDITED).filter(path => path !== '/admin/stop-impersonating'),
 ]);
 
@@ -141,6 +148,10 @@ export function adminHooks({ db, audit, adminUserIds }: AdminHooksOptions) {
 
   const before = createAuthMiddleware(async ctx => {
     const { path } = ctx;
+    if (path === DEVICE_CODE_PATH) {
+      await deleteExpiredDeviceCodes(db);
+      return;
+    }
     const action = AUDITED[path];
     if (action === undefined && !REFUSED_WHILE_IMPERSONATING.has(path)) return;
     const session = await getSessionFromCtx(ctx);

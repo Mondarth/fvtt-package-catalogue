@@ -29,6 +29,25 @@ endpoint while they are subscribed, or an admin; otherwise the API answers `subs
 subscription ended. The token of a session an admin is viewing the site in, as the user, is refused. Whether a user is
 subscribed is checked again at most a minute after it changes.
 
+### Signing a user in from a device
+
+A client running outside the website, such as EMMA's browser extension, gets a user's token by the OAuth 2 device
+authorization grant (RFC 8628). Only the clients the catalogue knows may: `emma-extension` for now.
+
+1. Ask for codes: `POST /auth/device/code` with `{ "client_id": "emma-extension" }`. The answer gives a `device_code`,
+   to keep to itself, a `user_code`, such as `WDJBMJHT`, the `verification_uri` (`<site>/device`) and
+   `verification_uri_complete` (with the code), `expires_in` (600 seconds) and `interval` (5 seconds).
+2. Show the user the code, and open `verification_uri_complete` for them. There they sign in, if they have not, see
+   which client asks and the code to check, and approve or deny it.
+3. Meanwhile poll `POST /auth/device/token` with `{ "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+   "device_code": "…", "client_id": "emma-extension" }`, no more often than `interval`. Until the user decides it
+   answers `authorization_pending` (or `slow_down`, if asked too often); then `access_denied`, or the token as
+   `access_token`. A code not used within its ten minutes answers `expired_token`.
+
+The token is a session of the user's, which they see in their profile's list of signed-in devices, by the client's
+name, and can sign out there. It lasts 30 days, renewed while it is used. An admin viewing the site as a user cannot
+approve a device for them.
+
 Each key and each user may make `API_RATE_PER_MINUTE` requests a minute (300 by default); the rest are answered
 `rate-limited` until the next minute.
 

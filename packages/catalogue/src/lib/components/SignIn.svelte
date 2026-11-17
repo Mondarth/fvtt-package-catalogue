@@ -19,9 +19,11 @@
      * failure.
      */
     banned?: { known: false } | { known: true; reason: string | null; until: Date | null } | null;
+    /** The page of this site to come back to, signed in; home if none. */
+    next?: string | undefined;
   }
 
-  let { providers, failed = false, banned = null }: Props = $props();
+  let { providers, failed = false, banned = null, next }: Props = $props();
 </script>
 
 <div class="logo"><Logo height="6rem" /></div>
@@ -57,6 +59,7 @@
     {#each providers as provider (provider)}
       <li>
         <form method="POST" action="/sign-in/{provider}">
+          {#if next !== undefined}<input type="hidden" name="next" value={next} />{/if}
           <button type="submit">{m.sign_in_with({ provider: providerName(provider) })}</button>
         </form>
       </li>

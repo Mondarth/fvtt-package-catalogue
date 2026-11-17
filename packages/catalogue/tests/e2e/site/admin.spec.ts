@@ -29,7 +29,7 @@ async function aUser(page: Page, name: string): Promise<string> {
   const bar = await signInAs(page, name);
   const handle = (await bar.getByRole('link', { name: /^Your profile/ }).textContent())?.trim() ?? '';
   await bar.getByRole('link', { name: /^Your profile/ }).click();
-  await page.getByRole('button', { name: en.sign_out }).click();
+  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
   return handle;
 }
@@ -94,7 +94,7 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
     .getByRole('navigation', { name: en.workspace_label })
     .getByRole('link', { name: /^Your profile/ })
     .click();
-  await page.getByRole('button', { name: en.sign_out }).click();
+  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
   await page.goto(`${FAKE_PROVIDER_URL}/as/${dave}`);
   await page.goto('/');
@@ -199,7 +199,7 @@ test.describe('subscriptions', () => {
       .getByRole('navigation', { name: en.workspace_label })
       .getByRole('link', { name: /^Your profile/ })
       .click();
-    await page.getByRole('button', { name: en.sign_out }).click();
+    await page.getByRole('button', { name: en.sign_out, exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
     const own = await signInAs(page, erin);
     await own.getByRole('link', { name: en.subscription_link }).click();
