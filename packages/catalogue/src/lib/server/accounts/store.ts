@@ -5,6 +5,7 @@
  */
 import { and, asc, count, desc, eq, gt, ilike, or } from 'drizzle-orm';
 
+import { isUniqueViolation } from '../db/errors.js';
 import { accounts, sessions, users } from './schema.js';
 
 import type { Database } from '../db/database.js';
@@ -76,16 +77,6 @@ const summary = {
 /** A search's text as a LIKE pattern that matches it anywhere, its own wildcards matched as themselves. */
 const anywhere = (text: string) => `%${text.replaceAll(/[\\%_]/g, character => `\\${character}`)}%`;
 
-/** PostgreSQL's code for a unique constraint broken. */
-const UNIQUE_VIOLATION = '23505';
-
-/** The code of a database error, wherever the driver puts it: Drizzle wraps the driver's error as its cause. */
-function codeOf(error: unknown): unknown {
-  if (typeof error !== 'object' || error === null) return undefined;
-  if ('code' in error && error.code !== undefined) return error.code;
-  return 'cause' in error ? codeOf(error.cause) : undefined;
-}
-
 /**
  * The store, over the database.
  *
@@ -106,7 +97,7 @@ export function accountsStore(db: Database): AccountsStore {
         await db.update(users).set({ nickname, updatedAt: new Date() }).where(eq(users.id, userId));
         return 'ok';
       } catch (error) {
-        if (codeOf(error) === UNIQUE_VIOLATION) return 'taken';
+        if (isUniqueViolation(error)) return 'taken';
         throw error;
       }
     },

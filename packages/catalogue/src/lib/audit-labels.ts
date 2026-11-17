@@ -11,6 +11,11 @@ const ACTIONS: Readonly<Record<string, () => string>> = {
   'user.stop-impersonating': m.audit_action_user_stop_impersonating,
   'user.revoke-sessions': m.audit_action_user_revoke_sessions,
   'profile.nickname': m.audit_action_profile_nickname,
+  'subscription.grant': m.audit_action_subscription_grant,
+  'subscription.set-end': m.audit_action_subscription_set_end,
+  'subscription.revoke': m.audit_action_subscription_revoke,
+  'offer.create': m.audit_action_offer_create,
+  'offer.retire': m.audit_action_offer_retire,
 };
 
 /**

@@ -141,6 +141,7 @@ describe('the layout, for an admin and while an admin views the site as someone'
   it('links the admin pages in the bar for an admin alone', () => {
     render(Layout, { children, params: {}, data: { signedIn: { name: 'Ulenar', admin: true, impersonated: false } } });
     expect(screen.getByRole('link', { name: en.admin_link })).toHaveAttribute('href', '/admin');
+    expect(screen.getByRole('link', { name: en.subscription_link })).toHaveAttribute('href', '/subscription');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 

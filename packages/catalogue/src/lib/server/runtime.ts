@@ -28,6 +28,7 @@ import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
+import { subscriptionStore } from './subscriptions/store.js';
 
 import { connect } from './db/connect.js';
 import { createLogger } from './log.js';
@@ -70,6 +71,9 @@ export const auth = createAuth({
   adminUserIds,
   audit,
 });
+
+/** Subscriptions, and the offers they are bought by. */
+export const subscriptions = subscriptionStore(connection.db);
 
 /** The accounts' tables, beyond what Better Auth does itself. */
 export const accounts = accountsStore(connection.db);
