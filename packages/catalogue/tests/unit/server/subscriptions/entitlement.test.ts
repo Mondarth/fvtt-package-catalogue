@@ -1,7 +1,12 @@
 import { isHttpError } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
 
-import { entitlementOf, requireEntitled } from '../../../../src/lib/server/subscriptions/entitlement.js';
+import {
+  cachedEntitlements,
+  ENTITLEMENT_CACHE_MS,
+  entitlementOf,
+  requireEntitled,
+} from '../../../../src/lib/server/subscriptions/entitlement.js';
 
 import type { SubscriptionStore } from '../../../../src/lib/server/subscriptions/store.js';
 
@@ -46,5 +51,46 @@ describe('requireEntitled', () => {
       (error: unknown) => error,
     );
     expect(isHttpError(refused, 403)).toBe(true);
+  });
+});
+
+describe('cachedEntitlements', () => {
+  it('keeps each user’s for a minute, then reads it again', async () => {
+    const { status, store } = storeWith(true);
+    let time = 1_000;
+    const entitlement = cachedEntitlements(
+      store,
+      () => false,
+      () => time,
+    );
+    expect(await entitlement({ id: 'u1' })).toEqual({ paidUntil: until, active: true, entitled: true });
+    await entitlement({ id: 'u1' });
+    expect(status).toHaveBeenCalledOnce();
+    time += ENTITLEMENT_CACHE_MS;
+    await entitlement({ id: 'u1' });
+    expect(status).toHaveBeenCalledTimes(2);
+    await entitlement({ id: 'u2' });
+    expect(status).toHaveBeenCalledTimes(3);
+  });
+
+  it('entitles an admin, subscribed or not, and reads the time now by default', async () => {
+    const entitlement = cachedEntitlements(storeWith(false).store, user => user.role === 'admin');
+    expect(await entitlement({ id: 'u1', role: 'admin' })).toMatchObject({ active: false, entitled: true });
+    expect(await entitlement({ id: 'u2', role: 'user' })).toMatchObject({ entitled: false });
+  });
+
+  it('keeps at most ten thousand users, forgetting the oldest first', async () => {
+    const { status, store } = storeWith(true);
+    const entitlement = cachedEntitlements(
+      store,
+      () => false,
+      () => 0,
+    );
+    for (let user = 0; user <= 10_000; user++) await entitlement({ id: `u${String(user)}` });
+    status.mockClear();
+    await entitlement({ id: 'u10000' });
+    expect(status).not.toHaveBeenCalled();
+    await entitlement({ id: 'u0' });
+    expect(status).toHaveBeenCalledOnce();
   });
 });

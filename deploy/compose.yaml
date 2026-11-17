@@ -59,6 +59,7 @@ services:
     environment:
       DATABASE_URL: *database-url
       API_KEYS: ${API_KEYS:?set API_KEYS in .env}
+      API_RATE_PER_MINUTE: ${API_RATE_PER_MINUTE:-}
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       SITE_URL: ${SITE_URL:?set SITE_URL in .env}
       AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}

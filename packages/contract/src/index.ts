@@ -11,6 +11,7 @@ export { CoreChannel, CoreRelease } from './core.js';
 export { SourceGap, Universe } from './universe.js';
 export {
   API_KEY_HEADER,
+  AUTHORIZATION_HEADER,
   CLIENT_HEADER,
   ConsistencyReport,
   ErrorCode,
@@ -39,6 +40,8 @@ export {
   PendingPackage,
   MANIFEST_PATH,
   MAX_RECHECK_PACKAGES,
+  ME_PATH,
+  MeResponse,
   ManifestRequest,
   ManifestResponse,
   RECHECK_MIN_SECONDS,
@@ -46,6 +49,7 @@ export {
   RecheckRequest,
   RecheckResponse,
   RecheckedPackage,
+  Role,
   STATUS_PATH,
   StatusResponse,
 } from './v2.js';

@@ -45,3 +45,50 @@ export function entitlementOf(
 export async function requireEntitled(entitlement: () => Promise<Entitlement>): Promise<void> {
   if (!(await entitlement()).entitled) error(403, 'A subscription is needed');
 }
+
+/** A user, as far as their entitlement goes. */
+export interface Entitled {
+  readonly id: string;
+  readonly role?: string | null | undefined;
+}
+
+/** How long a user's entitlement is kept before it is read again, in milliseconds: a revocation takes this long. */
+export const ENTITLEMENT_CACHE_MS = 60_000;
+
+/** The most users whose entitlement is kept at once; the oldest goes first. */
+const CACHED_USERS = 10_000;
+
+/**
+ * Entitlements for the API, each kept for {@link ENTITLEMENT_CACHE_MS}, so that a client's every request does not read
+ * its user's subscription.
+ *
+ * @param store - The subscriptions
+ * @param isAdmin - Whether a user is an admin
+ * @param now - The time now, in milliseconds since the epoch
+ * @returns What the API asks
+ */
+export function cachedEntitlements(
+  store: SubscriptionStore,
+  isAdmin: (user: Entitled) => boolean,
+  now: () => number = Date.now,
+): (user: Entitled) => Promise<Entitlement> {
+  const kept = new Map<string, { readonly until: number; readonly entitlement: Promise<Entitlement> }>();
+  return user => {
+    const at = now();
+    const found = kept.get(user.id);
+    if (found !== undefined && found.until > at) return found.entitlement;
+    const entitlement = store
+      .status(user.id, new Date(at))
+      .then(status => ({ ...status, entitled: isAdmin(user) || status.active }));
+    kept.delete(user.id);
+    if (kept.size >= CACHED_USERS) {
+      // A Map keeps the order of insertion: the first key is the oldest.
+      const [oldest] = kept.keys();
+      // A full map has a first key.
+      /* v8 ignore next */
+      if (oldest !== undefined) kept.delete(oldest);
+    }
+    kept.set(user.id, { until: at + ENTITLEMENT_CACHE_MS, entitlement });
+    return entitlement;
+  };
+}

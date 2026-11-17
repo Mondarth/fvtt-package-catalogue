@@ -6,24 +6,38 @@ client asks version 2. The schema of every request and response is in the
 [contract](https://www.npmjs.com/package/@mondarth/fvtt-package-catalogue-contract), as zod schemas a client can
 validate with.
 
-## API keys
+## Who is asking
 
-Every request needs a key, in the `X-API-Key` header, except the CORS preflight and `GET /healthz`:
+Every request says who is asking, except the CORS preflight and `GET /healthz`: with an API key, in the `X-API-Key`
+header, or with a signed-in user's token, as `Authorization: Bearer <token>`. The website's session cookie is never
+one: the API does not read it.
 
 ```shell
 curl -H "X-API-Key: $KEY" https://catalogue.example.com/api/v2/status
+curl -H "Authorization: Bearer $TOKEN" https://catalogue.example.com/api/v2/me
 ```
 
-As with EMMA's default proxy, a key ships inside the clients that use it, so it cannot be kept secret. It identifies a
-client and keeps out traffic that is not theirs; the data is public. The server accepts several keys at once
-(`API_KEYS`), so that a key can be replaced while clients move to the new one.
+**A key** ships inside the clients that use it, so it cannot be kept secret. It identifies a client and keeps out
+traffic that is not theirs; the data is public. The server accepts several keys at once (`API_KEYS`), so that a key can
+be replaced while clients move to the new one. A **module's key** (`module:<key>` in `API_KEYS`) reaches only what the
+EMMA module needs: lookups, the listing, Foundry VTT's builds and reading a manifest. A key without the prefix reaches
+every endpoint but `/me`, as every key did before keys had kinds; it is kept while EMMA's browser extension calls the
+API with one, until it signs its users in.
+
+**A user's token** is the token of their session on the website. It reaches `/me` at any time, and every other
+endpoint while they are subscribed, or an admin; otherwise the API answers `subscription-required`, saying when the
+subscription ended. The token of a session an admin is viewing the site in, as the user, is refused. Whether a user is
+subscribed is checked again at most a minute after it changes.
+
+Each key and each user may make `API_RATE_PER_MINUTE` requests a minute (300 by default); the rest are answered
+`rate-limited` until the next minute.
 
 A client may name itself in `X-Catalogue-Client`, such as `EMMA/0.6.0`. It is logged with the request.
 
 ## CORS
 
 Any origin may call the API, since Foundry VTT runs wherever its users host it. The server answers the preflight
-(`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `X-Catalogue-Client`, `Content-Type` and `If-None-Match` headers, and
+(`OPTIONS`) without a key, allowing `GET` and `POST` with the `X-API-Key`, `Authorization`, `X-Catalogue-Client`, `Content-Type` and `If-None-Match` headers, and
 lets it read the `ETag`.
 
 ## Endpoints
@@ -95,6 +109,12 @@ lets it read the `ETag`.
   available, as a manifest still gives them: counted, but nothing to put right) and `ownMissing` (packages whose own manifest gave a version it does not hold); and `requeued`, how many
   of the packages concerned it queued to crawl again, at most 500.
 
+`GET /api/v2/me`
+: Who a user's token is for, and whether they may use the API: `{ user: { handle, nickname, role }, subscription: {
+  paidUntil, active }, entitled }`. `role` is `user` or `admin`; `entitled` is whether the token reaches every
+  endpoint, subscribed or an admin. It answers whether or not they are subscribed, so that a client can say so, and
+  only a user's token, never a key.
+
 `GET /healthz`
 : `{ "status": "ok" }` while the server is up. It needs no key and does not touch the database.
 
@@ -109,7 +129,9 @@ Every error has the same body:
 | Code                 | Status | When                                                     |
 | -------------------- | -----: | -------------------------------------------------------- |
 | `bad-request`        |    400 | The request is malformed, such as an impossible id       |
-| `unauthorised`       |    401 | No `X-API-Key`, or one the server does not accept        |
+| `unauthorised`       |    401 | No key or token, or one the server does not accept       |
+| `forbidden`          |    403 | A key or token the server accepts, but not for this endpoint |
+| `subscription-required` | 403 | A user's token, without a subscription: `paidUntil` says when it ended, or is `null` if there never was one |
 | `not-found`          |    404 | No such package, or no such endpoint                     |
 | `method-not-allowed` |    405 | The endpoint does not take that method                  |
 | `rate-limited`       |    429 | Too many requests                                        |

@@ -8,16 +8,48 @@ import { z } from 'zod';
 /** A PostgreSQL connection string. */
 export const DatabaseUrl = z.url({ protocol: /^postgres(?:ql)?$/ });
 
-/** The API keys accepted, separated by commas; at least one. */
+/**
+ * What an API key reaches: `module`, the endpoints the EMMA module needs (see `http/access.ts`); `full`, every endpoint
+ * but `/me`, as every key did before keys had kinds, kept while EMMA's browser extension still calls the API with one,
+ * until it signs its users in.
+ */
+export type ApiKeyKind = 'module' | 'full';
+
+/** An API key, and what it reaches. */
+export interface ApiKey {
+  readonly kind: ApiKeyKind;
+  readonly key: string;
+}
+
+/**
+ * The API keys accepted, separated by commas; at least one. Each is `module:<key>` for a module's key, or the key
+ * alone for one that reaches every endpoint.
+ */
 export const ApiKeys = z
   .string()
   .transform(value =>
     value
       .split(',')
       .map(key => key.trim())
-      .filter(key => key !== ''),
+      .filter(key => key !== '')
+      .map((entry): ApiKey =>
+        entry.startsWith('module:')
+          ? { kind: 'module', key: entry.slice('module:'.length) }
+          : { kind: 'full', key: entry },
+      ),
   )
-  .pipe(z.array(z.string().min(1)).min(1, 'at least one API key is needed'));
+  .pipe(
+    z
+      .array(z.object({ kind: z.enum(['module', 'full']), key: z.string().min(1, 'a key may not be empty') }))
+      .min(1, 'at least one API key is needed'),
+  );
+
+/** The most API requests one key or user may make in a minute; 300 by default, or when compose gives it empty. */
+export const ApiRatePerMinute = z
+  .string()
+  .optional()
+  .transform(value => (value === undefined || value.trim() === '' ? 300 : Number(value)))
+  .pipe(z.number().int().positive());
 
 /**
  * The users who are admins whatever their role, by their user ids, separated by commas; none by default. The first

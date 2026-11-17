@@ -7,10 +7,17 @@ import { z } from 'zod';
 import { PackageRef } from './package.js';
 
 /**
- * The header that carries the API key. Every API request needs one, except the CORS preflight.
- * The key identifies a client rather than protecting the data, which is public.
+ * The header that carries the API key: one of the two ways an API request says who is asking, the other a signed-in
+ * user's token. Every API request needs one, except the CORS preflight. A key identifies a client rather than
+ * protecting the data, which is public; a module's key reaches only the endpoints a module needs.
  */
 export const API_KEY_HEADER = 'X-API-Key';
+
+/**
+ * The header that carries a signed-in user's token, as `Bearer <token>`: the other way an API request says who is
+ * asking. A user's token reaches every endpoint while they are subscribed, or an admin; `/me` at any time.
+ */
+export const AUTHORIZATION_HEADER = 'Authorization';
 
 /** The header a client names itself and its version in, such as `EMMA/0.6.0`. Optional. */
 export const CLIENT_HEADER = 'X-Catalogue-Client';
@@ -79,7 +86,12 @@ export type HealthResponse = z.infer<typeof HealthResponse>;
 /** Why a request failed. */
 export const ErrorCode = z.enum([
   'bad-request',
+  /** No key or token, or one the catalogue does not accept. */
   'unauthorised',
+  /** A key or token the catalogue accepts, but not for this endpoint. */
+  'forbidden',
+  /** A user's token, whose subscription has ended or never was: `paidUntil` says when it ended. */
+  'subscription-required',
   'not-found',
   'method-not-allowed',
   'rate-limited',
@@ -95,6 +107,8 @@ export const ErrorResponse = z.object({
     message: z.string(),
     /** Identifies the request in the server's logs. */
     requestId: z.string().exactOptional(),
+    /** For `subscription-required`: when the subscription ended, as an ISO 8601 time; null if there never was one. */
+    paidUntil: z.iso.datetime().nullable().exactOptional(),
   }),
 });
 export type ErrorResponse = z.infer<typeof ErrorResponse>;

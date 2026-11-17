@@ -258,5 +258,10 @@
   "privacy_subscription_why": "Knowing whether you are subscribed, and until when. Deleting your profile deletes it.",
   "privacy_payment_what": "For a payment: which payment provider took it, what it was paid with (such as a card), and the provider's reference for it",
   "privacy_payment_why": "Matching a payment to the time it bought, and finding it with the provider if you ask about it. No card numbers, names, addresses or amounts are kept: the provider keeps the invoice.",
-  "admin_problem_ban_days": "Give a whole number of days, at most 3660 (ten years), or leave it empty for a ban until lifted."
+  "admin_problem_ban_days": "Give a whole number of days, at most 3660 (ten years), or leave it empty for a ban until lifted.",
+  "endpoint_me_summary": "Who a user's token is for, and their subscription.",
+  "endpoint_callers_module": "A key, the EMMA module's among them, or a subscriber's token.",
+  "endpoint_callers_full": "A key that is not a module's, or a subscriber's token.",
+  "endpoint_callers_user": "A user's token, subscribed or not.",
+  "developers_auth": "Every request says who is asking: an API key, in the X-API-Key header, or a signed-in user's token, as Authorization: Bearer <token>. A user's token reaches every endpoint while they are subscribed; without a subscription the API answers subscription-required, saying when it ended."
 }
