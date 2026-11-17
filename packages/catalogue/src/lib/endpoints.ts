@@ -31,9 +31,9 @@ export interface Endpoint {
 
 export const ENDPOINTS: readonly Endpoint[] = [
   { method: 'POST', path: LOOKUP_PATH, summary: m.endpoint_lookup_summary, callers: 'module' },
-  { method: 'GET', path: LISTING_PATH, summary: m.endpoint_listing_summary, callers: 'module' },
-  { method: 'GET', path: CORE_PATH, summary: m.endpoint_core_summary, callers: 'module' },
-  { method: 'POST', path: MANIFEST_PATH, summary: m.endpoint_manifest_summary, callers: 'module' },
+  { method: 'GET', path: LISTING_PATH, summary: m.endpoint_listing_summary, callers: 'full' },
+  { method: 'GET', path: CORE_PATH, summary: m.endpoint_core_summary, callers: 'full' },
+  { method: 'POST', path: MANIFEST_PATH, summary: m.endpoint_manifest_summary, callers: 'full' },
   { method: 'POST', path: RECHECK_PATH, summary: m.endpoint_recheck_summary, callers: 'full' },
   { method: 'GET', path: STATUS_PATH, summary: m.endpoint_status_summary, callers: 'full' },
   { method: 'GET', path: ME_PATH, summary: m.endpoint_me_summary, callers: 'user' },

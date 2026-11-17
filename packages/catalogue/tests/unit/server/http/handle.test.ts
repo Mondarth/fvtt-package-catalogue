@@ -198,15 +198,12 @@ describe('who may call what', () => {
     };
   }
 
-  it.each(['/api/v2/lookup', '/api/v2/listing', '/api/v2/core', '/api/v2/manifest'])(
-    "lets a module's key call %s",
-    async path => {
-      const { run } = setUp();
-      expect((await run(path, { headers: { 'X-API-Key': 'modules-key' } }).response).status).toBe(200);
-    },
-  );
+  it("lets a module's key call lookups", async () => {
+    const { run } = setUp();
+    expect((await run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } }).response).status).toBe(200);
+  });
 
-  it.each(['/api/v2/recheck', '/api/v2/status', '/api/v2/me'])(
+  it.each(['/api/v2/listing', '/api/v2/core', '/api/v2/manifest', '/api/v2/recheck', '/api/v2/status', '/api/v2/me'])(
     "refuses a module's key %s, as forbidden",
     async path => {
       const { resolve, run } = setUp();

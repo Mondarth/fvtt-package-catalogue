@@ -45,9 +45,11 @@ has no way out. Nothing is published on the host.
    : The database's password. It goes into a connection URL, so keep to URL-safe characters: `openssl rand -hex 32`.
 
    `API_KEYS`
-   : The keys clients present, separated by commas (`openssl rand -hex 32`). The EMMA module's key goes in as
-     `module:<key>`, which reaches only what the module needs; a key without the prefix reaches every endpoint, and
-     is kept for EMMA's browser extension until it signs its users in. See [the API](api.md#who-is-asking).
+   : The keys clients present, separated by commas (`openssl rand -hex 32`). A key listed as `module:<key>` reaches
+     only lookups, what the EMMA module calls; a key without the prefix reaches every endpoint. Give the prefix only
+     to a key the module alone is built with: while EMMA's module and browser extension share a key, as releases
+     before the extension signs its users in do, list it without the prefix, since the extension calls the listing,
+     manifests and rechecks too. See [the API](api.md#who-is-asking).
 
    `API_RATE_PER_MINUTE` (optional)
    : The most API requests one key or user may make in a minute; 300 by default.

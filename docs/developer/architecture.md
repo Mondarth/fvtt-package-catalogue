@@ -259,8 +259,8 @@ request says who is asking with an API key (`X-API-Key`) or a user's token (`Aut
 Auth's `bearer` plugin), never the session cookie: the runtime hands Better Auth the bearer header alone
 (`runtime.ts`, `apiUsers`).
 
-- A key's kind comes from `API_KEYS`: `module:<key>` reaches lookups, the listing, the builds and manifests
-  (`MODULE_PATHS`); a key alone, every endpoint but `/me`.
+- A key's kind comes from `API_KEYS`: `module:<key>` reaches lookups alone, what the EMMA module calls
+  (`MODULE_PATHS`; widened only as the module comes to call more); a key alone, every endpoint but `/me`.
 - A user's token reaches `/me`, and everything else while they are entitled (`subscriptions/entitlement.ts`,
   `cachedEntitlements`, kept a minute per user); otherwise `subscription-required`, with `paidUntil`. A session an
   admin is viewing the site in is `forbidden`.
