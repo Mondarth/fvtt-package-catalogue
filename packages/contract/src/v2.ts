@@ -33,6 +33,9 @@ export const RECHECK_PATH = `${API_V2_BASE}/recheck`;
 /** The path of what the catalogue holds. */
 export const STATUS_PATH = `${API_V2_BASE}/status`;
 
+/** The path of the signed-in user a token is for, and their subscription: for a user's token alone. */
+export const ME_PATH = `${API_V2_BASE}/me`;
+
 /** The most packages one recheck may ask for: those a user means to see fresh, not every package installed. */
 export const MAX_RECHECK_PACKAGES = 50;
 
@@ -250,3 +253,29 @@ export const StatusResponse = z.object({
   consistency: ConsistencyReport.nullable(),
 });
 export type StatusResponse = z.infer<typeof StatusResponse>;
+
+/** A user's role. */
+export const Role = z.enum(['user', 'admin']);
+export type Role = z.infer<typeof Role>;
+
+/**
+ * `GET /api/v2/me`: who a user's token is for, and whether they may use the API, for a client to say so, such as to
+ * ask them to renew. It answers whether or not they are subscribed.
+ */
+export const MeResponse = z.object({
+  user: z.object({
+    /** Their user id, three words and two digits, as the website shows it. */
+    handle: z.string(),
+    /** The name they chose to be shown by, if any. */
+    nickname: z.string().nullable(),
+    role: Role,
+  }),
+  subscription: z.object({
+    /** When it ends or ended, as an ISO 8601 time; null if there never was one. */
+    paidUntil: z.iso.datetime().nullable(),
+    active: z.boolean(),
+  }),
+  /** Whether the token reaches every endpoint: subscribed, or an admin. */
+  entitled: z.boolean(),
+});
+export type MeResponse = z.infer<typeof MeResponse>;

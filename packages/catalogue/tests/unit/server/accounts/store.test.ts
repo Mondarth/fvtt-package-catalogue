@@ -125,3 +125,52 @@ describe('userDetail', () => {
     expect(await accountsStore(db).userDetail('nobody')).toBeUndefined();
   });
 });
+
+describe('sessions', () => {
+  const later = () => new Date(Date.now() + 60_000);
+
+  beforeEach(async () => {
+    await db.insert(sessions).values([
+      { id: 's1', token: 't1', userId: 'u1', expiresAt: later(), createdAt: new Date('2026-11-01T00:00:00Z') },
+      {
+        id: 's2',
+        token: 't2',
+        userId: 'u1',
+        expiresAt: later(),
+        createdAt: new Date('2026-11-02T00:00:00Z'),
+        clientId: 'emma-extension',
+        userAgent: 'Firefox/140.0',
+      },
+      { id: 'gone', token: 't3', userId: 'u1', expiresAt: new Date(Date.now() - 60_000) },
+      { id: 'theirs', token: 't4', userId: 'u2', expiresAt: later() },
+    ]);
+  });
+
+  it("lists a user's sessions that have not ended, the newest first, without their tokens", async () => {
+    const found = await accountsStore(db).sessionsOf('u1');
+    expect(found.map(session => session.id)).toEqual(['s2', 's1']);
+    expect(found[0]).toEqual({
+      id: 's2',
+      createdAt: new Date('2026-11-02T00:00:00Z'),
+      updatedAt: expect.any(Date) as Date,
+      userAgent: 'Firefox/140.0',
+      clientId: 'emma-extension',
+      impersonatedBy: null,
+    });
+    expect(found[0]).not.toHaveProperty('token');
+  });
+
+  it('ends one of the user’s own sessions, and never another’s', async () => {
+    const store = accountsStore(db);
+    expect(await store.endSessions('u1', { only: 'theirs' })).toBe(0);
+    expect(await store.endSessions('u1', { only: 's2' })).toBe(1);
+    expect((await store.sessionsOf('u1')).map(session => session.id)).toEqual(['s1']);
+    expect((await store.sessionsOf('u2')).map(session => session.id)).toEqual(['theirs']);
+  });
+
+  it('ends every one of the user’s sessions but the one given', async () => {
+    const store = accountsStore(db);
+    expect(await store.endSessions('u1', { except: 's1' })).toBe(2);
+    expect((await db.select({ id: sessions.id }).from(sessions)).map(row => row.id).sort()).toEqual(['s1', 'theirs']);
+  });
+});

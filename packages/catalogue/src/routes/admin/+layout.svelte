@@ -12,6 +12,7 @@
 
   const LINKS = [
     { href: '/admin/users', label: m.admin_nav_users },
+    { href: '/admin/subscriptions', label: m.admin_nav_subscriptions },
     { href: '/admin/audit', label: m.admin_nav_audit },
   ] as const;
 </script>

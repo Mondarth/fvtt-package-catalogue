@@ -244,3 +244,6 @@ export const syncRuns = pgTable('sync_runs', {
 
 /** The accounts' tables, kept in a module of their own (see accounts/schema.ts). */
 export * from '../accounts/schema.js';
+
+/** Subscriptions' tables, kept in a module of their own (see subscriptions/schema.ts). */
+export * from '../subscriptions/schema.js';

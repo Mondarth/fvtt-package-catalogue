@@ -215,6 +215,15 @@ from the catalogue so that it can move to a service of its own, shared by every 
   notice signed with `AUTH_SECRET`, naming the user and good for ten minutes (`accounts/ban-notice.ts`); the sign-in
   page reads the ban's end and reason from the database for a notice it can verify, and for any other says only that
   the profile is banned.
+- **Devices sign in** by Better Auth's `device-authorization` plugin (`accounts/device.ts`): a client the catalogue
+  knows (`DEVICE_CLIENTS`, `emma-extension` for now) asks for codes, its user approves it on `routes/device`, signed
+  in (the sign-in route takes `next`, a path of this site, to come back to: `accounts/next.ts`), and the client polls
+  for a session's token. The session is marked with its client (`sessions.client_id`, by a `session.create` database
+  hook on the token endpoint), so that the profile's list of signed-in devices can say what each is. The device codes
+  (`device_codes`) expire after ten minutes, and are deleted as a client asks for new ones. Approving or denying a
+  device, and signing a user's sessions out, are refused while an admin views the site as them. The profile lists and
+  ends a user's sessions from the tables itself (`AccountsStore.sessionsOf`, `endSessions`): Better Auth's own listing
+  and revoking ask for a session signed in within the day, which would refuse anyone signed in for longer.
 - The **audit log** records who did it, as whom (while impersonating), what, to whom, and the change. The website's own
   changes made while impersonating, such as a nickname, are recorded by the routes that make them. Deleting a profile
   keeps the entries about it, but forgets what they held of it (their before and after).
@@ -222,6 +231,42 @@ from the catalogue so that it can move to a service of its own, shared by every 
   `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
   (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
   {doc}`setup`.
+
+### Subscriptions
+
+`lib/server/subscriptions/` keeps subscriptions, beside the accounts:
+
+- **Credits** (`subscription_credits`): each a span of time a user is subscribed for, with where it came from (`grant`,
+  `patreon` or `payment`), the provider, method and provider's reference of a payment, the offer it was bought by, its
+  period, and the admin who granted it with their note. A user is subscribed until the latest credit ends.
+  `(provider, external_ref)` is unique, so a payment its provider reports twice is credited once.
+- **The credit rule** (`store.ts`): time starts at the later of now and the subscription's end, and runs for its period
+  in calendar months and days (`period.ts`: twelve months from 31 January end on 31 January; one month from it, on the
+  last day of February). Each change is made in a transaction that holds the user's profile (`FOR UPDATE`), so that
+  two cannot start from the same end. Setting an earlier end cuts every credit back to it.
+- **Offers** (`subscription_offers`): a period, a price in each currency in its minor unit (`lib/prices.ts`), the dates
+  it is on sale between, and when it was retired. Never edited: a change is a new offer.
+- **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
+  subscription gives (an admin always may), read once a request and only when asked. A feature that needs it calls
+  `requireEntitled` in its form actions, so that without a subscription its pages load but change nothing.
+- Admins grant, set the end of and revoke subscriptions, and make and retire offers, from the admin pages, each
+  recorded in the audit log (`subscription.*`, `offer.*`).
+
+### Who may call the API
+
+`lib/server/http/access.ts` holds who may call which endpoint, and `http/handle.ts` applies it before any route. A
+request says who is asking with an API key (`X-API-Key`) or a user's token (`Authorization: Bearer`, through Better
+Auth's `bearer` plugin), never the session cookie: the runtime hands Better Auth the bearer header alone
+(`runtime.ts`, `apiUsers`).
+
+- A key's kind comes from `API_KEYS`: `module:<key>` reaches lookups alone, what the EMMA module calls
+  (`MODULE_PATHS`; widened only as the module comes to call more); a key alone, every endpoint but `/me`.
+- A user's token reaches `/me`, and everything else while they are entitled (`subscriptions/entitlement.ts`,
+  `cachedEntitlements`, kept a minute per user); otherwise `subscription-required`, with `paidUntil`. A session an
+  admin is viewing the site in is `forbidden`.
+- Each key and user has `API_RATE_PER_MINUTE` requests a minute (`rateLimiter`).
+- The endpoint is given `locals.caller`: the key's kind, or the user and their entitlement. `/me` answers from it.
+- `lib/endpoints.ts` says who may call each endpoint for `/developers`; a test checks it against `access.ts`.
 
 ### The environment
 
@@ -233,7 +278,8 @@ read and validated again at start-up, come from the environment the server runs 
 | Variable       | Required | Meaning                                                    |
 | -------------- | -------- | ---------------------------------------------------------- |
 | `DATABASE_URL` | yes      | The PostgreSQL connection string                           |
-| `API_KEYS`     | yes      | The keys accepted, separated by commas                     |
+| `API_KEYS`     | yes      | The keys accepted, separated by commas; `module:<key>` for the EMMA module's |
+| `API_RATE_PER_MINUTE` | no | The most API requests one key or user may make in a minute; 300 by default |
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
 | `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
 | `SITE_URL`     | yes      | The website's address as visitors reach it                 |

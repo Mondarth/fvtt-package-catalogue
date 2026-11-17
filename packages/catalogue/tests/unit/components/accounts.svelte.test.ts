@@ -63,7 +63,20 @@ describe('the profile page', () => {
   const profile = (
     data: Partial<{ profile: typeof PROFILE; problem: 'stale' | 'unconfirmed' | null; saved: boolean }> = {},
     form: unknown = null,
-  ) => render(Profile, { data: { profile: PROFILE, problem: null, saved: false, ...data }, form, params: {} } as never);
+  ) =>
+    render(Profile, {
+      data: {
+        profile: PROFILE,
+        problem: null,
+        saved: false,
+        devices: [],
+        signedOut: null,
+        impersonated: false,
+        ...data,
+      },
+      form,
+      params: {},
+    } as never);
 
   it('shows the user id, the nickname field, and what is stored about them', () => {
     profile();

@@ -6,6 +6,7 @@
 
 <h1>{m.developers_heading()}</h1>
 <p class="lede">{m.home_lede()}</p>
+<p>{m.developers_auth()}</p>
 
 <EndpointList endpoints={ENDPOINTS} />
 

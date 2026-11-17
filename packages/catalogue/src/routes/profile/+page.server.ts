@@ -1,6 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 
 import { checkNickname } from '#lib/server/accounts/nickname.js';
+import { field } from '#lib/server/form.js';
+import { describeAgent } from '#lib/user-agent.js';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -9,6 +11,35 @@ const PROBLEMS = ['unconfirmed', 'stale', 'impersonating'] as const;
 type Problem = (typeof PROBLEMS)[number];
 
 const isProblem = (value: string | null): value is Problem => (PROBLEMS as readonly (string | null)[]).includes(value);
+
+/** A session, as the list of signed-in devices shows it: never its token. */
+export interface Device {
+  readonly id: string;
+  /** What signed in: the website, a client by its id, or an admin viewing the site as the user. */
+  readonly kind: string;
+  readonly current: boolean;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly agent: string | null;
+}
+
+/**
+ * The user's sessions, the current first, then the newest, read from the accounts' tables: Better Auth's own listing
+ * asks for a session signed in within the day, which looking at one's own devices should not.
+ */
+async function devicesOf(locals: App.Locals, userId: string): Promise<Device[]> {
+  const sessions = await locals.accounts.sessionsOf(userId);
+  return sessions
+    .map(session => ({
+      id: session.id,
+      kind: session.impersonatedBy !== null ? 'impersonation' : (session.clientId ?? 'website'),
+      current: session.id === locals.session?.id,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      agent: describeAgent(session.userAgent),
+    }))
+    .sort((a, b) => Number(b.current) - Number(a.current) || b.createdAt.getTime() - a.createdAt.getTime());
+}
 
 /** The signed-in user's profile, and what is stored about them; the sign-in page for anyone else. */
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -26,6 +57,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     },
     problem: isProblem(problem) ? problem : null,
     saved: url.searchParams.has('saved'),
+    devices: await devicesOf(locals, user.id),
+    signedOut: url.searchParams.get('signed-out'),
+    // An admin viewing the site as the user may not sign their devices out; Better Auth's hooks refuse it too.
+    impersonated: typeof locals.session?.impersonatedBy === 'string',
   };
 };
 
@@ -58,5 +93,30 @@ export const actions: Actions = {
       });
     }
     redirect(303, '/profile?saved');
+  },
+
+  /**
+   * Signs one of the user's sessions out, by its id, ending it at once: theirs alone. Better Auth's own revoking asks
+   * for a session signed in within the day, which would have someone who fears a session stolen sign in again first.
+   * An admin viewing the site as the user may not.
+   */
+  signOut: async ({ locals, request }) => {
+    const { user } = locals;
+    if (user === null) redirect(303, '/');
+    if (typeof locals.session?.impersonatedBy === 'string') return fail(403, { devices: 'refused' as const });
+    const id = field(await request.formData(), 'session');
+    if (id === locals.session?.id || (await locals.accounts.endSessions(user.id, { only: id })) === 0) {
+      return fail(404, { devices: 'refused' as const });
+    }
+    redirect(303, '/profile?signed-out=one');
+  },
+
+  /** Signs every session out but this one. */
+  signOutOthers: async ({ locals }) => {
+    const { user, session } = locals;
+    if (user === null || session === null) redirect(303, '/');
+    if (typeof session.impersonatedBy === 'string') return fail(403, { devices: 'refused' as const });
+    await locals.accounts.endSessions(user.id, { except: session.id });
+    redirect(303, '/profile?signed-out=others');
   },
 };

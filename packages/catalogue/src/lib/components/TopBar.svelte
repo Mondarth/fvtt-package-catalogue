@@ -1,6 +1,8 @@
 <!--
-  The workspace's bar along the top of every page while signed in: its menu, which has the admin pages for an admin,
-  the language picker, and, at the far right, the button to the user's profile, showing the name they are shown by.
+  The workspace's bar along the top of every page while signed in: its menu, the user's subscription and, for an admin,
+  the admin pages,
+  then the language picker, and, at the far right, the button to the user's profile, showing the name they are shown
+  by.
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
@@ -19,6 +21,7 @@
 
 <nav aria-label={m.workspace_label()}>
   <ul class="menu">
+    <li><a href={resolve('/subscription')}>{m.subscription_link()}</a></li>
     {#if admin}
       <li><a href={resolve('/admin')}>{m.admin_link()}</a></li>
     {/if}

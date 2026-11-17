@@ -6,8 +6,8 @@ import { inLocale } from '../support/locale.js';
 import { messagesOf } from '../support/messages.js';
 
 const endpoints = [
-  { method: 'GET', path: '/api/v2/status', summary: () => 'What the catalogue holds.' },
-  { method: 'GET', path: '/api/v2/other', summary: () => 'Something else.' },
+  { method: 'GET', path: '/api/v2/status', summary: () => 'What the catalogue holds.', callers: 'full' },
+  { method: 'GET', path: '/api/v2/me', summary: () => 'Who.', callers: 'user' },
 ] as const;
 
 describe('EndpointList', () => {
@@ -18,6 +18,9 @@ describe('EndpointList', () => {
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent('GET /api/v2/status');
     expect(items[0]).toHaveTextContent('What the catalogue holds.');
+    const en = messagesOf('en');
+    expect(items[0]).toHaveTextContent(en.endpoint_callers_full);
+    expect(items[1]).toHaveTextContent(en.endpoint_callers_user);
   });
 
   it('says when there are none', () => {

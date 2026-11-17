@@ -8,6 +8,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { AuditStore } from '../../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore } from '../../../../src/lib/server/accounts/store.js';
+import type { SubscriptionStore } from '../../../../src/lib/server/subscriptions/store.js';
 
 const USER = { id: 'u1', handle: 'amber-fox-oak-01' };
 const SESSION = { id: 's1', userId: 'u1' };
@@ -27,6 +28,7 @@ function setUp(found: { user: typeof USER; session: typeof SESSION } | null) {
     audit,
     adminUserIds: ['u-admin'],
     banNotices: banNotices('a-test-secret-a-test-secret-a-test-secret'),
+    subscriptions: {} as SubscriptionStore,
   });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(new Response('page')));
   const run = (path: string) => {

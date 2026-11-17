@@ -8,6 +8,7 @@ import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import {
   ADMIN_USER_IDS,
   API_KEYS,
+  API_RATE_PER_MINUTE,
   AUTH_DISCORD_ID,
   AUTH_DISCORD_SECRET,
   AUTH_GITHUB_ID,
@@ -28,6 +29,11 @@ import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
+import { isAdmin } from './accounts/permissions.js';
+import { cachedEntitlements } from './subscriptions/entitlement.js';
+import { subscriptionStore } from './subscriptions/store.js';
+
+import type { ApiUsers } from './http/handle.js';
 
 import { connect } from './db/connect.js';
 import { createLogger } from './log.js';
@@ -71,6 +77,9 @@ export const auth = createAuth({
   audit,
 });
 
+/** Subscriptions, and the offers they are bought by. */
+export const subscriptions = subscriptionStore(connection.db);
+
 /** The accounts' tables, beyond what Better Auth does itself. */
 export const accounts = accountsStore(connection.db);
 
@@ -93,3 +102,26 @@ export const http = () =>
     budget: { maxRequests: MAX_RECHECK_PACKAGES },
     userAgent,
   });
+
+/** The most API requests one key or user may make in a minute. */
+export const apiRatePerMinute: number = API_RATE_PER_MINUTE;
+
+/**
+ * Users' tokens, for the API: a token is given to Better Auth as the only header, a bearer's, so that no cookie can
+ * stand in for it; the session found is its user's, the admin viewing the site as them marked.
+ */
+export const apiUsers: ApiUsers = {
+  async userOf(token) {
+    const found = await auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) });
+    if (found === null) return undefined;
+    const { user, session } = found;
+    return {
+      id: user.id,
+      handle: user.handle,
+      nickname: user.nickname ?? null,
+      role: isAdmin(user, adminUserIds) ? 'admin' : 'user',
+      impersonated: typeof session.impersonatedBy === 'string',
+    };
+  },
+  entitlement: cachedEntitlements(subscriptions, user => user.role === 'admin'),
+};

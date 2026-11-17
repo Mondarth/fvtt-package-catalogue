@@ -269,9 +269,19 @@ describe('the profile page', () => {
     const linkedProviders = vi.fn(() => Promise.resolve([{ providerId: 'github', linkedAt: new Date() }]));
     const loaded = (url: string, user: object = USER) =>
       profileLoad(
-        fakeEvent<ProfileEvent>({ url, locals: { user: user as never, accounts: accounts({ linkedProviders }) } }),
+        fakeEvent<ProfileEvent>({
+          url,
+          locals: {
+            user: user as never,
+            session: SESSION as never,
+            accounts: accounts({ linkedProviders, sessionsOf: () => Promise.resolve([]) }),
+          },
+        }),
       );
     await expect(loaded('http://catalogue.test/profile?problem=stale&saved')).resolves.toEqual({
+      devices: [],
+      signedOut: null,
+      impersonated: false,
       profile: {
         handle: USER.handle,
         nickname: null,

@@ -11,15 +11,18 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { admin } from 'better-auth/plugins/admin';
+import { bearer } from 'better-auth/plugins/bearer';
+import { deviceAuthorization } from 'better-auth/plugins/device-authorization';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
 import { eq } from 'drizzle-orm';
 
 import { adminHooks, DISABLED_ADMIN_PATHS } from './admin-hooks.js';
 import { banNotices } from './ban-notice.js';
+import { DEVICE_CODE_LIFETIME, DEVICE_POLL_INTERVAL, DEVICE_TOKEN_PATH, isDeviceClient } from './device.js';
 import { freeHandle } from './handles.js';
 import { ac, roles } from './permissions.js';
-import { accounts, sessions, users, verifications } from './schema.js';
+import { accounts, deviceCodes, sessions, users, verifications } from './schema.js';
 
 import type { Database } from '../db/database.js';
 import type { AuditStore } from './audit.js';
@@ -134,7 +137,13 @@ export function createAuth(options: AuthOptions) {
     secret: options.secret,
     database: drizzleAdapter(db, {
       provider: 'pg',
-      schema: { user: users, session: sessions, account: accounts, verification: verifications },
+      schema: {
+        user: users,
+        session: sessions,
+        account: accounts,
+        verification: verifications,
+        deviceCode: deviceCodes,
+      },
     }),
     // There is no signing in with a password: only through a provider.
     emailAndPassword: { enabled: false },
@@ -158,6 +167,15 @@ export function createAuth(options: AuthOptions) {
         // page reads why they are banned (see `ban-notice.ts`), never text of its own.
         bannedUserMessage: user => notices.make(user.id),
       }),
+      // A session's token, as `Authorization: Bearer`, for the API (see `http/access.ts`).
+      bearer(),
+      // Signing a device in, such as EMMA's browser extension (see `device.ts`).
+      deviceAuthorization({
+        expiresIn: DEVICE_CODE_LIFETIME,
+        interval: DEVICE_POLL_INTERVAL,
+        validateClient: isDeviceClient,
+        verificationUri: '/device',
+      }),
     ],
     disabledPaths: DISABLED_ADMIN_PATHS,
     hooks: adminHooks({ db, audit, adminUserIds }),
@@ -175,9 +193,27 @@ export function createAuth(options: AuthOptions) {
       // Signed in for 30 days, and for 30 more each day the site is used.
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
+      additionalFields: {
+        // Set by the hook below for a device's session: never from what a client sends.
+        clientId: { type: 'string', required: false, input: false },
+      },
     },
     account: { encryptOAuthTokens: true },
     databaseHooks: {
+      session: {
+        create: {
+          // A device's session, given by the device grant's token endpoint, is marked with its client, which the
+          // endpoint has checked is one that may sign in so.
+          before: (session, ctx) => {
+            const clientId: unknown = (ctx?.body as { client_id?: unknown } | undefined)?.client_id;
+            return Promise.resolve(
+              ctx?.path === DEVICE_TOKEN_PATH && isDeviceClient(clientId)
+                ? { data: { ...session, clientId } }
+                : undefined,
+            );
+          },
+        },
+      },
       user: {
         create: {
           // Each new profile is given a handle no one else has.

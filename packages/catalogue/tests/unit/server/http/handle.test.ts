@@ -1,12 +1,13 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CORS_HEADERS, createHandle } from '../../../../src/lib/server/http/handle.js';
+import { CORS_HEADERS, createHandle, rateLimiter } from '../../../../src/lib/server/http/handle.js';
 import { fakeEvent } from '../../support/event.js';
 import { memoryLogger } from '../../support/logger.js';
 import { mockStore } from '../../support/store.js';
 
 import type { RequestEvent } from '@sveltejs/kit';
+import type { ApiUser, ApiUsers } from '../../../../src/lib/server/http/handle.js';
 
 const store = mockStore();
 
@@ -16,12 +17,19 @@ const http = () => httpClient({ fetch: vi.fn<typeof fetch>() });
 /** What fetches a URL a client gave. */
 const fetchGiven = vi.fn(() => Promise.resolve({ ok: false, reason: 'refused' } as const));
 
-function setUp() {
+/** The keys the tests' server accepts: one reaching every endpoint, and a module's. */
+const KEYS = [
+  { kind: 'full' as const, key: 'secret' },
+  { kind: 'module' as const, key: 'modules-key' },
+];
+
+function setUp(more: { users?: ApiUsers; ratePerMinute?: number; now?: () => number } = {}) {
   const log = memoryLogger();
   let tick = 0;
   const handle = createHandle({
     store,
-    apiKeys: ['secret'],
+    apiKeys: KEYS,
+    ...more,
     log,
     http,
     fetchGiven,
@@ -150,7 +158,7 @@ describe('createHandle', () => {
   });
 
   it('makes a new random id for each request by default', async () => {
-    const handle = createHandle({ store, apiKeys: ['secret'], log: memoryLogger(), http, fetchGiven });
+    const handle = createHandle({ store, apiKeys: KEYS, log: memoryLogger(), http, fetchGiven });
     const ids = await Promise.all(
       [1, 2].map(async () => {
         const event = fakeEvent();
@@ -160,5 +168,167 @@ describe('createHandle', () => {
     );
     expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
     expect(ids[0]).not.toBe(ids[1]);
+  });
+});
+
+describe('who may call what', () => {
+  const until = new Date('2027-01-01T00:00:00Z');
+  const USER: ApiUser = { id: 'u1', handle: 'amber-fox-oak-01', nickname: null, role: 'user', impersonated: false };
+
+  /** Users' tokens: `subscribed`, `lapsed`, `admin` and `viewed` (a session an admin views the site as them in). */
+  function users() {
+    const found: Record<string, ApiUser> = {
+      subscribed: USER,
+      lapsed: { ...USER, id: 'u2' },
+      admin: { ...USER, id: 'u3', role: 'admin' },
+      viewed: { ...USER, impersonated: true },
+      never: { ...USER, id: 'u4' },
+    };
+    const userOf = vi.fn<ApiUsers['userOf']>(token => Promise.resolve(found[token]));
+    return {
+      userOf,
+      entitlement: (user: ApiUser) =>
+        Promise.resolve(
+          user.id === 'u2'
+            ? { paidUntil: new Date('2026-11-01T00:00:00Z'), active: false, entitled: false }
+            : user.id === 'u4'
+              ? { paidUntil: null, active: false, entitled: false }
+              : { paidUntil: until, active: user.id === 'u1', entitled: true },
+        ),
+    };
+  }
+
+  it("lets a module's key call lookups", async () => {
+    const { run } = setUp();
+    expect((await run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } }).response).status).toBe(200);
+  });
+
+  it.each(['/api/v2/listing', '/api/v2/core', '/api/v2/manifest', '/api/v2/recheck', '/api/v2/status', '/api/v2/me'])(
+    "refuses a module's key %s, as forbidden",
+    async path => {
+      const { resolve, run } = setUp();
+      const response = await run(path, { headers: { 'X-API-Key': 'modules-key' } }).response;
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({ error: { code: 'forbidden' } });
+      expect(resolve).not.toHaveBeenCalled();
+    },
+  );
+
+  it('lets a key alone call every endpoint but /me', async () => {
+    const { run } = setUp();
+    expect((await run('/api/v2/recheck', { headers: { 'X-API-Key': 'secret' } }).response).status).toBe(200);
+    expect((await run('/api/v2/me', { headers: { 'X-API-Key': 'secret' } }).response).status).toBe(403);
+  });
+
+  it('gives the endpoint who is asking', async () => {
+    const { run } = setUp({ users: users() });
+    const byKey = run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } });
+    await byKey.response;
+    expect(byKey.event.locals.caller).toEqual({ kind: 'module' });
+    const byToken = run('/api/v2/lookup', { headers: { Authorization: 'Bearer subscribed' } });
+    await byToken.response;
+    expect(byToken.event.locals.caller).toMatchObject({ kind: 'user', user: USER, entitlement: { entitled: true } });
+  });
+
+  it("lets a subscribed user's token, or an admin's, call every endpoint", async () => {
+    const { run } = setUp({ users: users() });
+    for (const token of ['subscribed', 'admin']) {
+      expect((await run('/api/v2/recheck', { headers: { Authorization: `Bearer ${token}` } }).response).status).toBe(
+        200,
+      );
+    }
+  });
+
+  it("refuses a lapsed user's token all but /me, saying when the subscription ended", async () => {
+    const { run } = setUp({ users: users() });
+    const response = await run('/api/v2/lookup', { headers: { Authorization: 'Bearer lapsed' } }).response;
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'subscription-required',
+        message: 'A subscription is needed',
+        requestId: 'id-1',
+        paidUntil: '2026-11-01T00:00:00.000Z',
+      },
+    });
+    expect((await run('/api/v2/me', { headers: { Authorization: 'Bearer lapsed' } }).response).status).toBe(200);
+  });
+
+  it('says a user who never subscribed has no end to give', async () => {
+    const { run } = setUp({ users: users() });
+    const response = await run('/api/v2/lookup', { headers: { Authorization: 'Bearer never' } }).response;
+    expect(await response.json()).toMatchObject({ error: { code: 'subscription-required', paidUntil: null } });
+  });
+
+  it('refuses the token of a session an admin is viewing the site in', async () => {
+    const { run } = setUp({ users: users() });
+    const response = await run('/api/v2/me', { headers: { Authorization: 'Bearer viewed' } }).response;
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: { code: 'forbidden' } });
+  });
+
+  it.each([
+    ['a token no session has', 'Bearer unknown'],
+    ['another scheme', 'Basic dXNlcjpwYXNz'],
+    ['no token', 'Bearer '],
+  ])('refuses %s, a key besides or not', async (_label, authorization) => {
+    const { run } = setUp({ users: users() });
+    const response = await run('/api/v2/lookup', {
+      headers: { Authorization: authorization, 'X-API-Key': 'secret' },
+    }).response;
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: { code: 'unauthorised' } });
+  });
+
+  it("refuses a user's token where tokens are not known", async () => {
+    const { run } = setUp();
+    expect((await run('/api/v2/lookup', { headers: { Authorization: 'Bearer subscribed' } }).response).status).toBe(
+      401,
+    );
+  });
+
+  it('never reads the session cookie', async () => {
+    const known = users();
+    const { run } = setUp({ users: known });
+    const response = await run('/api/v2/lookup', { headers: { Cookie: 'better-auth.session_token=subscribed' } })
+      .response;
+    expect(response.status).toBe(401);
+    expect(known.userOf).not.toHaveBeenCalled();
+  });
+
+  it('limits how often each key or user may ask in a minute, answering the rest as rate-limited', async () => {
+    let time = 0;
+    const { run } = setUp({ users: users(), ratePerMinute: 2, now: () => time });
+    const ask = (headers: Record<string, string>) => run('/api/v2/lookup', { headers }).response;
+    expect((await ask({ 'X-API-Key': 'secret' })).status).toBe(200);
+    expect((await ask({ 'X-API-Key': 'secret' })).status).toBe(200);
+    const limited = await ask({ 'X-API-Key': 'secret' });
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toMatchObject({ error: { code: 'rate-limited' } });
+    // Each key and user apart.
+    expect((await ask({ 'X-API-Key': 'modules-key' })).status).toBe(200);
+    expect((await ask({ Authorization: 'Bearer subscribed' })).status).toBe(200);
+    time += 60_000;
+    expect((await ask({ 'X-API-Key': 'secret' })).status).toBe(200);
+  });
+
+  it('allows a key 300 requests a minute by default', async () => {
+    // A minute that does not end, so that the requests cannot straddle two.
+    const { run } = setUp({ now: () => 0 });
+    const statuses = [];
+    for (let made = 0; made < 301; made++) {
+      statuses.push((await run('/api/v2/lookup', { headers: { 'X-API-Key': 'secret' } }).response).status);
+    }
+    expect(statuses.filter(status => status === 200)).toHaveLength(300);
+    expect(statuses.at(-1)).toBe(429);
+  });
+});
+
+describe('rateLimiter', () => {
+  it('starts each minute afresh, and reads the time now by default', () => {
+    const allowed = rateLimiter(1, () => 0);
+    expect(allowed('a')).toBe(true);
+    expect(allowed('a')).toBe(false);
+    expect(rateLimiter(1, Date.now)('a')).toBe(true);
   });
 });

@@ -1,24 +1,61 @@
 /**
- * The server's request handling, before any route: request ids, logging, CORS and API keys.
+ * The server's request handling, before any route: request ids, logging, CORS, and who is asking the API, by its key or
+ * its user's token, what they may reach (see `access.ts`), and how often.
  */
-import { API_KEY_HEADER, CLIENT_HEADER } from '@mondarth/fvtt-package-catalogue-contract';
+import {
+  API_KEY_HEADER,
+  AUTHORIZATION_HEADER,
+  CLIENT_HEADER,
+  ME_PATH,
+} from '@mondarth/fvtt-package-catalogue-contract';
 import type { Handle } from '@sveltejs/kit/hooks';
 
 import type { ErrorCode } from '@mondarth/fvtt-package-catalogue-contract';
 
+import { bearerToken, keyReaches } from './access.js';
 import { keyMatcher } from './auth.js';
 import { isApiPath } from './paths.js';
 import { apiError } from './respond.js';
 
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
+import type { ApiKey, ApiKeyKind } from '../config.js';
+import type { Entitlement } from '../subscriptions/entitlement.js';
 import type { Logger } from '../log.js';
 import type { SafeFetched } from '../safe-fetch.js';
 import type { CatalogueStore } from '../store/types.js';
 
+/** The user a token is for, as the API sees them. */
+export interface ApiUser {
+  readonly id: string;
+  readonly handle: string;
+  readonly nickname: string | null;
+  /** Their role, an admin as `ADMIN_USER_IDS` names them among the admins. */
+  readonly role: 'user' | 'admin';
+  /** Whether the token's session is one an admin is viewing the site as them in, which the API refuses. */
+  readonly impersonated: boolean;
+}
+
+/** Who is asking the API: a key's kind, or a user, and whether they may use what a subscription gives. */
+export type ApiCaller =
+  { readonly kind: ApiKeyKind } | { readonly kind: 'user'; readonly user: ApiUser; readonly entitlement: Entitlement };
+
+/** How the API knows a user's token, kept apart from signing in, which the runtime gives. */
+export interface ApiUsers {
+  /** The user a token is for, if it is a session's that has not ended. */
+  userOf(token: string): Promise<ApiUser | undefined>;
+  entitlement(user: ApiUser): Promise<Entitlement>;
+}
+
 /** What the `handle` hook works with. */
 export interface HandleOptions {
   readonly store: CatalogueStore;
-  readonly apiKeys: readonly string[];
+  readonly apiKeys: readonly ApiKey[];
+  /** How users' tokens are known; without, the API takes keys alone. */
+  readonly users?: ApiUsers | undefined;
+  /** The most requests one key or user may make in a minute. */
+  readonly ratePerMinute?: number | undefined;
+  /** Milliseconds since the epoch, for the limit's minutes; `Date.now` by default. */
+  readonly now?: () => number;
   readonly log: Logger;
   /** A client for a request that fetches, such as a recheck, with a budget of its own. */
   readonly http: () => HttpClient;
@@ -38,7 +75,7 @@ export const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   // A client may revalidate what it keeps, such as the listing, by its ETag.
-  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${CLIENT_HEADER}, Content-Type, If-None-Match`,
+  'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${AUTHORIZATION_HEADER}, ${CLIENT_HEADER}, Content-Type, If-None-Match`,
   'Access-Control-Expose-Headers': 'ETag',
   'Access-Control-Max-Age': '86400',
 };
@@ -69,6 +106,28 @@ function inContract(response: Response, requestId: string): Response {
 }
 
 /**
+ * A limit on how many requests each key or user makes, a minute at a time: each minute starts afresh.
+ *
+ * @param perMinute - How many each may make in a minute
+ * @param now - The time now, in milliseconds since the epoch
+ * @returns Whether one more may be made, by whose it is
+ */
+export function rateLimiter(perMinute: number, now: () => number): (who: string) => boolean {
+  let minute = Number.NaN;
+  const made = new Map<string, number>();
+  return who => {
+    const current = Math.floor(now() / 60_000);
+    if (current !== minute) {
+      minute = current;
+      made.clear();
+    }
+    const count = (made.get(who) ?? 0) + 1;
+    made.set(who, count);
+    return count <= perMinute;
+  };
+}
+
+/**
  * The server's `handle` hook.
  *
  * @param options - The store, the keys accepted and the logger
@@ -77,6 +136,9 @@ function inContract(response: Response, requestId: string): Response {
 export function createHandle({
   store,
   apiKeys,
+  users,
+  ratePerMinute = 300,
+  now = Date.now,
   log,
   http,
   fetchGiven,
@@ -84,6 +146,36 @@ export function createHandle({
   clock = () => performance.now(),
 }: HandleOptions): Handle {
   const isKey = keyMatcher(apiKeys);
+  const allowed = rateLimiter(ratePerMinute, now);
+
+  /**
+   * Who is asking, by their token or key, and whether they may call the endpoint: the caller, with whose requests the
+   * limit counts them among, or the API's refusal.
+   */
+  async function callerOf(
+    request: Request,
+    pathname: string,
+    id: string,
+  ): Promise<{ caller: ApiCaller; who: string } | Response> {
+    const authorization = request.headers.get(AUTHORIZATION_HEADER);
+    if (authorization !== null) {
+      const token = bearerToken(authorization);
+      const user = token === undefined || users === undefined ? undefined : await users.userOf(token);
+      if (user === undefined || users === undefined)
+        return apiError('unauthorised', 'A valid bearer token is needed', id);
+      if (user.impersonated) return apiError('forbidden', 'Not with a session an admin is viewing the site in', id);
+      const entitlement = await users.entitlement(user);
+      if (!entitlement.entitled && pathname !== ME_PATH) {
+        return apiError('subscription-required', 'A subscription is needed', id, { paidUntil: entitlement.paidUntil });
+      }
+      return { caller: { kind: 'user', user, entitlement }, who: `user:${user.id}` };
+    }
+    const key = request.headers.get(API_KEY_HEADER);
+    const kind = isKey(key);
+    if (kind === undefined) return apiError('unauthorised', `A valid ${API_KEY_HEADER} header is needed`, id);
+    if (!keyReaches(kind, pathname)) return apiError('forbidden', 'This key does not reach this endpoint', id);
+    return { caller: { kind }, who: `key:${String(key)}` };
+  }
 
   return async ({ event, resolve }) => {
     const id = requestId();
@@ -101,10 +193,18 @@ export function createHandle({
     } else if (event.request.method === 'OPTIONS') {
       // The CORS preflight carries no key.
       response = withCors(new Response(null, { status: 204 }));
-    } else if (!isKey(event.request.headers.get(API_KEY_HEADER))) {
-      response = withCors(apiError('unauthorised', `A valid ${API_KEY_HEADER} header is needed`, id));
     } else {
-      response = withCors(inContract(await resolve(event), id));
+      const asking = await callerOf(event.request, pathname, id);
+      if (asking instanceof Response) {
+        response = withCors(asking);
+      } else {
+        if (allowed(asking.who)) {
+          event.locals.caller = asking.caller;
+          response = withCors(inContract(await resolve(event), id));
+        } else {
+          response = withCors(apiError('rate-limited', 'Too many requests: try again in a minute', id));
+        }
+      }
     }
 
     event.locals.log.info('request', {

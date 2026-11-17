@@ -4,7 +4,8 @@
  *
  * - `user`, every profile's role: what is their own, which needs no permission here.
  * - `admin`: listing and looking at users, setting their roles, banning them, viewing the site as them
- *   (impersonating) and signing them out, and reading the audit log. Not impersonating another admin.
+ *   (impersonating) and signing them out, reading the audit log, granting and revoking subscriptions, and managing
+ *   the offers they are bought by. Not impersonating another admin.
  *
  * The admins named in `ADMIN_USER_IDS` are admins whatever their role says: Better Auth grants them every permission,
  * so what is refused even them, such as impersonating an admin, is refused by the hooks (see `admin-hooks.ts`).
@@ -16,6 +17,8 @@ export const STATEMENTS = {
   user: ['list', 'get', 'set-role', 'ban', 'impersonate', 'impersonate-admins'],
   session: ['list', 'revoke'],
   audit: ['list'],
+  subscription: ['grant', 'revoke'],
+  offer: ['manage'],
 } as const;
 
 export const ac = createAccessControl(STATEMENTS);
@@ -27,6 +30,8 @@ export const roles = {
     user: ['list', 'get', 'set-role', 'ban', 'impersonate'],
     session: ['list', 'revoke'],
     audit: ['list'],
+    subscription: ['grant', 'revoke'],
+    offer: ['manage'],
   }),
 };
 

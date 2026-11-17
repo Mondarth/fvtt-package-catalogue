@@ -3,8 +3,9 @@
  * they sign in with, and, for the admin pages, finding users and what is held of one. What changes a user's role, ban
  * or sessions goes through Better Auth's admin endpoints, whose hooks record it (`admin-hooks.ts`).
  */
-import { and, asc, count, desc, eq, gt, ilike, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, ilike, ne, or } from 'drizzle-orm';
 
+import { isUniqueViolation } from '../db/errors.js';
 import { accounts, sessions, users } from './schema.js';
 
 import type { Database } from '../db/database.js';
@@ -46,6 +47,18 @@ export interface UserSearch {
   readonly offset: number;
 }
 
+/** A session, as the profile's list of signed-in devices reads it: never its token. */
+export interface SessionSummary {
+  readonly id: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly userAgent: string | null;
+  /** The client a device signed in for, if it was one. */
+  readonly clientId: string | null;
+  /** The admin viewing the site as the user, for such a session. */
+  readonly impersonatedBy: string | null;
+}
+
 /** What the website asks of the accounts' tables. */
 export interface AccountsStore {
   /**
@@ -60,6 +73,14 @@ export interface AccountsStore {
   listUsers(query: UserSearch): Promise<{ users: UserSummary[]; total: number }>;
   /** A user, if there is one by the id. */
   userDetail(userId: string): Promise<UserDetail | undefined>;
+  /** A user's sessions that have not ended, the newest first. */
+  sessionsOf(userId: string, now?: Date): Promise<SessionSummary[]>;
+  /**
+   * Ends a user's sessions: the one by its id, or every one but the id given; never another user's.
+   *
+   * @returns How many were ended
+   */
+  endSessions(userId: string, which: { readonly only: string } | { readonly except: string }): Promise<number>;
 }
 
 const summary = {
@@ -75,16 +96,6 @@ const summary = {
 
 /** A search's text as a LIKE pattern that matches it anywhere, its own wildcards matched as themselves. */
 const anywhere = (text: string) => `%${text.replaceAll(/[\\%_]/g, character => `\\${character}`)}%`;
-
-/** PostgreSQL's code for a unique constraint broken. */
-const UNIQUE_VIOLATION = '23505';
-
-/** The code of a database error, wherever the driver puts it: Drizzle wraps the driver's error as its cause. */
-function codeOf(error: unknown): unknown {
-  if (typeof error !== 'object' || error === null) return undefined;
-  if ('code' in error && error.code !== undefined) return error.code;
-  return 'cause' in error ? codeOf(error.cause) : undefined;
-}
 
 /**
  * The store, over the database.
@@ -106,7 +117,7 @@ export function accountsStore(db: Database): AccountsStore {
         await db.update(users).set({ nickname, updatedAt: new Date() }).where(eq(users.id, userId));
         return 'ok';
       } catch (error) {
-        if (codeOf(error) === UNIQUE_VIOLATION) return 'taken';
+        if (isUniqueViolation(error)) return 'taken';
         throw error;
       }
     },
@@ -138,6 +149,33 @@ export function accountsStore(db: Database): AccountsStore {
       /* v8 ignore next */
       const all = total?.total ?? 0;
       return { users: found.map(user => ({ ...user, banned: user.banned === true })), total: all };
+    },
+
+    sessionsOf: (userId, now = new Date()) =>
+      db
+        .select({
+          id: sessions.id,
+          createdAt: sessions.createdAt,
+          updatedAt: sessions.updatedAt,
+          userAgent: sessions.userAgent,
+          clientId: sessions.clientId,
+          impersonatedBy: sessions.impersonatedBy,
+        })
+        .from(sessions)
+        .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now)))
+        .orderBy(desc(sessions.createdAt)),
+
+    async endSessions(userId, which) {
+      const ended = await db
+        .delete(sessions)
+        .where(
+          and(
+            eq(sessions.userId, userId),
+            'only' in which ? eq(sessions.id, which.only) : ne(sessions.id, which.except),
+          ),
+        )
+        .returning({ id: sessions.id });
+      return ended.length;
     },
 
     async userDetail(userId) {

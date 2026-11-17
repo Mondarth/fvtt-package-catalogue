@@ -45,7 +45,14 @@ has no way out. Nothing is published on the host.
    : The database's password. It goes into a connection URL, so keep to URL-safe characters: `openssl rand -hex 32`.
 
    `API_KEYS`
-   : The keys clients present, separated by commas (`openssl rand -hex 32`).
+   : The keys clients present, separated by commas (`openssl rand -hex 32`). A key listed as `module:<key>` reaches
+     only lookups, what the EMMA module calls; a key without the prefix reaches every endpoint. Give the prefix only
+     to a key the module alone is built with: while EMMA's module and browser extension share a key, as releases
+     before the extension signs its users in do, list it without the prefix, since the extension calls the listing,
+     manifests and rechecks too. See [the API](api.md#who-is-asking).
+
+   `API_RATE_PER_MINUTE` (optional)
+   : The most API requests one key or user may make in a minute; 300 by default.
 
    `CATALOGUE_TAG`
    : The release to run: a version (`0.1.0`), its line (`0.1`, `0`) or `latest`.
@@ -148,6 +155,21 @@ The first admin is named in `.env`:
 An admin so named is an admin whatever their role says, and only `.env` changes it: the admin pages offer no change
 to their role or ban. Any admin can make others admins by role from the admin pages; an admin cannot change their own
 role, ban themselves, or view the site as another admin.
+
+### Subscriptions
+
+A user's subscription is the time they are subscribed for: until the latest of its credits ends. Each user sees theirs
+on their **Subscription** page. An admin, on a user's admin page, can grant them so many months and days (added after
+the subscription's end, or from now if it has ended), set the day it ends (a later day adds time; an earlier one cuts
+it back), or end it now. Each is recorded in the audit log, with how the subscription ended before and after. Admins
+are always entitled to what a subscription gives, subscribed or not.
+
+Subscriptions are bought by **offers**, made on the admin pages' **Subscriptions** page: a name, a period in months and
+days, a price in each currency (one a line, such as `GBP 30.00`), and, if wanted, the days it is on sale between. An
+offer is never changed once made, so that what was bought by it stays as it was: to change a price or a period, make a
+new offer and retire the old one. The shortest offer on sale is the least that can be bought. Buying is not yet on
+the site: payment providers come later, each through its own hosted checkout, and the catalogue keeps no payment
+details, only the provider's reference for each payment.
 
 ## The worker
 
