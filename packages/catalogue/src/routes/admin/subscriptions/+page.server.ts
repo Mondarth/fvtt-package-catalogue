@@ -1,4 +1,4 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 
 import { parsePrices } from '#lib/prices.js';
 import { actorOf } from '#lib/server/accounts/actor.js';
@@ -10,9 +10,13 @@ import type { Actions, PageServerLoad } from './$types';
 /** The longest an offer's name may be. */
 const NAME_MAX = 80;
 
-/** The offers subscriptions are bought by, retired ones too, the newest first. */
+/**
+ * The offers subscriptions are bought by, retired ones too, the newest first; and, where the catalogue offers Patreon,
+ * the least pledge that subscribes.
+ */
 export const load: PageServerLoad = async ({ locals, url }) => ({
   offers: await locals.subscriptions.offers(),
+  patreonMinimum: locals.patreon === undefined ? undefined : await locals.patreon.minimum(),
   done: url.searchParams.get('done'),
 });
 
@@ -61,5 +65,33 @@ export const actions: Actions = {
       });
     }
     redirect(303, '/admin/subscriptions?done=retire');
+  },
+
+  /**
+   * Sets the least Patreon pledge that subscribes, entered as a price in the campaign's currency, such as `GBP 5.00`;
+   * or clears it, and so Patreon subscribes no one. It counts at once, against what Patreon last said of each patron.
+   */
+  patreonMinimum: async ({ locals, request }) => {
+    const { patreon } = locals;
+    if (patreon === undefined) error(404);
+    const text = field(await request.formData(), 'minimum');
+    let minimum: { currency: string; amount: number } | null = null;
+    if (text !== '') {
+      const read = parsePrices(text);
+      const [entry, ...more] = read.ok ? Object.entries(read.prices) : [];
+      if (entry === undefined || more.length > 0) return fail(400, { minimum: text, problem: 'minimum' as const });
+      minimum = { currency: entry[0], amount: entry[1] };
+    }
+    const admin = actorOf(locals);
+    const before = await patreon.minimum();
+    await patreon.setMinimum(minimum, admin);
+    await locals.audit.record({
+      actorId: admin,
+      action: 'patreon.minimum',
+      before: { minimum: before },
+      after: { minimum },
+      requestId: locals.requestId,
+    });
+    redirect(303, '/admin/subscriptions?done=patreon');
   },
 };

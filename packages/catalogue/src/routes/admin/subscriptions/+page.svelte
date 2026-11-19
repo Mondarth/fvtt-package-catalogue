@@ -17,10 +17,16 @@
   const DONE: Readonly<Record<string, () => string>> = {
     create: m.admin_done_create,
     retire: m.admin_done_retire,
+    patreon: m.admin_done_patreon,
   };
 
   const date = (when: Date) => when.toLocaleDateString(getLocale());
   const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
+  const minimum = $derived(
+    data.patreonMinimum === undefined || data.patreonMinimum === null
+      ? null
+      : formatPrice(data.patreonMinimum.currency, data.patreonMinimum.amount, getLocale()),
+  );
   const given = (name: 'name' | 'months' | 'days' | 'prices') => {
     const value = form === null ? undefined : (form as Record<string, unknown>)[name];
     return typeof value === 'string' ? value : '';
@@ -87,6 +93,28 @@
       {/each}
     </tbody>
   </table>
+{/if}
+
+{#if data.patreonMinimum !== undefined}
+  <section aria-labelledby="patreon-minimum">
+    <h2 id="patreon-minimum">{m.admin_patreon_heading()}</h2>
+    <p>{minimum === null ? m.admin_patreon_unset() : m.admin_patreon_set({ amount: minimum })}</p>
+    <form method="POST" action="?/patreonMinimum" class="minimum">
+      {#if problem === 'minimum'}
+        <Callout id="minimum-problem">{m.admin_patreon_problem()}</Callout>
+      {/if}
+      <label for="minimum">{m.admin_patreon_label()}</label>
+      <input
+        id="minimum"
+        name="minimum"
+        placeholder="GBP 5.00"
+        value={problem === 'minimum' && form !== null && 'minimum' in form ? form.minimum : ''}
+        aria-invalid={problem === 'minimum'}
+        aria-describedby={problem === 'minimum' ? 'minimum-problem' : 'minimum-hint'} />
+      <p id="minimum-hint" class="hint">{m.admin_patreon_hint()}</p>
+      <button type="submit">{m.admin_patreon_save()}</button>
+    </form>
+  </section>
 {/if}
 
 <section aria-labelledby="new-offer">
@@ -200,7 +228,8 @@
     margin-block: 1.5rem;
   }
 
-  .new {
+  .new,
+  .minimum {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;

@@ -21,6 +21,8 @@ import {
   AUTH_TEST_PROVIDER_URL,
   DATABASE_URL,
   LOG_LEVEL,
+  PATREON_CAMPAIGN_ID,
+  PATREON_URL,
   SITE_URL,
 } from '$app/env/private';
 
@@ -30,7 +32,8 @@ import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
 import { isAdmin } from './accounts/permissions.js';
-import { cachedEntitlements } from './subscriptions/entitlement.js';
+import { cachedEntitlements, subscribedBy } from './subscriptions/entitlement.js';
+import { patreonChecker } from './subscriptions/patreon.js';
 import { subscriptionStore } from './subscriptions/store.js';
 
 import type { ApiUsers } from './http/handle.js';
@@ -73,9 +76,25 @@ export const auth = createAuth({
   siteUrl: SITE_URL,
   ...apps,
   testProviderUrl: testProvider,
+  patreonUrl: PATREON_URL,
   adminUserIds,
   audit,
 });
+
+/**
+ * Patreon, as a way to be subscribed, where signing in with it is set up: asked with each user's own token, which Better
+ * Auth refreshes when it has expired.
+ */
+export const patreon =
+  apps.patreon === undefined
+    ? undefined
+    : patreonChecker({
+        db: connection.db,
+        campaignId: PATREON_CAMPAIGN_ID,
+        ...(PATREON_URL !== undefined && { baseUrl: PATREON_URL }),
+        accessToken: async (userId, accountId) =>
+          (await auth.api.getAccessToken({ body: { accountId, userId } })).accessToken,
+      });
 
 /** Subscriptions, and the offers they are bought by. */
 export const subscriptions = subscriptionStore(connection.db);
@@ -123,5 +142,5 @@ export const apiUsers: ApiUsers = {
       impersonated: typeof session.impersonatedBy === 'string',
     };
   },
-  entitlement: cachedEntitlements(subscriptions, user => user.role === 'admin'),
+  entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),
 };

@@ -25,6 +25,9 @@ export const FAKE_PROVIDER_URL = `http://127.0.0.1:${String(FAKE_PROVIDER_PORT)}
  * name, and an admin as ADMIN_USER_IDS names them.
  */
 export const E2E_ADMIN = 'e2e-admin';
+
+/** The least Patreon pledge that subscribes, seeded (global-setup.ts): £3.00. */
+export const E2E_PATREON_MINIMUM = { currency: 'GBP', amount: 300 } as const;
 export const E2E_ENV = {
   DATABASE_URL: process.env.E2E_DATABASE_URL ?? 'postgres://catalogue:catalogue@127.0.0.1:55433/catalogue_e2e',
   API_KEYS: `${E2E_API_KEY},e2e-previous-key,module:${E2E_MODULE_KEY}`,
@@ -37,5 +40,10 @@ export const E2E_ENV = {
   // (FORWARDED_PROTO). Without it adapter-node takes a request to be HTTPS, and refuses the forms as cross-site.
   PROTOCOL_HEADER: 'x-forwarded-proto',
   AUTH_TEST_PROVIDER_URL: FAKE_PROVIDER_URL,
+  // Patreon, stood in for by the same stand-in (fake-provider.ts), its campaign the stand-in's.
+  AUTH_PATREON_ID: 'e2e-patreon',
+  AUTH_PATREON_SECRET: 'e2e-patreon-secret',
+  PATREON_CAMPAIGN_ID: 'e2e-campaign',
+  PATREON_URL: FAKE_PROVIDER_URL,
   ADMIN_USER_IDS: E2E_ADMIN,
 } as const;

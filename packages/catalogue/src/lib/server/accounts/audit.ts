@@ -23,6 +23,7 @@ export const AUDIT_ACTIONS = [
   'subscription.revoke',
   'offer.create',
   'offer.retire',
+  'patreon.minimum',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
