@@ -271,9 +271,12 @@ export const MeResponse = z.object({
     role: Role,
   }),
   subscription: z.object({
-    /** When it ends or ended, as an ISO 8601 time; null if there never was one. */
+    /** When the time it was given or bought ends or ended, as an ISO 8601 time; null if there never was any. */
     paidUntil: z.iso.datetime().nullable(),
+    /** Whether they are subscribed now: by that time, or by Patreon. */
     active: z.boolean(),
+    /** Whether Patreon subscribes them now: a patron of the catalogue's campaign at the least pledge, or more. */
+    patreon: z.boolean(),
   }),
   /** Whether the token reaches every endpoint: subscribed, or an admin. */
   entitled: z.boolean(),
