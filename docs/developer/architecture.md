@@ -232,7 +232,8 @@ from the catalogue so that it can move to a service of its own, shared by every 
 - The end-to-end tests sign in through a stand-in provider (`tests/e2e/fake-provider.ts`), offered only when
   `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
   (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
-  {doc}`setup`.
+  {doc}`setup`. It stands in for Patreon too, without a Patreon app (`accounts/dev-patreon.ts`, `devPatreon`), with
+  made-up patrons whose pledges its page changes.
 
 ### Subscriptions
 
