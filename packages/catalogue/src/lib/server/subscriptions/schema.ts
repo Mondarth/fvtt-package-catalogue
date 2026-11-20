@@ -3,8 +3,12 @@
  * user is subscribed for. A user is subscribed until the latest credit ends (see `store.ts`). No payment details are
  * kept: a credit names its payment provider and the provider's own reference alone, where the invoice is kept.
  *
- * What `subscription_credits` holds of a user is on the website's "What we store" page (`/privacy`): change one,
- * change both. Offers hold nothing of anyone.
+ * A user with a Patreon account linked is subscribed too while Patreon says they are a patron of the catalogue's
+ * campaign at the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
+ * `patreon.ts`), and makes no credits.
+ *
+ * What `subscription_credits` and `patreon_memberships` hold of a user is on the website's "What we store" page
+ * (`/privacy`): change one, change both. Offers and settings hold nothing of anyone.
  */
 import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
@@ -82,3 +86,39 @@ export const subscriptionCredits = pgTable(
     uniqueIndex('subscription_credits_provider_ref').on(table.provider, table.externalRef),
   ],
 );
+
+/** Why asking Patreon last failed: it could not be asked, it no longer takes the token, or the token may not read memberships. */
+export const PATREON_FAILURES = ['unreachable', 'revoked', 'scope'] as const;
+export type PatreonFailure = (typeof PATREON_FAILURES)[number];
+
+/**
+ * A user's membership of the catalogue's Patreon campaign, as Patreon last said, asked again once a day (see
+ * `patreon.ts`). Whether it makes them subscribed is worked out when it is read, against the least amount the admins
+ * set now.
+ */
+export const patreonMemberships = pgTable('patreon_memberships', {
+  userId: text()
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** `active_patron`, `declined_patron` or `former_patron`, as Patreon says; none for someone who is no member. */
+  patronStatus: text(),
+  /** What they pledge now, in the minor unit of the campaign's currency. */
+  amount: integer(),
+  /** When Patreon next charges them, if it says. */
+  nextChargeAt: timestamp({ withTimezone: true }),
+  /** When Patreon last answered; none if it never has. */
+  checkedAt: timestamp({ withTimezone: true }),
+  /** When it was last asked, answered or not. */
+  askedAt: timestamp({ withTimezone: true }).notNull(),
+  /** Why the last asking failed; none when Patreon answered. */
+  failure: text({ enum: PATREON_FAILURES }),
+});
+
+/** What admins set for the whole catalogue, by name, such as the least Patreon pledge that subscribes. */
+export const catalogueSettings = pgTable('catalogue_settings', {
+  key: text().primaryKey(),
+  value: jsonb().notNull(),
+  /** The admin who set it last. */
+  updatedBy: text().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

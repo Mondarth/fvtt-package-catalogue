@@ -40,10 +40,13 @@ describe('the subscription page', () => {
   const show = (data: Record<string, unknown>) =>
     render(Subscription, {
       data: {
-        entitlement: { paidUntil: null, active: false, entitled: false },
+        entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
         admin: false,
         history: [],
         offers: [],
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
         ...data,
       },
       params: {},
@@ -183,6 +186,7 @@ describe("a user's admin page's subscription", () => {
         refused: null,
         subscription: more.subscription ?? { paidUntil: null, active: false },
         credits: more.credits ?? [],
+        patreon: null,
       },
       form: more.form ?? null,
       params: { id: 'u1' },

@@ -131,6 +131,7 @@ describe("a user's admin page", () => {
         refused: more.refused ?? null,
         subscription: more.subscription ?? { paidUntil: null, active: false },
         credits: more.credits ?? [],
+        patreon: null,
       },
       form: more.form ?? null,
       params: { id: 'u1' },

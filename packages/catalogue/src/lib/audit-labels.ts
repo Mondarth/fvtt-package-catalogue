@@ -16,6 +16,7 @@ const ACTIONS: Readonly<Record<string, () => string>> = {
   'subscription.revoke': m.audit_action_subscription_revoke,
   'offer.create': m.audit_action_offer_create,
   'offer.retire': m.audit_action_offer_retire,
+  'patreon.minimum': m.audit_action_patreon_minimum,
 };
 
 /**

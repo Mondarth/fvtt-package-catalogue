@@ -239,10 +239,10 @@ describe('who may call what', () => {
       entitlement: (user: ApiUser) =>
         Promise.resolve(
           user.id === 'u2'
-            ? { paidUntil: new Date('2026-11-01T00:00:00Z'), active: false, entitled: false }
+            ? { paidUntil: new Date('2026-11-01T00:00:00Z'), active: false, patreon: false, entitled: false }
             : user.id === 'u4'
-              ? { paidUntil: null, active: false, entitled: false }
-              : { paidUntil: until, active: user.id === 'u1', entitled: true },
+              ? { paidUntil: null, active: false, patreon: false, entitled: false }
+              : { paidUntil: until, active: user.id === 'u1', patreon: false, entitled: true },
         ),
     };
   }

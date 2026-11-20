@@ -6,24 +6,28 @@ import {
   ENTITLEMENT_CACHE_MS,
   entitlementOf,
   requireEntitled,
+  subscribedBy,
 } from '../../../../src/lib/server/subscriptions/entitlement.js';
 
+import type { SubscribedOf } from '../../../../src/lib/server/subscriptions/entitlement.js';
+import type { PatreonChecker, PatreonStatus } from '../../../../src/lib/server/subscriptions/patreon.js';
 import type { SubscriptionStore } from '../../../../src/lib/server/subscriptions/store.js';
 
 const until = new Date('2027-01-01T00:00:00Z');
-const storeWith = (active: boolean) => {
-  const status = vi.fn(() => Promise.resolve({ paidUntil: active ? until : null, active }));
-  return { status, store: { status } as unknown as SubscriptionStore };
+/** Whether a user is subscribed, by credits or by Patreon, as a test says. */
+const storeWith = (active: boolean, patreon = false) => {
+  const status = vi.fn<SubscribedOf>(() => Promise.resolve({ paidUntil: active ? until : null, active, patreon }));
+  return { status, store: status };
 };
 
 describe('entitlementOf', () => {
   it('is a subscriber’s, and read once however often it is asked for', async () => {
     const { status, store } = storeWith(true);
     const entitlement = entitlementOf(store, 'u1', false);
-    expect(await entitlement()).toEqual({ paidUntil: until, active: true, entitled: true });
+    expect(await entitlement()).toEqual({ paidUntil: until, active: true, patreon: false, entitled: true });
     await entitlement();
     expect(status).toHaveBeenCalledOnce();
-    expect(status).toHaveBeenCalledWith('u1');
+    expect(status).toHaveBeenCalledWith('u1', expect.any(Date));
   });
 
   it('is an admin’s, subscribed or not', async () => {
@@ -33,8 +37,21 @@ describe('entitlementOf', () => {
   it('is none without a subscription, or without anyone signed in', async () => {
     expect(await entitlementOf(storeWith(false).store, 'u1', false)()).toMatchObject({ entitled: false });
     const { status, store } = storeWith(true);
-    expect(await entitlementOf(store, undefined, false)()).toEqual({ paidUntil: null, active: false, entitled: false });
+    expect(await entitlementOf(store, undefined, false)()).toEqual({
+      paidUntil: null,
+      active: false,
+      patreon: false,
+      entitled: false,
+    });
     expect(status).not.toHaveBeenCalled();
+  });
+
+  it('is a patron’s, whom Patreon subscribes, without credits', async () => {
+    expect(await entitlementOf(storeWith(false, true).store, 'u1', false)()).toMatchObject({
+      active: false,
+      patreon: true,
+      entitled: true,
+    });
   });
 
   it('is not read unless asked for', () => {
@@ -63,7 +80,7 @@ describe('cachedEntitlements', () => {
       () => false,
       () => time,
     );
-    expect(await entitlement({ id: 'u1' })).toEqual({ paidUntil: until, active: true, entitled: true });
+    expect(await entitlement({ id: 'u1' })).toEqual({ paidUntil: until, active: true, patreon: false, entitled: true });
     await entitlement({ id: 'u1' });
     expect(status).toHaveBeenCalledOnce();
     time += ENTITLEMENT_CACHE_MS;
@@ -92,5 +109,29 @@ describe('cachedEntitlements', () => {
     expect(status).not.toHaveBeenCalled();
     await entitlement({ id: 'u0' });
     expect(status).toHaveBeenCalledOnce();
+  });
+});
+
+describe('subscribedBy', () => {
+  const now = new Date('2026-11-20T00:00:00Z');
+  const credits = { status: vi.fn(() => Promise.resolve({ paidUntil: until, active: true })) } as unknown as Pick<
+    SubscriptionStore,
+    'status'
+  >;
+
+  it('is by credits alone where the catalogue does not offer Patreon', async () => {
+    expect(await subscribedBy(credits)('u1', now)).toEqual({ paidUntil: until, active: true, patreon: false });
+  });
+
+  it('asks Patreon too, as of the same time', async () => {
+    const status = vi.fn<PatreonChecker['status']>(() =>
+      Promise.resolve({ linked: true, subscribed: true, membership: null } satisfies PatreonStatus),
+    );
+    expect(await subscribedBy(credits, { status })('u1', now)).toEqual({
+      paidUntil: until,
+      active: true,
+      patreon: true,
+    });
+    expect(status).toHaveBeenCalledWith('u1', { now });
   });
 });

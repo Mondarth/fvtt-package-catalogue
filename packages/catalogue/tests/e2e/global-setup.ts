@@ -3,10 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { eq, inArray } from 'drizzle-orm';
 
 import { accounts, sessions, users } from '../../src/lib/server/accounts/schema.js';
-import { subscriptionCredits } from '../../src/lib/server/subscriptions/schema.js';
+import { MINIMUM_SETTING } from '../../src/lib/server/subscriptions/patreon.js';
+import { catalogueSettings, subscriptionCredits } from '../../src/lib/server/subscriptions/schema.js';
 import { connect } from '../../src/lib/server/db/connect.js';
 import { drizzleStore } from '../../src/lib/server/store/drizzle.js';
-import { E2E_ADMIN, E2E_ENV, E2E_TOKENS } from './environment.js';
+import { E2E_ADMIN, E2E_ENV, E2E_PATREON_MINIMUM, E2E_TOKENS } from './environment.js';
 import { SEEDED, SEEDED_AT, SEEDED_CORE, SEEDED_GAPS, SEEDED_RELEASES } from './seed.js';
 
 /**
@@ -38,6 +39,12 @@ export default async function globalSetup(): Promise<void> {
       .insert(accounts)
       .values({ id: `${E2E_ADMIN}-test`, providerId: 'test', accountId: E2E_ADMIN, userId: E2E_ADMIN })
       .onConflictDoNothing();
+
+    // The least Patreon pledge that subscribes, £3.00, which the Patreon tests count on and the admin's test sets again.
+    await connection.db
+      .insert(catalogueSettings)
+      .values({ key: MINIMUM_SETTING, value: E2E_PATREON_MINIMUM, updatedBy: E2E_ADMIN })
+      .onConflictDoUpdate({ target: catalogueSettings.key, set: { value: E2E_PATREON_MINIMUM } });
 
     // For the API's bearer tests: a subscriber and a user whose subscription has ended, and a session of each, and
     // the admin's, by tokens known beforehand. Made afresh each run, as their subscriptions are relative to now.

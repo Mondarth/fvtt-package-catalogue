@@ -7,6 +7,8 @@ import {
   AuthSecret,
   DatabaseUrl,
   LogLevel,
+  PatreonCampaignId,
+  PatreonUrl,
   ProviderCredential,
   SiteUrl,
   TestProviderUrl,
@@ -53,6 +55,15 @@ export const variables = defineEnvVars({
     schema: ProviderCredential,
   },
   AUTH_PATREON_SECRET: { description: "The Patreon client's secret.", schema: ProviderCredential },
+  PATREON_CAMPAIGN_ID: {
+    description:
+      "The catalogue's Patreon campaign: its patrons, at the least pledge the admins set, are subscribed. Without it, Patreon is a way to sign in alone.",
+    schema: PatreonCampaignId,
+  },
+  PATREON_URL: {
+    description: "Patreon's address, for the end-to-end tests' stand-in alone. Never set in a deployment.",
+    schema: PatreonUrl,
+  },
   ADMIN_USER_IDS: {
     description:
       'The user ids of admins whatever their role, separated by commas, such as the first admin; none by default.',

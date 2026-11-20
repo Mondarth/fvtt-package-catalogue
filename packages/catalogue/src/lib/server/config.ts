@@ -92,6 +92,12 @@ export const ProviderCredential = given;
 /** The stand-in sign-in provider's address, for the end-to-end tests alone. */
 export const TestProviderUrl = given.pipe(z.url().optional());
 
+/** The catalogue's Patreon campaign, whose patrons are subscribed; none, and Patreon subscribes no one. */
+export const PatreonCampaignId = given;
+
+/** Patreon's address, for the end-to-end tests' stand-in alone: Patreon's own when unset. */
+export const PatreonUrl = given.pipe(z.url().optional());
+
 /** A whole number above none, from the environment's text. */
 const Count = z.coerce.number().int().positive();
 

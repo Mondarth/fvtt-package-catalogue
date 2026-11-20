@@ -134,8 +134,9 @@ lets it read the `ETag`.
 
 `GET /api/v2/me`
 : Who a user's token is for, and whether they may use the API: `{ user: { handle, nickname, role }, subscription: {
-  paidUntil, active }, entitled }`. `role` is `user` or `admin`; `entitled` is whether the token reaches every
-  endpoint, subscribed or an admin. It answers whether or not they are subscribed, so that a client can say so, and
+  paidUntil, active, patreon }, entitled }`. `role` is `user` or `admin`. `paidUntil` is when the time given or bought
+  ends or ended; `patreon`, whether their Patreon pledge subscribes them; `active`, whether they are subscribed now, by
+  either. `entitled` is whether the token reaches every endpoint, subscribed or an admin. It answers whether or not they are subscribed, so that a client can say so, and
   only a user's token, never a key.
 
 `GET /healthz`

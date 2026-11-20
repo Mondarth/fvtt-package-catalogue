@@ -70,13 +70,15 @@ describe('who is asking', () => {
     expect(ME_PATH).toBe('/api/v2/me');
     const me = {
       user: { handle: 'amber-fox-oak-01', nickname: null, role: 'user' },
-      subscription: { paidUntil: '2027-01-01T00:00:00.000Z', active: true },
+      subscription: { paidUntil: '2027-01-01T00:00:00.000Z', active: true, patreon: false },
       entitled: true,
     };
     expect(MeResponse.parse(me)).toEqual(me);
+    // Subscribed by Patreon alone: no time given or bought.
     expect(
-      MeResponse.parse({ ...me, subscription: { paidUntil: null, active: false } }).subscription.paidUntil,
-    ).toBeNull();
+      MeResponse.parse({ ...me, subscription: { paidUntil: null, active: true, patreon: true } }).subscription,
+    ).toEqual({ paidUntil: null, active: true, patreon: true });
+    expect(MeResponse.safeParse({ ...me, subscription: { paidUntil: null, active: true } }).success).toBe(false);
     expect(MeResponse.safeParse({ ...me, user: { ...me.user, role: 'owner' } }).success).toBe(false);
   });
 

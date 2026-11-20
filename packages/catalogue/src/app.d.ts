@@ -5,6 +5,7 @@ import type { ApiCaller } from '#lib/server/http/handle.js';
 import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
+import type { PatreonChecker } from '#lib/server/subscriptions/patreon.js';
 import type { SubscriptionStore } from '#lib/server/subscriptions/store.js';
 import type { Logger } from '#lib/server/log.js';
 import type { SafeFetched } from '#lib/server/safe-fetch.js';
@@ -46,6 +47,8 @@ declare global {
       banNotices: BanNotices;
       /** Subscriptions, on the website's requests. */
       subscriptions: SubscriptionStore;
+      /** Patreon, if the catalogue offers it as a way to be subscribed. */
+      patreon: PatreonChecker | undefined;
       /** Whether whoever is signed in may use what a subscription gives, read when first asked. */
       entitlement: () => Promise<Entitlement>;
     }
