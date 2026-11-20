@@ -15,7 +15,7 @@ import { bearer } from 'better-auth/plugins/bearer';
 import { deviceAuthorization } from 'better-auth/plugins/device-authorization';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
-import { forgetPatreonOf, PATREON, PATREON_SCOPES, PATREON_URL } from '../subscriptions/patreon.js';
+import { forgetPatreonOf, PATREON, PATREON_SCOPES, PATREON_URL, patreonUrl } from '../subscriptions/patreon.js';
 
 import { eq } from 'drizzle-orm';
 
@@ -120,10 +120,10 @@ const appOf = ({ clientId, clientSecret }: ProviderApp) => ({ clientId, clientSe
 export function patreonProvider(app: ProviderApp, base = PATREON_URL) {
   return {
     ...patreon({ ...appOf(app), scopes: [...PATREON_SCOPES] }),
-    authorizationUrl: new URL('/oauth2/authorize', base).href,
-    tokenUrl: new URL('/api/oauth2/token', base).href,
+    authorizationUrl: patreonUrl(base, '/oauth2/authorize').href,
+    tokenUrl: patreonUrl(base, '/api/oauth2/token').href,
     async getUserInfo(tokens: { accessToken?: string | undefined }) {
-      const url = new URL('/api/oauth2/v2/identity', base);
+      const url = patreonUrl(base, '/api/oauth2/v2/identity');
       url.searchParams.set('fields[user]', 'email,full_name,image_url,is_email_verified');
       const response = await fetch(url, { headers: { authorization: `Bearer ${tokens.accessToken ?? ''}` } });
       if (!response.ok) return null;

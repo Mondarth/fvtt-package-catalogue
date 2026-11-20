@@ -32,6 +32,17 @@ export const PATREON = 'patreon';
 /** Patreon's own address. */
 export const PATREON_URL = 'https://www.patreon.com';
 
+/**
+ * One of Patreon's paths, at its address or a stand-in's, keeping the stand-in's own path, such as `/__dev/patreon`.
+ *
+ * @param base - Patreon's address
+ * @param path - The path, such as `/oauth2/authorize`
+ * @returns The URL
+ */
+export function patreonUrl(base: string, path: string): URL {
+  return new URL(`${base.replace(/\/+$/, '')}${path}`);
+}
+
 /** The scopes a Patreon sign-in or link asks for: who the user is, their email, and their memberships. */
 export const PATREON_SCOPES = ['identity', 'identity[email]', 'identity.memberships'] as const;
 
@@ -229,7 +240,7 @@ export function patreonChecker(options: PatreonOptions): PatreonChecker {
       // Refreshing the token asks Patreon too: whether it could not, or would not, the grace covers it.
       return failed('unreachable');
     }
-    const url = new URL('/api/oauth2/v2/identity', baseUrl);
+    const url = patreonUrl(baseUrl, '/api/oauth2/v2/identity');
     url.searchParams.set('include', 'memberships.campaign');
     url.searchParams.set('fields[member]', 'patron_status,currently_entitled_amount_cents,next_charge_date');
     let response: Response;

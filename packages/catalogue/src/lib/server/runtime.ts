@@ -29,6 +29,7 @@ import {
 import { auditStore } from './accounts/audit.js';
 import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
+import { devPatreon } from './accounts/dev-patreon.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
 import { isAdmin } from './accounts/permissions.js';
@@ -49,12 +50,19 @@ export const connection = connect(DATABASE_URL);
 export const store = drizzleStore(connection.db);
 export const apiKeys = API_KEYS;
 
+/** Patreon as set, or, on the development server without a Patreon app, its stand-in (dev-patreon.ts). */
+const patreonSetting = devPatreon(
+  { app: providerApp(AUTH_PATREON_ID, AUTH_PATREON_SECRET), url: PATREON_URL, campaignId: PATREON_CAMPAIGN_ID },
+  SITE_URL,
+  import.meta.env.DEV,
+);
+
 /** Each provider's app, where both its id and secret are set. */
 const apps = {
   github: providerApp(AUTH_GITHUB_ID, AUTH_GITHUB_SECRET),
   google: providerApp(AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET),
   discord: providerApp(AUTH_DISCORD_ID, AUTH_DISCORD_SECRET),
-  patreon: providerApp(AUTH_PATREON_ID, AUTH_PATREON_SECRET),
+  patreon: patreonSetting.app,
 };
 
 /** The stand-in provider: the one the end-to-end tests run, or, on the development server, its own (dev-provider.ts). */
@@ -76,7 +84,7 @@ export const auth = createAuth({
   siteUrl: SITE_URL,
   ...apps,
   testProviderUrl: testProvider,
-  patreonUrl: PATREON_URL,
+  patreonUrl: patreonSetting.url,
   adminUserIds,
   audit,
 });
@@ -90,8 +98,8 @@ export const patreon =
     ? undefined
     : patreonChecker({
         db: connection.db,
-        campaignId: PATREON_CAMPAIGN_ID,
-        ...(PATREON_URL !== undefined && { baseUrl: PATREON_URL }),
+        campaignId: patreonSetting.campaignId,
+        ...(patreonSetting.url !== undefined && { baseUrl: patreonSetting.url }),
         accessToken: async (userId, accountId) =>
           (await auth.api.getAccessToken({ body: { accountId, userId } })).accessToken,
       });

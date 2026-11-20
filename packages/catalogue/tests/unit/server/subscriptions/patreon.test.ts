@@ -8,6 +8,7 @@ import {
   forgetPatreonOf,
   GRACE_MS,
   patreonChecker,
+  patreonUrl,
   readMembership,
   subscribes,
 } from '../../../../src/lib/server/subscriptions/patreon.js';
@@ -85,6 +86,17 @@ async function checker(answers: (Response | Error)[], more: Partial<PatreonOptio
 }
 
 const membership = async () => (await db.select().from(patreonMemberships))[0];
+
+describe('patreonUrl', () => {
+  it("is a path of Patreon's, at its address or a stand-in's, keeping the stand-in's own path", () => {
+    expect(patreonUrl('https://www.patreon.com', '/oauth2/authorize').href).toBe(
+      'https://www.patreon.com/oauth2/authorize',
+    );
+    expect(patreonUrl('http://localhost:5173/__dev/patreon/', '/api/oauth2/token').href).toBe(
+      'http://localhost:5173/__dev/patreon/api/oauth2/token',
+    );
+  });
+});
 
 describe('readMembership', () => {
   it("reads the user's membership of the catalogue's campaign alone", () => {

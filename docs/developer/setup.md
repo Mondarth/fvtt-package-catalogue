@@ -27,6 +27,32 @@ neither. Setting a real provider's id and secret in `.env` (`AUTH_GITHUB_ID` and
 Google, Discord and Patreon) offers it beside the stand-in, through an app whose callback is
 `http://localhost:5173/auth/callback/<provider>`.
 
+### Patreon while developing
+
+Without a Patreon app in `.env`, the development server stands in for Patreon too, at `/__dev/patreon`
+(`accounts/dev-patreon.ts`), so that linking it and being subscribed by a pledge can be tried without Patreon. The
+sign-in page offers **Sign in with Patreon**, and the **Subscription** page **Link your Patreon**; either asks which
+made-up patron to be:
+
+| Patron          | Pledges to start with              |
+| --------------- | ---------------------------------- |
+| `patron-ada`    | £5.00, an active patron            |
+| `patron-grace`  | £2.00, an active patron            |
+| `patron-alan`   | £5.00, but the payment was declined |
+| `patron-katherine` | nothing: a former patron        |
+| `patron-linus`  | nothing: no member                 |
+
+1. Sign in as an admin (a made-up user whose database id is in `ADMIN_USER_IDS`, as the deployment guide's Admins
+   says), and set the least pledge on the admin pages' **Subscriptions** page, such as `GBP 3.00`: until then, Patreon subscribes no
+   one.
+2. On your **Subscription** page, **Link your Patreon**, and choose a patron.
+3. Change pledges on `/__dev/patreon/`: **Set** a status and an amount in pence, or **Fail** to have Patreon fail for
+   that patron (its last answer still counts for three days). Then **Ask Patreon again** on the Subscription page.
+
+Its campaign is `dev-campaign`, unless `PATREON_CAMPAIGN_ID` is set. The pledges start afresh as the server restarts;
+the tokens it gave keep working. Setting `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET` uses the real Patreon instead,
+with `PATREON_CAMPAIGN_ID`.
+
 ## Commands
 
 From the repository root:
