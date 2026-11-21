@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-contract-v0.7.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.6.0...@mondarth/fvtt-package-catalogue-contract-v0.7.0) (2026-11-21)
+
+### Features
+
+* **contract:** say in /me whether Patreon subscribes a user ([c89e6c5](https://github.com/Mondarth/fvtt-package-catalogue/commit/c89e6c52294630465669c3e866ec3db9b21eb9ca))
+
 ## [@mondarth/fvtt-package-catalogue-contract-v0.6.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-contract-v0.5.0...@mondarth/fvtt-package-catalogue-contract-v0.6.0) (2026-11-17)
 
 ### Features
