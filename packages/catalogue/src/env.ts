@@ -11,6 +11,11 @@ import {
   PatreonUrl,
   ProviderCredential,
   SiteUrl,
+  StripeApiUrl,
+  StripeCurrency,
+  StripeSecretKey,
+  StripeTaxCode,
+  StripeWebhookSecret,
   TestProviderUrl,
 } from '#lib/server/config.js';
 
@@ -63,6 +68,28 @@ export const variables = defineEnvVars({
   PATREON_URL: {
     description: "Patreon's address, for the end-to-end tests' stand-in alone. Never set in a deployment.",
     schema: PatreonUrl,
+  },
+  STRIPE_SECRET_KEY: {
+    description:
+      'A Stripe restricted key that may write Checkout Sessions, Products and Prices; offers are sold through Stripe only with it.',
+    schema: StripeSecretKey,
+  },
+  STRIPE_WEBHOOK_SECRET: {
+    description: "The secret of the catalogue's webhook endpoint at Stripe (whsec_…), which signs its events.",
+    schema: StripeWebhookSecret,
+  },
+  STRIPE_TAX_CODE: {
+    description:
+      "The tax code put on each offer's Stripe Product; txcd_10103000 (software as a service, personal use) by default.",
+    schema: StripeTaxCode,
+  },
+  STRIPE_CURRENCY: {
+    description: 'The one currency offers are sold in through Stripe; GBP by default.',
+    schema: StripeCurrency,
+  },
+  STRIPE_API_URL: {
+    description: "Stripe's API's address, for the end-to-end tests' stand-in alone. Never set in a deployment.",
+    schema: StripeApiUrl,
   },
   ADMIN_USER_IDS: {
     description:

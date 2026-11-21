@@ -24,6 +24,11 @@ import {
   PATREON_CAMPAIGN_ID,
   PATREON_URL,
   SITE_URL,
+  STRIPE_API_URL,
+  STRIPE_CURRENCY,
+  STRIPE_SECRET_KEY,
+  STRIPE_TAX_CODE,
+  STRIPE_WEBHOOK_SECRET,
 } from '$app/env/private';
 
 import { auditStore } from './accounts/audit.js';
@@ -35,6 +40,7 @@ import { accountsStore } from './accounts/store.js';
 import { isAdmin } from './accounts/permissions.js';
 import { cachedEntitlements, subscribedBy } from './subscriptions/entitlement.js';
 import { patreonChecker } from './subscriptions/patreon.js';
+import { stripeGateway } from './subscriptions/stripe.js';
 import { subscriptionStore } from './subscriptions/store.js';
 
 import type { ApiUsers } from './http/handle.js';
@@ -103,6 +109,22 @@ export const patreon =
         accessToken: async (userId, accountId) =>
           (await auth.api.getAccessToken({ body: { accountId, userId } })).accessToken,
       });
+
+/**
+ * Stripe, through which subscription time is sold, where its key is set: its webhook secret is needed with it, as no
+ * payment could be credited without.
+ */
+export const stripe = (() => {
+  if (STRIPE_SECRET_KEY === undefined) return undefined;
+  if (STRIPE_WEBHOOK_SECRET === undefined) throw new Error('STRIPE_WEBHOOK_SECRET is needed with STRIPE_SECRET_KEY');
+  return stripeGateway({
+    secretKey: STRIPE_SECRET_KEY,
+    webhookSecret: STRIPE_WEBHOOK_SECRET,
+    taxCode: STRIPE_TAX_CODE,
+    currency: STRIPE_CURRENCY,
+    apiUrl: STRIPE_API_URL,
+  });
+})();
 
 /** Subscriptions, and the offers they are bought by. */
 export const subscriptions = subscriptionStore(connection.db);

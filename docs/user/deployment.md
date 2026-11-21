@@ -174,9 +174,31 @@ are always entitled to what a subscription gives, subscribed or not.
 Subscriptions are bought by **offers**, made on the admin pages' **Subscriptions** page: a name, a period in months and
 days, a price in each currency (one a line, such as `GBP 30.00`), and, if wanted, the days it is on sale between. An
 offer is never changed once made, so that what was bought by it stays as it was: to change a price or a period, make a
-new offer and retire the old one. The shortest offer on sale is the least that can be bought. Buying is not yet on
-the site: payment providers come later, each through its own hosted checkout, and the catalogue keeps no payment
-details, only the provider's reference for each payment.
+new offer and retire the old one. The shortest offer on sale is the least that can be bought. Payment providers take
+each payment through their own hosted checkout, and the catalogue keeps no payment details, only the provider's
+reference for each payment.
+
+**Stripe.** Offers are sold through Stripe Managed Payments, with Stripe, through Onelink, the merchant of record: it
+works out, charges and pays the tax where each buyer lives, and emails their receipt and invoice. Each purchase is a
+one-off payment for an offer's period; nothing renews. Before a buyer is sent to Stripe's checkout, the
+**Subscription** page asks them to have their time start as soon as they pay and to agree to the Terms and Conditions,
+and records when they did. Their time is added when Stripe's webhook says the payment succeeded, once however often
+it says so.
+
+- In Stripe's dashboard, with Managed Payments set up: make a restricted key that may write Checkout Sessions,
+  Products and Prices, and set it as `STRIPE_SECRET_KEY` (a sandbox's, `rk_test_…`, sells nothing for real).
+- Add a webhook endpoint at `https://<SITE_URL>/webhooks/stripe` for the events `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`,
+  and set its signing secret as `STRIPE_WEBHOOK_SECRET`. Without it the catalogue does not start with a key set.
+- Set a support email address in Stripe's dashboard: Stripe shows it to buyers.
+- `STRIPE_CURRENCY` is the one currency sold in, `GBP` by default; `STRIPE_TAX_CODE` the tax code on each offer's
+  Stripe Product, `txcd_10103000` (software as a service, personal use) by default. Then `docker compose up -d app`.
+- An offer made while Stripe is set up, with a price in that currency, is made a Stripe Product and Price, before tax,
+  and sold through Stripe; the **Subscription** page shows its price with "+ applicable tax". An offer made before is
+  not: make a new one. Retiring an offer archives its Stripe Price and Product.
+- A user's admin page links each payment to Stripe's dashboard, which keeps its invoice; a sandbox's are marked.
+- The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
+  for real.
 
 **Patreon.** A user who links Patreon, from their **Subscription** page, is subscribed while they are an active
 patron of the catalogue's campaign, pledging at least the least pledge set on the admin pages' **Subscriptions** page.

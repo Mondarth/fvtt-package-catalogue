@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { users } from '../../../../src/lib/server/accounts/schema.js';
 import {
   patreonMemberships,
+  subscriptionCheckouts,
   subscriptionCredits,
   subscriptionOffers,
 } from '../../../../src/lib/server/subscriptions/schema.js';
@@ -18,6 +19,20 @@ describe("a subscription's credits", () => {
     expect(keys).toEqual([
       { to: getTableConfig(users).name, column: 'id', onDelete: 'cascade' },
       { to: getTableConfig(subscriptionOffers).name, column: 'id', onDelete: 'no action' },
+    ]);
+  });
+});
+
+describe('a checkout', () => {
+  it('goes with its buyer, keeps its offer, and outlives the credit it made', () => {
+    const keys = getTableConfig(subscriptionCheckouts).foreignKeys.map(key => {
+      const { foreignTable, foreignColumns } = key.reference();
+      return { to: getTableConfig(foreignTable).name, column: foreignColumns[0]?.name, onDelete: key.onDelete };
+    });
+    expect(keys).toEqual([
+      { to: getTableConfig(users).name, column: 'id', onDelete: 'cascade' },
+      { to: getTableConfig(subscriptionOffers).name, column: 'id', onDelete: 'no action' },
+      { to: getTableConfig(subscriptionCredits).name, column: 'id', onDelete: 'set null' },
     ]);
   });
 });

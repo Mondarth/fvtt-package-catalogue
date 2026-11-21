@@ -98,6 +98,43 @@ export const PatreonCampaignId = given;
 /** Patreon's address, for the end-to-end tests' stand-in alone: Patreon's own when unset. */
 export const PatreonUrl = given.pipe(z.url().optional());
 
+/**
+ * Stripe's secret key: a restricted key that may write Checkout Sessions, Products and Prices. None, and nothing is
+ * sold through Stripe. A sandbox's key (`sk_test_…`, `rk_test_…`) sells nothing for real.
+ */
+export const StripeSecretKey = given.pipe(
+  z
+    .string()
+    .regex(/^(?:sk|rk)_(?:test|live)_\w+$/, 'a Stripe secret or restricted key, such as rk_live_…')
+    .optional(),
+);
+
+/** The secret Stripe signs its webhook events with (`whsec_…`): needed with the secret key. */
+export const StripeWebhookSecret = given.pipe(z.string().startsWith('whsec_', 'a webhook secret, whsec_…').optional());
+
+/**
+ * The tax code put on each offer's Stripe Product, which Stripe works out tax by: `txcd_10103000`, software as a
+ * service for personal use, by default.
+ */
+export const StripeTaxCode = given.pipe(
+  z
+    .string()
+    .regex(/^txcd_\d{8}$/, 'a Stripe tax code, such as txcd_10103000')
+    .default('txcd_10103000'),
+);
+
+/** The one currency sold in through Stripe, `GBP` by default: an offer without a price in it is not sold there. */
+export const StripeCurrency = given.pipe(
+  z
+    .string()
+    .regex(/^[A-Za-z]{3}$/, 'a currency code, such as GBP')
+    .transform(code => code.toUpperCase())
+    .default('GBP'),
+);
+
+/** Stripe's API's address, for the end-to-end tests' stand-in alone: Stripe's own when unset. */
+export const StripeApiUrl = given.pipe(z.url().optional());
+
 /** A whole number above none, from the environment's text. */
 const Count = z.coerce.number().int().positive();
 

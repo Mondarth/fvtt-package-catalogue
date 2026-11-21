@@ -36,6 +36,7 @@
   /** What each payment processor keeps, by its id in `PROCESSORS`. */
   const KEEPS: Record<string, () => string> = {
     patreon: m.privacy_processor_patreon_what,
+    stripe: m.privacy_processor_stripe_what,
   };
 
   const FROM: Record<StoredFrom, () => string> = {

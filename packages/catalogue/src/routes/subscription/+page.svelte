@@ -34,7 +34,24 @@
     unlinked: m.subscription_patreon_done_unlinked,
     checked: m.subscription_patreon_done_checked,
   };
-  const patreonProblem = $derived(form?.patreon ?? data.patreonError);
+  /** What the last action refused, if it did. */
+  const refused = $derived(form ?? null);
+  const patreonProblem = $derived(refused !== null && 'patreon' in refused ? refused.patreon : data.patreonError);
+
+  /** Why buying an offer was refused. */
+  const BUY_PROBLEMS: Readonly<Record<string, () => string>> = {
+    consent: m.subscription_buy_problem_consent,
+    offer: m.subscription_buy_problem_offer,
+    stripe: m.subscription_buy_problem_stripe,
+    impersonating: m.subscription_buy_problem_impersonating,
+  };
+  const buyProblem = $derived(refused !== null && 'buy' in refused ? refused.buy : undefined);
+  /** How a checkout came back. */
+  const CHECKOUT_DONE: Readonly<Record<string, () => string>> = {
+    done: m.subscription_checkout_done,
+    cancelled: m.subscription_checkout_cancelled,
+  };
+  const checkoutDone = $derived(CHECKOUT_DONE[data.checkout ?? '']?.());
   const patreonDone = $derived(patreonProblem === null ? PATREON_DONE[data.patreonDone ?? '']?.() : undefined);
 
   /**
@@ -132,6 +149,14 @@
 
 <section aria-labelledby="offers">
   <h2 id="offers">{m.subscription_offers_heading()}</h2>
+  {#if buyProblem !== undefined}
+    <Callout id="buy-problem">{BUY_PROBLEMS[buyProblem]?.() ?? m.subscription_buy_problem_stripe()}</Callout>
+  {:else if checkoutDone !== undefined}
+    <p role="status">{checkoutDone}</p>
+  {/if}
+  {#if data.processing > 0}
+    <p role="status">{m.subscription_checkout_processing()}</p>
+  {/if}
   {#if data.offers.length === 0}
     <p>{m.subscription_offers_none()}</p>
   {:else}
@@ -140,16 +165,51 @@
         <li>
           <strong>{offer.name}</strong>
           <span>{periodLabel(offer)}</span>
-          <span class="prices">
-            {Object.entries(offer.prices)
-              .map(([currency, minor]) => formatPrice(currency, minor, getLocale()))
-              .join(' · ')}
-          </span>
+          {#if offer.stripePrice !== null}
+            <span class="prices">
+              {m.subscription_price_before_tax({
+                price: formatPrice(offer.stripePrice.currency, offer.stripePrice.amount, getLocale()),
+              })}
+            </span>
+            {#if data.canBuy}
+              <form method="post" action="?/buy" class="buy">
+                <input type="hidden" name="offer" value={offer.id} />
+                <label>
+                  <input
+                    type="checkbox"
+                    name="consent"
+                    required
+                    aria-invalid={buyProblem === 'consent' &&
+                      refused !== null &&
+                      'offer' in refused &&
+                      refused.offer === offer.id}
+                    aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
+                  {m.subscription_buy_consent()}
+                </label>
+                <button aria-label={m.subscription_buy_named({ name: offer.name })}>{m.subscription_buy()}</button>
+              </form>
+            {/if}
+          {:else}
+            <span class="prices">
+              {Object.entries(offer.prices)
+                .map(([currency, minor]) => formatPrice(currency, minor, getLocale()))
+                .join(' · ')}
+            </span>
+          {/if}
         </li>
       {/each}
     </ul>
   {/if}
-  <p class="hint">{m.subscription_buy_soon()}</p>
+  {#if data.offers.some(offer => offer.stripePrice !== null)}
+    <p class="hint">{m.subscription_buy_how()}</p>
+    <p class="hint">
+      {m.subscription_buy_cancel()}
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the terms are published at /terms once final, which the site has no route for yet -->
+      <a href="/terms">{m.subscription_buy_terms()}</a>
+    </p>
+  {:else}
+    <p class="hint">{m.subscription_buy_soon()}</p>
+  {/if}
 </section>
 
 <section aria-labelledby="history">
@@ -217,6 +277,14 @@
 
   .prices {
     color: var(--muted);
+  }
+
+  .buy {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    align-items: center;
   }
 
   table {

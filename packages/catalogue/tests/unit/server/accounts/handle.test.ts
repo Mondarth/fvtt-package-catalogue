@@ -8,10 +8,12 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { AuditStore } from '../../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore } from '../../../../src/lib/server/accounts/store.js';
+import type { StripeGateway } from '../../../../src/lib/server/subscriptions/stripe.js';
 import type { SubscriptionStore } from '../../../../src/lib/server/subscriptions/store.js';
 
 const USER = { id: 'u1', handle: 'amber-fox-oak-01' };
 const SESSION = { id: 's1', userId: 'u1' };
+const STRIPE = { currency: 'GBP' } as StripeGateway;
 
 function setUp(found: { user: typeof USER; session: typeof SESSION } | null) {
   const cookies = new Headers();
@@ -29,6 +31,7 @@ function setUp(found: { user: typeof USER; session: typeof SESSION } | null) {
     adminUserIds: ['u-admin'],
     banNotices: banNotices('a-test-secret-a-test-secret-a-test-secret'),
     subscriptions: {} as SubscriptionStore,
+    stripe: STRIPE,
   });
   const resolve = vi.fn<(event: RequestEvent) => Promise<Response>>(() => Promise.resolve(new Response('page')));
   const run = (path: string) => {
@@ -64,6 +67,15 @@ describe('createAccountsHandle', () => {
       expect(event.locals.user).toBeNull();
     }
     expect(resolve).toHaveBeenCalledTimes(2);
+    expect(auth.api.getSession).not.toHaveBeenCalled();
+  });
+
+  it('gives a webhook the subscriptions, the audit log and Stripe, but no one signed in', async () => {
+    const { auth, resolve, run } = setUp(null);
+    const { event, response } = run('/webhooks/stripe');
+    await response;
+    expect(event.locals).toMatchObject({ user: null, stripe: STRIPE, subscriptions: {}, audit: {} });
+    expect(resolve).toHaveBeenCalledOnce();
     expect(auth.api.getSession).not.toHaveBeenCalled();
   });
 

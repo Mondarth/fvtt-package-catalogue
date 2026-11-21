@@ -72,6 +72,7 @@ function patreonWith(more: Partial<PatreonChecker> = {}): MockChecker {
 const subscriptions = {
   history: () => Promise.resolve([]),
   activeOffers: () => Promise.resolve([]),
+  processingCheckouts: () => Promise.resolve([]),
 } as unknown as SubscriptionStore;
 
 describe('the subscription page, with Patreon', () => {
@@ -302,7 +303,7 @@ describe("the offers page's least Patreon pledge", () => {
 describe("a user's admin page, with Patreon", () => {
   type UserLoadEvent = Parameters<typeof userLoad>[0];
 
-  const userPage = (patreon: MockChecker | undefined) =>
+  const userPage = (patreon: MockChecker | undefined, credits: unknown[] = []) =>
     userLoad(
       fakeEvent<UserLoadEvent>({
         url: 'http://catalogue.test/admin/users/ada',
@@ -316,12 +317,27 @@ describe("a user's admin page, with Patreon", () => {
           } as unknown as AccountsStore,
           subscriptions: {
             status: () => Promise.resolve({ paidUntil: null, active: false }),
-            history: () => Promise.resolve([]),
+            history: () => Promise.resolve(credits),
           } as unknown as SubscriptionStore,
           audit: { recent: () => Promise.resolve([]) } as unknown as AuditStore,
         },
       }),
     ) as Promise<Record<string, unknown>>;
+
+  it("links each Stripe payment to Stripe's dashboard, in the mode it was made in, and nothing else", async () => {
+    const credits = [
+      { id: 'c1', provider: 'stripe', externalRef: 'pi_1', providerAccount: 'test' },
+      { id: 'c2', provider: 'stripe', externalRef: null, providerAccount: null },
+      { id: 'c3', provider: 'btcpay', externalRef: 'inv-1', providerAccount: null },
+    ];
+    expect(await userPage(undefined, credits)).toMatchObject({
+      credits: [
+        { id: 'c1', dashboard: 'https://dashboard.stripe.com/test/payments/pi_1' },
+        { id: 'c2', dashboard: null },
+        { id: 'c3', dashboard: null },
+      ],
+    });
+  });
 
   it('shows what was kept of their Patreon, without asking Patreon', async () => {
     const patreon = patreonWith();

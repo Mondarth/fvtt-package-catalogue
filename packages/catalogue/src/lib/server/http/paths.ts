@@ -21,11 +21,27 @@ export function isApiPath(pathname: string): boolean {
 }
 
 /**
+ * The path payment providers' webhooks are under, each at `/webhooks/<provider>`: neither the API (they carry the
+ * provider's signature, not a key) nor the website (no one is signed in to them, and they are not localised).
+ */
+export const WEBHOOKS_ROOT = '/webhooks';
+
+/**
+ * Whether a path is a webhook's.
+ *
+ * @param pathname - The request's path
+ * @returns Whether it is under {@link WEBHOOKS_ROOT}
+ */
+export function isWebhookPath(pathname: string): boolean {
+  return pathname.startsWith(`${WEBHOOKS_ROOT}/`);
+}
+
+/**
  * Whether a path is the website's.
  *
  * @param pathname - The request's path
- * @returns Whether it is neither the API's nor the health check
+ * @returns Whether it is neither the API's, the health check, nor a webhook's
  */
 export function isSitePath(pathname: string): boolean {
-  return !isApiPath(pathname) && pathname !== HEALTH_PATH;
+  return !isApiPath(pathname) && pathname !== HEALTH_PATH && !isWebhookPath(pathname);
 }

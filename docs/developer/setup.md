@@ -53,6 +53,23 @@ Its campaign is `dev-campaign`, unless `PATREON_CAMPAIGN_ID` is set. The pledges
 the tokens it gave keep working. Setting `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET` uses the real Patreon instead,
 with `PATREON_CAMPAIGN_ID`.
 
+### Stripe while developing
+
+Stripe has no stand-in on the development server: a Stripe sandbox, with Managed Payments set up, sells nothing for
+real, and its test cards pay as real ones would.
+
+1. In the sandbox's dashboard, make a restricted key that may write Checkout Sessions, Products and Prices, and set it
+   as `STRIPE_SECRET_KEY` in `.env`.
+2. Forward the sandbox's events to the development server with the [Stripe CLI](https://docs.stripe.com/stripe-cli):
+   `stripe listen --forward-to localhost:5173/webhooks/stripe`. It prints a signing secret, `whsec_…`: set it as
+   `STRIPE_WEBHOOK_SECRET`, and start the server again.
+3. As an admin, make an offer with a price in pounds, such as `GBP 30.00`: it is made a Product and Price in the
+   sandbox.
+4. On your **Subscription** page, tick the consent and **Buy** it, and pay with a test card, such as
+   `4242 4242 4242 4242` with any future date and CVC. The time is added once the forwarded event arrives.
+
+The end-to-end tests stand in for Stripe's API instead (`tests/e2e/fake-stripe.ts`, by `STRIPE_API_URL`).
+
 ## Commands
 
 From the repository root:

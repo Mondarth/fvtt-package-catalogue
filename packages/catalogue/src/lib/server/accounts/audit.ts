@@ -24,6 +24,7 @@ export const AUDIT_ACTIONS = [
   'offer.create',
   'offer.retire',
   'patreon.minimum',
+  'payment.credit',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

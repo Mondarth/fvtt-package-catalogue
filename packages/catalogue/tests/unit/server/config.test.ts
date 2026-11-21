@@ -10,6 +10,11 @@ import {
   ProviderCredential,
   readConfig,
   SiteUrl,
+  StripeApiUrl,
+  StripeCurrency,
+  StripeSecretKey,
+  StripeTaxCode,
+  StripeWebhookSecret,
   TestProviderUrl,
 } from '../../../src/lib/server/config.js';
 
@@ -89,6 +94,29 @@ describe('the sign-in providers', () => {
     expect(TestProviderUrl.parse('')).toBeUndefined();
     expect(TestProviderUrl.parse('http://127.0.0.1:4174')).toBe('http://127.0.0.1:4174');
     expect(TestProviderUrl.safeParse('not a url').success).toBe(false);
+  });
+});
+
+describe('Stripe', () => {
+  it("is set up by a secret or restricted key, a sandbox's or a live one, with its webhook secret", () => {
+    expect(StripeSecretKey.parse('')).toBeUndefined();
+    expect(StripeSecretKey.parse('rk_test_abc123')).toBe('rk_test_abc123');
+    expect(StripeSecretKey.parse('sk_live_abc123')).toBe('sk_live_abc123');
+    expect(StripeSecretKey.safeParse('pk_live_abc123').success).toBe(false);
+    expect(StripeWebhookSecret.parse(undefined)).toBeUndefined();
+    expect(StripeWebhookSecret.parse('whsec_abc')).toBe('whsec_abc');
+    expect(StripeWebhookSecret.safeParse('abc').success).toBe(false);
+  });
+
+  it('puts the tax code for software as a service on its Products, and sells in pounds, unless told otherwise', () => {
+    expect(StripeTaxCode.parse('')).toBe('txcd_10103000');
+    expect(StripeTaxCode.parse('txcd_10000000')).toBe('txcd_10000000');
+    expect(StripeTaxCode.safeParse('10103000').success).toBe(false);
+    expect(StripeCurrency.parse(undefined)).toBe('GBP');
+    expect(StripeCurrency.parse('eur')).toBe('EUR');
+    expect(StripeCurrency.safeParse('pounds').success).toBe(false);
+    expect(StripeApiUrl.parse('')).toBeUndefined();
+    expect(StripeApiUrl.parse('http://127.0.0.1:4175')).toBe('http://127.0.0.1:4175');
   });
 });
 

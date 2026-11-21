@@ -166,3 +166,51 @@ describe('offers', () => {
     ).toMatchObject({ offerId: made.id });
   });
 });
+
+describe('offers sold through a provider', () => {
+  const offer = { name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, createdBy: 'admin' };
+
+  it('keep the id they were put to it by, and what it knows them by; an offer is found retired or not', async () => {
+    const refs = { stripe: { product: 'prod_1', price: 'price_1' } };
+    const made = await store.createOffer({ ...offer, id: 'o-stripe', providers: ['stripe'], providerRefs: refs });
+    expect(made).toMatchObject({ id: 'o-stripe', providers: ['stripe'], providerRefs: refs });
+    expect((await store.createOffer(offer)).providerRefs).toEqual({});
+    await store.retireOffer('o-stripe', NOW);
+    expect(await store.offer('o-stripe')).toMatchObject({ id: 'o-stripe', retiredAt: NOW });
+    expect(await store.offer('none')).toBeUndefined();
+  });
+});
+
+describe('checkouts', () => {
+  const offer = { name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, createdBy: 'admin' };
+
+  it('are begun with the consent, found by their id or their session, and settled once', async () => {
+    const { id: offerId } = await store.createOffer(offer);
+    const begun = await store.openCheckout({ userId: 'u1', offerId, provider: 'stripe', consentedAt: NOW });
+    expect(begun).toMatchObject({ userId: 'u1', offerId, status: 'open', sessionId: null, consentedAt: NOW });
+
+    await store.attachSession(begun.id, 'cs_1');
+    expect(await store.checkoutOf('stripe', begun.id, 'cs_other')).toMatchObject({ id: begun.id, sessionId: 'cs_1' });
+    expect(await store.checkoutOf('stripe', undefined, 'cs_1')).toMatchObject({ id: begun.id });
+    expect(await store.checkoutOf('stripe', 'none', 'cs_1')).toMatchObject({ id: begun.id });
+    expect(await store.checkoutOf('paypal', begun.id, 'cs_1')).toBeUndefined();
+    expect(await store.checkoutOf('stripe', undefined, 'cs_none')).toBeUndefined();
+
+    await store.settleCheckout(begun.id, 'processing', undefined, NOW);
+    expect(await store.processingCheckouts('u1')).toMatchObject([{ id: begun.id, status: 'processing' }]);
+    expect(await store.processingCheckouts('u2')).toEqual([]);
+
+    const credit = await store.credit(
+      { userId: 'u1', source: 'payment', provider: 'stripe', externalRef: 'pi_1', offerId, months: 12, days: 0 },
+      NOW,
+    );
+    if (credit === 'duplicate') throw new Error('Credited already');
+    await store.settleCheckout(begun.id, 'paid', credit.id);
+    // Paid is settled for good: a late event cannot undo it.
+    await store.settleCheckout(begun.id, 'expired');
+    expect(await store.checkoutOf('stripe', begun.id, 'cs_1')).toMatchObject({ status: 'paid', creditId: credit.id });
+    expect(await store.processingCheckouts('u1')).toEqual([]);
+    expect(await store.creditOf('stripe', 'pi_1')).toMatchObject({ id: credit.id });
+    expect(await store.creditOf('stripe', 'pi_none')).toBeUndefined();
+  });
+});

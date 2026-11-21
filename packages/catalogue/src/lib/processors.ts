@@ -16,4 +16,5 @@ export interface Processor {
 
 export const PROCESSORS: readonly Processor[] = [
   { id: 'patreon', name: 'Patreon', policy: 'https://privacy.patreon.com/policies' },
+  { id: 'stripe', name: 'Stripe (Onelink)', policy: 'https://stripe.com/privacy' },
 ];

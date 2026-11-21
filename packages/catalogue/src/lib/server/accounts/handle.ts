@@ -5,7 +5,7 @@
  */
 import type { Handle } from '@sveltejs/kit/hooks';
 
-import { isSitePath } from '../http/paths.js';
+import { isSitePath, isWebhookPath } from '../http/paths.js';
 import { AUTH_PATH } from './auth.js';
 import { entitlementOf, subscribedBy } from '../subscriptions/entitlement.js';
 import { isAdmin } from './permissions.js';
@@ -13,6 +13,7 @@ import { isAdmin } from './permissions.js';
 import type { AuditStore } from './audit.js';
 import type { BanNotices } from './ban-notice.js';
 import type { PatreonChecker } from '../subscriptions/patreon.js';
+import type { StripeGateway } from '../subscriptions/stripe.js';
 import type { SubscriptionStore } from '../subscriptions/store.js';
 import type { Auth } from './auth.js';
 import type { AccountsStore } from './store.js';
@@ -30,6 +31,8 @@ export interface AccountsHandleOptions {
   readonly subscriptions: SubscriptionStore;
   /** Patreon, if the catalogue offers it as a way to be subscribed (see `subscriptions/patreon.ts`). */
   readonly patreon?: PatreonChecker | undefined;
+  /** Stripe, if the catalogue sells subscription time through it (see `subscriptions/stripe.ts`). */
+  readonly stripe?: StripeGateway | undefined;
 }
 
 /**
@@ -50,7 +53,7 @@ export function isAuthPath(pathname: string): boolean {
  * @returns The hook
  */
 export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions): Handle {
-  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon } = options;
+  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe } = options;
   const subscribed = subscribedBy(subscriptions, patreon);
   return async ({ event, resolve }) => {
     // No one, until the session says otherwise: an API request's error page, such as its 404, renders the website's
@@ -60,6 +63,13 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.isAdmin = false;
     const { pathname } = event.url;
     if (isAuthPath(pathname)) return auth.handler(event.request);
+    // A payment provider's webhook: no one is signed in to it, but it changes subscriptions.
+    if (isWebhookPath(pathname)) {
+      event.locals.subscriptions = subscriptions;
+      event.locals.audit = audit;
+      event.locals.stripe = stripe;
+      return resolve(event);
+    }
     if (!isSitePath(pathname)) return resolve(event);
 
     event.locals.auth = auth;
@@ -70,6 +80,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.banNotices = banNotices;
     event.locals.subscriptions = subscriptions;
     event.locals.patreon = patreon;
+    event.locals.stripe = stripe;
     // Reading the session may renew it, which sets its cookie again.
     const { headers, response: found } = await auth.api.getSession({
       headers: event.request.headers,

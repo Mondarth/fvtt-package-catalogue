@@ -4,8 +4,11 @@ import {
   E2E_API_KEY,
   E2E_ENV,
   E2E_PORT,
+  E2E_STRIPE_WEBHOOK_SECRET,
   FAKE_PROVIDER_PORT,
   FAKE_PROVIDER_URL,
+  FAKE_STRIPE_PORT,
+  FAKE_STRIPE_URL,
   FORWARDED_PROTO,
 } from './environment.js';
 
@@ -45,6 +48,18 @@ export default defineConfig({
       cwd: '../..',
       url: `${FAKE_PROVIDER_URL}/healthz`,
       env: { FAKE_PROVIDER_PORT: String(FAKE_PROVIDER_PORT) },
+      reuseExistingServer: !process.env.CI,
+    },
+    // The stand-in for Stripe's API and its checkout page (STRIPE_API_URL), which sends the server's webhook its events.
+    {
+      command: 'node tests/e2e/fake-stripe.ts',
+      cwd: '../..',
+      url: `${FAKE_STRIPE_URL}/healthz`,
+      env: {
+        FAKE_STRIPE_PORT: String(FAKE_STRIPE_PORT),
+        SITE_URL: E2E_ENV.SITE_URL,
+        STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
+      },
       reuseExistingServer: !process.env.CI,
     },
   ],
