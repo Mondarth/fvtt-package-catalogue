@@ -15,6 +15,8 @@ import { bearer } from 'better-auth/plugins/bearer';
 import { deviceAuthorization } from 'better-auth/plugins/device-authorization';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
+import { forgetPatreonOf, PATREON, PATREON_SCOPES, PATREON_URL, patreonUrl } from '../subscriptions/patreon.js';
+
 import { eq } from 'drizzle-orm';
 
 import { adminHooks, DISABLED_ADMIN_PATHS } from './admin-hooks.js';
@@ -50,8 +52,10 @@ export interface AuthOptions {
   readonly google?: ProviderApp | undefined;
   /** Discord's, if signing in with Discord is offered. */
   readonly discord?: ProviderApp | undefined;
-  /** Patreon's, if signing in with Patreon is offered. */
+  /** Patreon's, if signing in with Patreon, and linking it, are offered. */
   readonly patreon?: ProviderApp | undefined;
+  /** Patreon's address: its own by default, or the end-to-end tests' stand-in for it. */
+  readonly patreonUrl?: string | undefined;
   /**
    * A stand-in provider's address, for the end-to-end tests alone: it answers `/authorize`, `/token` and `/userinfo`
    * as an OAuth 2 provider does. Never set in a deployment.
@@ -106,6 +110,41 @@ export function providerApp(clientId: string | undefined, clientSecret: string |
 const appOf = ({ clientId, clientSecret }: ProviderApp) => ({ clientId, clientSecret });
 
 /**
+ * Patreon, as Better Auth's helper sets it up, at Patreon's address or a stand-in's, asking for the user's memberships
+ * as well as who they are, so that the catalogue can tell whether they are a patron (see `subscriptions/patreon.ts`).
+ *
+ * @param app - Patreon's app
+ * @param base - Patreon's address
+ * @returns The provider
+ */
+export function patreonProvider(app: ProviderApp, base = PATREON_URL) {
+  return {
+    ...patreon({ ...appOf(app), scopes: [...PATREON_SCOPES] }),
+    authorizationUrl: patreonUrl(base, '/oauth2/authorize').href,
+    tokenUrl: patreonUrl(base, '/api/oauth2/token').href,
+    async getUserInfo(tokens: { accessToken?: string | undefined }) {
+      const url = patreonUrl(base, '/api/oauth2/v2/identity');
+      url.searchParams.set('fields[user]', 'email,full_name,image_url,is_email_verified');
+      const response = await fetch(url, { headers: { authorization: `Bearer ${tokens.accessToken ?? ''}` } });
+      if (!response.ok) return null;
+      const { data } = (await response.json()) as {
+        data: {
+          id: string;
+          attributes: { email?: string; full_name?: string; image_url?: string; is_email_verified?: boolean };
+        };
+      };
+      return {
+        id: data.id,
+        name: data.attributes.full_name ?? '',
+        email: data.attributes.email,
+        image: data.attributes.image_url,
+        emailVerified: data.attributes.is_email_verified ?? false,
+      };
+    },
+  };
+}
+
+/**
  * Better Auth, set up for the website.
  *
  * @param options - The configuration
@@ -116,7 +155,7 @@ export function createAuth(options: AuthOptions) {
   const notices = banNotices(options.secret);
   const adminUserIds = [...(options.adminUserIds ?? [])];
   const generic = [
-    ...(options.patreon === undefined ? [] : [patreon(appOf(options.patreon))]),
+    ...(options.patreon === undefined ? [] : [patreonProvider(options.patreon, options.patreonUrl)]),
     ...(testProviderUrl === undefined
       ? []
       : [
@@ -198,8 +237,30 @@ export function createAuth(options: AuthOptions) {
         clientId: { type: 'string', required: false, input: false },
       },
     },
-    account: { encryptOAuthTokens: true },
+    account: {
+      encryptOAuthTokens: true,
+      // A user's providers are linked only as they ask, from their profile or subscription, never because two share an
+      // email address: a Patreon account may be linked whatever its address, and Patreon is trusted to say whose it is.
+      accountLinking: {
+        enabled: true,
+        disableImplicitLinking: true,
+        allowDifferentEmails: true,
+        trustedProviders: [PATREON],
+      },
+    },
     databaseHooks: {
+      account: {
+        // What Patreon last said of a user is forgotten as their Patreon is linked, signed in with or linked again, and
+        // unlinked, so that it is asked afresh: never as its token is merely refreshed, to ask it.
+        create: { after: account => forgetPatreonOf(db, account) },
+        update: {
+          after: (account, ctx) =>
+            ctx?.path === undefined || ctx.path.startsWith('/callback/') || ctx.path.startsWith('/oauth2/callback/')
+              ? forgetPatreonOf(db, account)
+              : Promise.resolve(),
+        },
+        delete: { after: account => forgetPatreonOf(db, account) },
+      },
       session: {
         create: {
           // A device's session, given by the device grant's token endpoint, is marked with its client, which the

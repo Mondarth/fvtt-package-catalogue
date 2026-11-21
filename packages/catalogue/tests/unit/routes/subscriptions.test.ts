@@ -71,7 +71,7 @@ describe('the subscription page', () => {
         locals: {
           user: USER as never,
           isAdmin: false,
-          entitlement: () => Promise.resolve({ paidUntil: AFTER, active: true, entitled: true }),
+          entitlement: () => Promise.resolve({ paidUntil: AFTER, active: true, patreon: false, entitled: true }),
           subscriptions: {
             history: () => Promise.resolve([aCredit()]),
             activeOffers: () => Promise.resolve([offer()]),
@@ -80,10 +80,13 @@ describe('the subscription page', () => {
       }),
     );
     expect(result).toEqual({
-      entitlement: { paidUntil: AFTER, active: true, entitled: true },
+      entitlement: { paidUntil: AFTER, active: true, patreon: false, entitled: true },
       admin: false,
       history: [{ id: 'c1', source: 'grant', startsAt: BEFORE, endsAt: AFTER, months: 12, days: 0 }],
       offers: [{ id: 'o1', name: '12 months', months: 12, days: 0, prices: { GBP: 3000 } }],
+      patreon: null,
+      patreonDone: null,
+      patreonError: null,
     });
   });
 
@@ -216,7 +219,7 @@ describe('the offers page', () => {
         locals: { subscriptions: { offers } as unknown as SubscriptionStore },
       }),
     );
-    expect(result).toEqual({ offers: [offer()], done: 'create' });
+    expect(result).toEqual({ offers: [offer()], patreonMinimum: undefined, done: 'create' });
   });
 
   function act(action: 'create' | 'retire', form: Record<string, string>, store: Partial<SubscriptionStore>) {

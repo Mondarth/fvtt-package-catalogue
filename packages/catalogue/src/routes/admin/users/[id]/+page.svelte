@@ -204,6 +204,23 @@
       {m.admin_subscription_none()}
     {/if}
   </p>
+  {#if data.patreon?.linked}
+    <p class="patreon">
+      {data.patreon.subscribed ? m.admin_patreon_subscribes() : m.admin_patreon_does_not()}
+      {#if data.patreon.membership !== null}
+        <span class="hint">
+          {m.admin_patreon_said({
+            status: data.patreon.membership.patronStatus ?? '–',
+            amount: data.patreon.membership.amount === null ? '–' : String(data.patreon.membership.amount),
+            checked: data.patreon.membership.checkedAt === null ? '–' : time(data.patreon.membership.checkedAt),
+          })}
+          {#if data.patreon.membership.failure !== null}
+            {m.admin_patreon_failure({ failure: data.patreon.membership.failure })}
+          {/if}
+        </span>
+      {/if}
+    </p>
+  {/if}
 
   <form method="POST" action="?/grant" class="subscription">
     <h3>{m.admin_grant_heading()}</h3>

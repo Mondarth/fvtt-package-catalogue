@@ -18,7 +18,11 @@ export const GET: RequestHandler = endpoint(({ locals }) => {
   return Promise.resolve(
     respond(MeResponse, {
       user: { handle: user.handle, nickname: user.nickname, role: user.role },
-      subscription: { paidUntil: entitlement.paidUntil?.toISOString() ?? null, active: entitlement.active },
+      subscription: {
+        paidUntil: entitlement.paidUntil?.toISOString() ?? null,
+        active: entitlement.active || entitlement.patreon,
+        patreon: entitlement.patreon,
+      },
       entitled: entitlement.entitled,
     }),
   );

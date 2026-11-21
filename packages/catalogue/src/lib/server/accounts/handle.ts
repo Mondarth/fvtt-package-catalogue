@@ -7,11 +7,12 @@ import type { Handle } from '@sveltejs/kit/hooks';
 
 import { isSitePath } from '../http/paths.js';
 import { AUTH_PATH } from './auth.js';
-import { entitlementOf } from '../subscriptions/entitlement.js';
+import { entitlementOf, subscribedBy } from '../subscriptions/entitlement.js';
 import { isAdmin } from './permissions.js';
 
 import type { AuditStore } from './audit.js';
 import type { BanNotices } from './ban-notice.js';
+import type { PatreonChecker } from '../subscriptions/patreon.js';
 import type { SubscriptionStore } from '../subscriptions/store.js';
 import type { Auth } from './auth.js';
 import type { AccountsStore } from './store.js';
@@ -27,6 +28,8 @@ export interface AccountsHandleOptions {
   /** Reads the notice a banned user's sign-in comes back with. */
   readonly banNotices: BanNotices;
   readonly subscriptions: SubscriptionStore;
+  /** Patreon, if the catalogue offers it as a way to be subscribed (see `subscriptions/patreon.ts`). */
+  readonly patreon?: PatreonChecker | undefined;
 }
 
 /**
@@ -47,7 +50,8 @@ export function isAuthPath(pathname: string): boolean {
  * @returns The hook
  */
 export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions): Handle {
-  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions } = options;
+  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon } = options;
+  const subscribed = subscribedBy(subscriptions, patreon);
   return async ({ event, resolve }) => {
     // No one, until the session says otherwise: an API request's error page, such as its 404, renders the website's
     // layout, which reads them.
@@ -65,6 +69,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.adminUserIds = adminUserIds;
     event.locals.banNotices = banNotices;
     event.locals.subscriptions = subscriptions;
+    event.locals.patreon = patreon;
     // Reading the session may renew it, which sets its cookie again.
     const { headers, response: found } = await auth.api.getSession({
       headers: event.request.headers,
@@ -73,7 +78,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.user = found?.user ?? null;
     event.locals.session = found?.session ?? null;
     event.locals.isAdmin = found !== null && isAdmin(found.user, adminUserIds);
-    event.locals.entitlement = entitlementOf(subscriptions, found?.user.id, event.locals.isAdmin);
+    event.locals.entitlement = entitlementOf(subscribed, found?.user.id, event.locals.isAdmin);
     const response = await resolve(event);
     for (const cookie of headers.getSetCookie()) response.headers.append('Set-Cookie', cookie);
     return response;

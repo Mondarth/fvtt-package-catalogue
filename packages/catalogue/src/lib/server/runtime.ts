@@ -21,16 +21,20 @@ import {
   AUTH_TEST_PROVIDER_URL,
   DATABASE_URL,
   LOG_LEVEL,
+  PATREON_CAMPAIGN_ID,
+  PATREON_URL,
   SITE_URL,
 } from '$app/env/private';
 
 import { auditStore } from './accounts/audit.js';
 import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
+import { devPatreon } from './accounts/dev-patreon.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
 import { isAdmin } from './accounts/permissions.js';
-import { cachedEntitlements } from './subscriptions/entitlement.js';
+import { cachedEntitlements, subscribedBy } from './subscriptions/entitlement.js';
+import { patreonChecker } from './subscriptions/patreon.js';
 import { subscriptionStore } from './subscriptions/store.js';
 
 import type { ApiUsers } from './http/handle.js';
@@ -46,12 +50,19 @@ export const connection = connect(DATABASE_URL);
 export const store = drizzleStore(connection.db);
 export const apiKeys = API_KEYS;
 
+/** Patreon as set, or, on the development server without a Patreon app, its stand-in (dev-patreon.ts). */
+const patreonSetting = devPatreon(
+  { app: providerApp(AUTH_PATREON_ID, AUTH_PATREON_SECRET), url: PATREON_URL, campaignId: PATREON_CAMPAIGN_ID },
+  SITE_URL,
+  import.meta.env.DEV,
+);
+
 /** Each provider's app, where both its id and secret are set. */
 const apps = {
   github: providerApp(AUTH_GITHUB_ID, AUTH_GITHUB_SECRET),
   google: providerApp(AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET),
   discord: providerApp(AUTH_DISCORD_ID, AUTH_DISCORD_SECRET),
-  patreon: providerApp(AUTH_PATREON_ID, AUTH_PATREON_SECRET),
+  patreon: patreonSetting.app,
 };
 
 /** The stand-in provider: the one the end-to-end tests run, or, on the development server, its own (dev-provider.ts). */
@@ -73,9 +84,25 @@ export const auth = createAuth({
   siteUrl: SITE_URL,
   ...apps,
   testProviderUrl: testProvider,
+  patreonUrl: patreonSetting.url,
   adminUserIds,
   audit,
 });
+
+/**
+ * Patreon, as a way to be subscribed, where signing in with it is set up: asked with each user's own token, which Better
+ * Auth refreshes when it has expired.
+ */
+export const patreon =
+  apps.patreon === undefined
+    ? undefined
+    : patreonChecker({
+        db: connection.db,
+        campaignId: patreonSetting.campaignId,
+        ...(patreonSetting.url !== undefined && { baseUrl: patreonSetting.url }),
+        accessToken: async (userId, accountId) =>
+          (await auth.api.getAccessToken({ body: { accountId, userId } })).accessToken,
+      });
 
 /** Subscriptions, and the offers they are bought by. */
 export const subscriptions = subscriptionStore(connection.db);
@@ -123,5 +150,5 @@ export const apiUsers: ApiUsers = {
       impersonated: typeof session.impersonatedBy === 'string',
     };
   },
-  entitlement: cachedEntitlements(subscriptions, user => user.role === 'admin'),
+  entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),
 };

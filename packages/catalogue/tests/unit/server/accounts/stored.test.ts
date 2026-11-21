@@ -7,7 +7,16 @@ import { STORED, UNUSED_COLUMNS } from '../../../../src/lib/stored.js';
 import { testDatabase } from '../../support/pglite.js';
 
 /** The accounts' tables, as the migrations make them. */
-const TABLES = ['users', 'sessions', 'accounts', 'verifications', 'audit_log', 'subscription_credits', 'device_codes'];
+const TABLES = [
+  'users',
+  'sessions',
+  'accounts',
+  'verifications',
+  'audit_log',
+  'subscription_credits',
+  'device_codes',
+  'patreon_memberships',
+];
 
 describe('what the "What we store" page lists', () => {
   // Migrating a fresh database takes a few seconds, more under coverage.

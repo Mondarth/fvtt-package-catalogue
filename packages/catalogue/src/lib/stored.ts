@@ -106,6 +106,19 @@ export const STORED: readonly StoredItem[] = [
     ],
   },
   {
+    id: 'patreon',
+    from: 'provider',
+    columns: [
+      'patreon_memberships.user_id',
+      'patreon_memberships.patron_status',
+      'patreon_memberships.amount',
+      'patreon_memberships.next_charge_at',
+      'patreon_memberships.checked_at',
+      'patreon_memberships.asked_at',
+      'patreon_memberships.failure',
+    ],
+  },
+  {
     id: 'pending',
     from: 'us',
     columns: ['verifications.id', 'verifications.identifier', 'verifications.value', 'verifications.expires_at'],

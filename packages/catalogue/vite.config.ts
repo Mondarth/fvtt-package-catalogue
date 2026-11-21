@@ -7,6 +7,7 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
+import { devPatreonProvider } from './src/lib/server/accounts/dev-patreon.js';
 import { devProvider } from './src/lib/server/accounts/dev-provider.js';
 
 import type { Plugin } from 'vite';
@@ -28,6 +29,7 @@ const devSignIn: Plugin = {
   apply: 'serve',
   configureServer(server) {
     server.middlewares.use(devProvider());
+    server.middlewares.use(devPatreonProvider());
   },
 };
 

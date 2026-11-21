@@ -14,12 +14,12 @@ describe('GET /api/v2/me', () => {
     const response = await me({
       kind: 'user',
       user: USER,
-      entitlement: { paidUntil: new Date('2027-01-01T00:00:00Z'), active: false, entitled: true },
+      entitlement: { paidUntil: new Date('2027-01-01T00:00:00Z'), active: false, patreon: false, entitled: true },
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       user: { handle: 'amber-fox-oak-01', nickname: 'Ada', role: 'admin' },
-      subscription: { paidUntil: '2027-01-01T00:00:00.000Z', active: false },
+      subscription: { paidUntil: '2027-01-01T00:00:00.000Z', active: false, patreon: false },
       entitled: true,
     });
   });
@@ -28,7 +28,7 @@ describe('GET /api/v2/me', () => {
     const response = await me({
       kind: 'user',
       user: { ...USER, nickname: null, role: 'user' },
-      entitlement: { paidUntil: null, active: false, entitled: false },
+      entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
     });
     expect(await response.json()).toMatchObject({ subscription: { paidUntil: null }, entitled: false });
   });

@@ -123,6 +123,13 @@ Discord
 Patreon
 : In Patreon's developer portal (Clients & API Keys), create a client whose redirect URI is
   `SITE_URL/auth/callback/patreon`. Its client ID and client secret go in `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET`.
+  The catalogue asks a patron for their memberships too (the `identity.memberships` scope), to know whether they
+  pledge to the catalogue's campaign: see [Subscriptions](#subscriptions). Someone signed in with Patreon before it
+  asked for them links Patreon again, from their **Subscription** page, when it says so.
+
+A user's providers are linked only as they ask, never because two share an email address: signing in with another
+provider makes a profile of its own. Patreon is linked from the **Subscription** page, whatever its email address; one
+Patreon account belongs to one profile alone.
 
 Signing in keeps what the provider gives of the visitor (their name, email address and picture), their sessions, and
 where each session signed in from. The website's "What we store" page (`/privacy`) lays it all out, row by row, and a
@@ -170,6 +177,20 @@ offer is never changed once made, so that what was bought by it stays as it was:
 new offer and retire the old one. The shortest offer on sale is the least that can be bought. Buying is not yet on
 the site: payment providers come later, each through its own hosted checkout, and the catalogue keeps no payment
 details, only the provider's reference for each payment.
+
+**Patreon.** A user who links Patreon, from their **Subscription** page, is subscribed while they are an active
+patron of the catalogue's campaign, pledging at least the least pledge set on the admin pages' **Subscriptions** page.
+It makes no credits: Patreon is asked, with the patron's own token, as they use what a subscription gives.
+
+- Set `PATREON_CAMPAIGN_ID` to the campaign's id: Patreon's API gives it
+  (`curl -H "Authorization: Bearer <creator's access token>" https://www.patreon.com/api/oauth2/v2/campaigns`, the
+  creator's access token from the client's page in the developer portal), and `docker compose up -d app`.
+- Set the least pledge, in the campaign's currency, such as `GBP 3.00`. Until it is set, Patreon subscribes no one. It
+  counts at once, against what Patreon last said of each patron. The audit log records each change.
+- Patreon's answer is kept a day, then asked again; a patron can ask again at once from their **Subscription** page.
+  While Patreon cannot be asked, the last answer counts for three days more. A patron whose token Patreon no longer
+  takes is not subscribed by it until they link Patreon again.
+- A user's admin page shows what Patreon last said of them, without asking it.
 
 ## The worker
 

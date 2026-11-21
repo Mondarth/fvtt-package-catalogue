@@ -17,13 +17,16 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const user = await locals.accounts.userDetail(params.id);
   if (user === undefined) error(404);
   const configured = locals.adminUserIds.includes(user.id);
-  const [subscription, credits] = await Promise.all([
+  const [subscription, credits, patreon] = await Promise.all([
     locals.subscriptions.status(user.id),
     locals.subscriptions.history(user.id),
+    // What was kept of their Patreon, without asking it: only the user's own use of the site asks Patreon.
+    locals.patreon?.kept(user.id),
   ]);
   return {
     subscription,
     credits,
+    patreon: patreon ?? null,
     user: {
       ...user,
       providers: user.providers.map(({ providerId }) => providerId),

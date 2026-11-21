@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
   import { m } from '#lib/paraglide/messages.js';
+  import { PROCESSORS } from '#lib/processors.js';
   import { STORED } from '#lib/stored.js';
 
   import type { StoredFrom } from '#lib/stored.js';
@@ -27,8 +28,14 @@
     audit: { what: m.privacy_audit_what, why: m.privacy_audit_why },
     subscription: { what: m.privacy_subscription_what, why: m.privacy_subscription_why },
     payment: { what: m.privacy_payment_what, why: m.privacy_payment_why },
+    patreon: { what: m.privacy_patreon_what, why: m.privacy_patreon_why },
     pending: { what: m.privacy_pending_what, why: m.privacy_pending_why },
     times: { what: m.privacy_times_what, why: m.privacy_times_why },
+  };
+
+  /** What each payment processor keeps, by its id in `PROCESSORS`. */
+  const KEEPS: Record<string, () => string> = {
+    patreon: m.privacy_processor_patreon_what,
   };
 
   const FROM: Record<StoredFrom, () => string> = {
@@ -65,6 +72,20 @@
     {/each}
   </tbody>
 </table>
+
+<section aria-labelledby="payments">
+  <h2 id="payments">{m.privacy_payments_heading()}</h2>
+  <p>{m.privacy_payments()}</p>
+  <p>{m.privacy_invoices()}</p>
+  <ul>
+    {#each PROCESSORS as processor (processor.id)}
+      <li data-processor={processor.id}>
+        <strong>{processor.name}</strong>: {KEEPS[processor.id]?.()}
+        <a href={processor.policy} rel="external noopener noreferrer">{m.privacy_processor_policy()}</a>
+      </li>
+    {/each}
+  </ul>
+</section>
 
 <section aria-labelledby="kept">
   <h2 id="kept">{m.privacy_kept_heading()}</h2>

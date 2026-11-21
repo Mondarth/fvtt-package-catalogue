@@ -232,7 +232,8 @@ from the catalogue so that it can move to a service of its own, shared by every 
 - The end-to-end tests sign in through a stand-in provider (`tests/e2e/fake-provider.ts`), offered only when
   `AUTH_TEST_PROVIDER_URL` is set. The development server has one of its own, with made-up users to choose from
   (`accounts/dev-provider.ts`, served by a Vite plugin, and offered when `import.meta.env.DEV` is set): see
-  {doc}`setup`.
+  {doc}`setup`. It stands in for Patreon too, without a Patreon app (`accounts/dev-patreon.ts`, `devPatreon`), with
+  made-up patrons whose pledges its page changes.
 
 ### Subscriptions
 
@@ -248,11 +249,24 @@ from the catalogue so that it can move to a service of its own, shared by every 
   two cannot start from the same end. Setting an earlier end cuts every credit back to it.
 - **Offers** (`subscription_offers`): a period, a price in each currency in its minor unit (`lib/prices.ts`), the dates
   it is on sale between, and when it was retired. Never edited: a change is a new offer.
+- **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of
+  `PATREON_CAMPAIGN_ID` pledging at least the least pledge (`catalogue_settings`, `patreon_minimum`, set on the admin
+  Subscriptions page). The checker asks Patreon's identity endpoint, with memberships, using the user's token, which
+  Better Auth refreshes (`getAccessToken`); it keeps the answer in `patreon_memberships` a day, and whether it subscribes
+  is worked out as it is read, against the least pledge now. While Patreon cannot be asked, the last answer counts for
+  72 hours more (`GRACE_MS`), asked again each time; a token Patreon no longer takes (401), or that may not read
+  memberships (403, or given before the scope was asked for), stops it at once. Requests at once share one asking.
+  Better Auth's account hooks (`auth.ts`) forget the answer as Patreon is linked, signed in with or linked again, and
+  unlinked, never as its token is refreshed. Linking is `routes/subscription/link-patreon` (a route of its own, as it
+  passes Better Auth's state cookie on with the redirect); providers are linked only as asked
+  (`disableImplicitLinking`), Patreon whatever its email (`allowDifferentEmails`, trusted). `PATREON_URL` points it,
+  and sign-in, at the end-to-end tests' stand-in.
 - **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
-  subscription gives (an admin always may), read once a request and only when asked. A feature that needs it calls
+  subscription gives (an admin always may; anyone else by credits or by Patreon, `subscribedBy`), read once a request
+  and only when asked. A feature that needs it calls
   `requireEntitled` in its form actions, so that without a subscription its pages load but change nothing.
-- Admins grant, set the end of and revoke subscriptions, and make and retire offers, from the admin pages, each
-  recorded in the audit log (`subscription.*`, `offer.*`).
+- Admins grant, set the end of and revoke subscriptions, make and retire offers, and set the least Patreon pledge, from
+  the admin pages, each recorded in the audit log (`subscription.*`, `offer.*`, `patreon.minimum`).
 
 ### Who may call the API
 
@@ -286,6 +300,8 @@ read and validated again at start-up, come from the environment the server runs 
 | `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
 | `SITE_URL`     | yes      | The website's address as visitors reach it                 |
 | `AUTH_<PROVIDER>_ID`, `AUTH_<PROVIDER>_SECRET` | no | A provider's app, for `GITHUB`, `GOOGLE`, `DISCORD` and `PATREON`; each is offered only with both |
+| `PATREON_CAMPAIGN_ID` | no | The catalogue's Patreon campaign, whose patrons at the least pledge are subscribed |
+| `PATREON_URL` | no | Patreon's address, for the end-to-end tests' stand-in alone |
 | `ADMIN_USER_IDS` | no | The user ids of admins whatever their role, separated by commas, such as the first admin |
 | `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
 | `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
