@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-v0.11.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.10.1...@mondarth/fvtt-package-catalogue-v0.11.0) (2026-11-21)
+
+### Features
+
+* **catalogue:** subscribe Patreon patrons, by a check of their pledge ([947a5f5](https://github.com/Mondarth/fvtt-package-catalogue/commit/947a5f5fcfa946552b39840731538fe10ac5b556))
+
+### Bug Fixes
+
+* **catalogue:** give FA Nexus's versions their own manifests ([4d3f6b1](https://github.com/Mondarth/fvtt-package-catalogue/commit/4d3f6b177cfe3bbe55b62e533399d57612bc574a))
+
 ## [@mondarth/fvtt-package-catalogue-v0.10.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.10.0...@mondarth/fvtt-package-catalogue-v0.10.1) (2026-11-17)
 
 ### Bug Fixes
