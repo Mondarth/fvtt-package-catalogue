@@ -6,6 +6,11 @@
       "https://foundrymods.com/api/manifest/baileywiki-content?version={version}"
     ]
   },
+  "module:fa-nexus": {
+    "reason": "Foundry VTT's listing names its versions 0.6.x and 0.5.x, though each one's manifest gives a version such as 0.6.2 or 0.5.3, and its GitHub tags add -beta (v0.6.2-beta), so neither is a version a client can install. Each version's own manifest is the release asset of its tag.",
+    "manifest": "https://github.com/Forgotten-Adventures/FA-Nexus/releases/download/v{version}-beta/module.json",
+    "ignoreVersions": ["0.6.x", "0.5.x"]
+  },
   "module:multi-token-edit": {
     "reason": "The GitHub release 99.test is a test build, whose manifest gives version 3.2.2-test.",
     "ignoreVersions": ["99.test"]
