@@ -168,13 +168,11 @@ test('a buyer cancels within 14 days, sees the refund and what it ends, confirms
 
   await (await refundDialog(page)).getByRole('button', { name: en.subscription_refund_confirm }).click();
   await expect(page.getByRole('status').filter({ hasText: en.subscription_refund_done_at_once })).toBeVisible();
-  // Stripe's event of the refund arrives a moment later, and takes the time back.
-  await expect(async () => {
-    await page.reload();
-    await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
-      en.subscription_refund_refunded,
-    );
-  }).toPass();
+  // Stripe's event of the refund arrives a moment later, and takes the time back: the page shows it without a reload.
+  await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
+    en.subscription_refund_refunded,
+    { timeout: 15_000 },
+  );
   // What of it was used is kept, in whole days rounded down: it runs out today or tomorrow, not a month later.
   const soon = [0, 1].map(days =>
     fill(en.subscription_active, { date: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en') }),

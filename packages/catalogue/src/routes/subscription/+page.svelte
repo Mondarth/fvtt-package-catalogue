@@ -3,6 +3,8 @@
   offers it, and the offers on sale.
 -->
 <script lang="ts">
+  import { refreshAll } from '$app/navigation';
+
   import Callout from '#lib/components/Callout.svelte';
   import RefundDialog from '#lib/components/RefundDialog.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -13,6 +15,26 @@
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
+
+  /** How often, and for how long, the page asks again while a refund made at once is still to be confirmed. */
+  const REFUND_POLL_MS = 2000;
+  const REFUND_POLL_FOR_MS = 60_000;
+
+  // A refund made at once is confirmed by Stripe's webhook a moment after the buyer is sent back here: until it is, the
+  // purchase still reads as asked for, so the page asks again now and then, for a minute at most, until none does.
+  /** When the page began asking again; kept as each asking gives the page new data. */
+  let pollingSince: number | undefined;
+  $effect(() => {
+    if (data.refundDone !== 'refunded' || !data.history.some(credit => credit.refund === 'requested')) return;
+    const since = (pollingSince ??= Date.now());
+    const timer = setInterval(() => {
+      if (Date.now() - since > REFUND_POLL_FOR_MS) clearInterval(timer);
+      else void refreshAll();
+    }, REFUND_POLL_MS);
+    return () => {
+      clearInterval(timer);
+    };
+  });
 
   const SOURCES: Readonly<Record<string, () => string>> = {
     grant: m.subscription_source_grant,

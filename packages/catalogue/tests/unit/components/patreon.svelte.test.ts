@@ -10,6 +10,8 @@ import { messagesOf } from '../support/messages.js';
 
 const state = vi.hoisted(() => ({ page: { url: new URL('http://catalogue.test/subscription') } }));
 vi.mock('$app/state', () => state);
+const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()) }));
+vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
 const fill = (message: string, values: Record<string, string | number>) =>

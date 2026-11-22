@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import Offers from '../../../src/routes/admin/subscriptions/+page.svelte';
 import User from '../../../src/routes/admin/users/[id]/+page.svelte';
@@ -9,6 +9,8 @@ import { messagesOf } from '../support/messages.js';
 
 const state = vi.hoisted(() => ({ page: { url: new URL('http://catalogue.test/admin/subscriptions') } }));
 vi.mock('$app/state', () => state);
+const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()) }));
+vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
 const fill = (message: string, values: Record<string, string | number>) =>
@@ -858,5 +860,64 @@ describe("the offers page's refund reasons", () => {
     expect(rowOf(rows, 1)).toHaveTextContent(en.subscription_refund_reason_too_expensive);
     expect(rowOf(rows, 2)).toHaveTextContent(`${en.subscription_refund_reason_other} Moving on`);
     expect(rowOf(rows, 3)).toHaveTextContent('–');
+  });
+});
+
+describe('a refund made at once, on the subscription page', () => {
+  const ROW = {
+    id: 'c1',
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 3600, currency: 'GBP' },
+    preview: null,
+  };
+  const show = (refundDone: string | null, refund: string) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [{ ...ROW, refund }],
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone,
+      },
+      form: null,
+      params: {},
+    } as never);
+
+  afterEach(() => {
+    vi.useRealTimers();
+    navigation.refreshAll.mockClear();
+  });
+
+  it("asks again every two seconds until Stripe's word of it arrives, for a minute at most", () => {
+    vi.useFakeTimers();
+    show('refunded', 'requested');
+    expect(navigation.refreshAll).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000);
+    expect(navigation.refreshAll).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(60_000);
+    const asked = navigation.refreshAll.mock.calls.length;
+    vi.advanceTimersByTime(10_000);
+    expect(navigation.refreshAll).toHaveBeenCalledTimes(asked);
+  });
+
+  it.each([
+    ['once it reads as refunded', 'refunded', 'refunded'],
+    ['for a refund an admin is to make', 'requested', 'requested'],
+  ])('asks nothing again %s', (_why, refundDone, refund) => {
+    vi.useFakeTimers();
+    show(refundDone, refund);
+    vi.advanceTimersByTime(10_000);
+    expect(navigation.refreshAll).not.toHaveBeenCalled();
   });
 });
