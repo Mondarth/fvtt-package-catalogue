@@ -104,7 +104,12 @@
   {/if}
 </p>
 {#if data.admin}<p class="hint">{m.subscription_admin()}</p>{/if}
-{#if !active && !byPatreon}<p>{m.subscription_gives()}</p>{/if}
+{#if !active && !byPatreon}
+  <p>
+    {m.subscription_gives()}
+    {#if data.patreon !== null && data.canBuy}{m.subscription_how_both()}{:else if data.patreon !== null}{m.subscription_how_patreon()}{:else if data.canBuy}{m.subscription_how_buy()}{/if}
+  </p>
+{/if}
 
 {#if data.patreon !== null}
   <section aria-labelledby="patreon">

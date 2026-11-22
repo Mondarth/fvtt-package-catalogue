@@ -107,7 +107,7 @@ describe('the subscription page', () => {
   it('says when it ended', () => {
     show({ entitlement: { paidUntil: UNTIL, active: false, entitled: false } });
     expect(screen.getByText(fill(en.subscription_ended, { date: day(UNTIL) }))).toBeInTheDocument();
-    expect(screen.getByText(en.subscription_gives)).toBeInTheDocument();
+    expect(screen.getByText(en.subscription_gives, { exact: false })).toBeInTheDocument();
   });
 
   it('says when there is none, nor anything on sale, and tells an admin they need none', () => {
@@ -459,5 +459,44 @@ describe("a user's admin page's payments", () => {
       'href',
       'https://dashboard.stripe.com/live/pi_live',
     );
+  });
+});
+
+describe('the subscription page, to someone with no subscription', () => {
+  const show = (data: Record<string, unknown>) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
+        admin: false,
+        history: [],
+        offers: [],
+        canBuy: false,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        ...data,
+      },
+      form: null,
+      params: {},
+    } as never);
+  const PATREON = { linked: false, subscribed: false, minimum: null, membership: null };
+
+  it.each([
+    [{ patreon: PATREON, canBuy: true }, en.subscription_how_both],
+    [{ patreon: PATREON }, en.subscription_how_patreon],
+    [{ canBuy: true }, en.subscription_how_buy],
+  ])('says how they can subscribe, by the ways on offer: %j', (data, how) => {
+    show(data);
+    expect(screen.getByText(en.subscription_gives, { exact: false })).toHaveTextContent(
+      `${en.subscription_gives} ${how}`,
+    );
+  });
+
+  it('names no way where there is none', () => {
+    show({});
+    const said = screen.getByText(en.subscription_gives, { exact: false }).textContent;
+    expect(said.trim()).toBe(en.subscription_gives);
   });
 });
