@@ -363,7 +363,7 @@
   "privacy_patreon_what": "If you link Patreon: whether you are a patron of the catalogue's campaign, what you pledge, when Patreon next charges you, and when it was last asked, and whether it answered",
   "privacy_patreon_why": "Knowing whether your pledge subscribes you. Patreon is asked again once a day; unlinking Patreon, or deleting your profile, deletes it.",
   "privacy_payments_heading": "Payments",
-  "privacy_payments": "The catalogue keeps no payment details: no card, account or address. A subscription paid for keeps the processor's own reference for the payment, and the total paid, alone, and a Patreon pledge is asked of Patreon, with your permission, when you link it.",
+  "privacy_payments": "The catalogue keeps minimal payment details: for each payment, only the processor's own reference for it and the total paid, never a card, account or address. A Patreon pledge is not kept here: it is asked of Patreon, with your permission, when you link it.",
   "privacy_invoices": "Invoice details may be maintained by payment processors for legal compliance: each processor keeps its invoices, and what it needs to make them, under its own privacy policy, as below.",
   "privacy_processor_patreon_what": "your Patreon account, your pledges and their payments, for your membership of the catalogue's campaign and its billing.",
   "privacy_processor_stripe_what": "your payments for subscription time, your billing address and payment details, and the receipts and invoices it sends you, as the merchant of record.",

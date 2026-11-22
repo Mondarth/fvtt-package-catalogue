@@ -363,7 +363,7 @@
   "privacy_patreon_what": "Si vinculas Patreon: si eres mecenas de la campaña del catálogo, cuánto aportas, cuándo te cobra Patreon de nuevo, y cuándo se le consultó por última vez, y si respondió",
   "privacy_patreon_why": "Saber si tu aportación te suscribe. Se consulta a Patreon de nuevo una vez al día; desvincular Patreon, o borrar tu perfil, lo borra.",
   "privacy_payments_heading": "Pagos",
-  "privacy_payments": "El catálogo no guarda datos de pago: ni tarjeta, ni cuenta, ni dirección. Una suscripción pagada guarda solo la referencia del pago del propio procesador y el total pagado, y una aportación en Patreon se consulta a Patreon, con tu permiso, al vincularlo.",
+  "privacy_payments": "El catálogo guarda los mínimos datos de pago: de cada pago, solo la referencia del propio procesador y el total pagado, nunca una tarjeta, una cuenta ni una dirección. Una aportación en Patreon no se guarda aquí: se consulta a Patreon, con tu permiso, al vincularlo.",
   "privacy_invoices": "Los procesadores de pago pueden conservar los datos de las facturas por obligación legal: cada procesador guarda sus facturas, y lo que necesita para emitirlas, según su propia política de privacidad, como se indica abajo.",
   "privacy_processor_patreon_what": "tu cuenta de Patreon, tus aportaciones y sus pagos, para tu membresía en la campaña del catálogo y su cobro.",
   "privacy_processor_stripe_what": "tus pagos de tiempo de suscripción, tu dirección de facturación y tus datos de pago, y los recibos y facturas que te envía, como comerciante registrado.",
