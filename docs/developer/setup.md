@@ -69,9 +69,10 @@ real, and its test cards pay as real ones would.
 4. On your **Subscription** page, tick the consent (one for every offer, which each **Buy** waits for) and **Buy** it, and pay with a test card, such as
    `4242 4242 4242 4242` with any future date and CVC. The time is added once the forwarded event arrives.
 
-5. To try a refund, **Cancel and ask for a refund** on the **Subscription** page; the admin pages' **Subscriptions**
-   page lists it, with the refund owed. Make it from the sandbox's dashboard (**Refund in Stripe**): once the forwarded
-   `charge.refunded` arrives, its time comes off the subscription. A dispute can be tried with Stripe's test card for
+5. To try a refund, **Cancel and ask for a refund** on the **Subscription** page, and confirm it: bought within 14 days,
+   it is refunded at once (the restricted key needs Refunds write too), and its time comes off the subscription as the
+   forwarded `charge.refunded` arrives. A request older than that, which asks a reason, is listed on the admin pages'
+   **Subscriptions** page, to make from the sandbox's dashboard (**Refund in Stripe**). A dispute can be tried with Stripe's test card for
    disputes, `4000 0000 0000 0259`.
 
 The end-to-end tests stand in for Stripe's API instead (`tests/e2e/fake-stripe.ts`, by `STRIPE_API_URL`).

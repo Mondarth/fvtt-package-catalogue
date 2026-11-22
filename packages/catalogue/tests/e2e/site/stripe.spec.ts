@@ -1,4 +1,8 @@
-import { E2E_ADMIN, FAKE_PROVIDER_URL, FAKE_STRIPE_URL } from '../environment.js';
+import { eq } from 'drizzle-orm';
+
+import { connect } from '../../../src/lib/server/db/connect.js';
+import { subscriptionCredits } from '../../../src/lib/server/subscriptions/schema.js';
+import { E2E_ADMIN, E2E_ENV, FAKE_PROVIDER_URL, FAKE_STRIPE_URL } from '../environment.js';
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
 
@@ -112,43 +116,117 @@ async function bought(page: Page, info: TestInfo) {
   return { buyer, paymentIntent: `pi_for_${session}` };
 }
 
-test('a buyer cancels and asks for a refund, which an admin makes, taking its time back', async ({ page }, info) => {
-  const { buyer, paymentIntent } = await bought(page, info);
-  await page.reload();
-  const history = page.getByRole('region', { name: en.subscription_history_heading });
-  await expect(history).toContainText('£3.60');
+/**
+ * Has a purchase look bought so many days ago, as only the database can: the end-to-end tests cannot wait 14 days.
+ *
+ * @param paymentIntent - The purchase's payment
+ * @param days - How many days ago
+ */
+async function boughtAgo(paymentIntent: string, days: number) {
+  const connection = connect(E2E_ENV.DATABASE_URL);
+  try {
+    await connection.db
+      .update(subscriptionCredits)
+      .set({ createdAt: new Date(Date.now() - days * 24 * 60 * 60 * 1000) })
+      .where(eq(subscriptionCredits.externalRef, paymentIntent));
+  } finally {
+    await connection.close();
+  }
+}
 
-  // Asked for on the page, and confirmed there at once.
-  await history.getByRole('button', { name: /Cancel the purchase of/ }).click();
+/**
+ * Opens a purchase's refund dialog, from the purchase history.
+ *
+ * @param page - The page, on the Subscription page
+ * @returns The dialog
+ */
+async function refundDialog(page: Page) {
+  await page
+    .getByRole('region', { name: en.subscription_history_heading })
+    .getByRole('button', { name: /Cancel the purchase of/ })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+test('a buyer cancels within 14 days, sees the refund and what it ends, confirms, and is refunded at once', async ({
+  page,
+}, info) => {
+  await bought(page, info);
+  await page.reload();
+  const dialog = await refundDialog(page);
+  await expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_cancel_heading);
+  await expect(dialog).toContainText(en.subscription_refund_dialog_at_once);
+  // Their only time: cancelling it ends their subscription, which they are told.
+  await expect(dialog).toContainText(en.subscription_refund_dialog_ends);
+  await expect(dialog.getByRole('combobox')).toHaveCount(0);
+
+  // Cancel closes it, asking nothing.
+  await dialog.getByRole('button', { name: en.subscription_refund_dismiss }).click();
+  await expect(dialog).toBeHidden();
+
+  await (await refundDialog(page)).getByRole('button', { name: en.subscription_refund_confirm }).click();
+  await expect(page.getByRole('status').filter({ hasText: en.subscription_refund_done_at_once })).toBeVisible();
+  // Stripe's event of the refund arrives a moment later, and takes the time back.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
+      en.subscription_refund_refunded,
+    );
+  }).toPass();
+  // What of it was used is kept, in whole days rounded down: it runs out today or tomorrow, not a month later.
+  const soon = [0, 1].map(days =>
+    fill(en.subscription_active, { date: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en') }),
+  );
+  expect(soon).toContain(await page.getByText(/^Subscribed until /).textContent());
+});
+
+test('a buyer asks for a refund after 14 days, saying why, which an admin sees and makes', async ({ page }, info) => {
+  const { paymentIntent } = await bought(page, info);
+  await boughtAgo(paymentIntent, 20);
+  await page.reload();
+
+  const dialog = await refundDialog(page);
+  await expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_request_heading);
+  await expect(dialog).toContainText(en.subscription_refund_dialog_later);
+  await dialog.getByRole('combobox', { name: en.subscription_refund_reason }).selectOption('other');
+  await dialog.getByRole('textbox', { name: en.subscription_refund_reason_text }).fill('Moving to another tool');
+  await dialog.getByRole('button', { name: en.subscription_refund_confirm }).click();
   await expect(page.getByRole('status').filter({ hasText: en.subscription_refund_done })).toBeVisible();
-  await expect(history).toContainText(en.subscription_refund_requested);
+  await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
+    en.subscription_refund_requested,
+  );
   await signOut(page);
 
-  // The admin sees it, with all of it owed: none of its time is used yet, as it started just now.
+  // The admin sees it, with the buyer's reason, and makes it in Stripe's dashboard, stood in for.
   await signInAs(page, E2E_ADMIN);
   await page.goto('/admin/subscriptions');
   const requests = page.getByRole('region', { name: en.admin_refunds_heading });
   // Its row, by the payment its link names: earlier runs' requests may be listed too.
   const asked = requests.getByRole('row').filter({ has: page.locator(`a[href$="/payments/${paymentIntent}"]`) });
-  await expect(asked).toContainText('£3.60');
-  await expect(asked.getByRole('link', { name: en.admin_refunds_make })).toHaveAttribute(
-    'href',
-    /\/test\/payments\/pi_for_/,
-  );
-
-  // The admin refunds it in Stripe's dashboard, stood in for: its time is taken back, and it leaves the list.
-  const refunded = await page.request.get(`${FAKE_STRIPE_URL}/refund/${paymentIntent}?refunded=360`);
-  expect(refunded.status()).toBe(200);
+  await expect(asked).toContainText(`${en.subscription_refund_reason_other} Moving to another tool`);
+  expect((await page.request.get(`${FAKE_STRIPE_URL}/refund/${paymentIntent}?refunded=100`)).status()).toBe(200);
   await page.reload();
   await expect(asked).toHaveCount(0);
+});
+
+test('a cancellation Stripe will not refund at once is left to an admin', async ({ page }, info) => {
+  const { paymentIntent } = await bought(page, info);
+  await page.request.get(`${FAKE_STRIPE_URL}/refunds-fail/${paymentIntent}`);
+  await page.reload();
+  await (await refundDialog(page)).getByRole('button', { name: en.subscription_refund_confirm }).click();
+  await expect(page.getByRole('status').filter({ hasText: en.subscription_refund_done })).toBeVisible();
   await signOut(page);
 
-  await signInAs(page, buyer);
-  await page.goto('/subscription');
-  await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
-    en.subscription_refund_refunded,
-  );
-  await expect(page.getByText(/^Subscribed until /)).toHaveCount(0);
+  await signInAs(page, E2E_ADMIN);
+  await page.goto('/admin/subscriptions');
+  await expect(
+    page
+      .getByRole('region', { name: en.admin_refunds_heading })
+      .getByRole('row')
+      .filter({ has: page.locator(`a[href$="/payments/${paymentIntent}"]`) }),
+  ).toHaveCount(1);
 });
 
 test('a dispute lost with the bank charges a purchase back, taking its time', async ({ page }, info) => {

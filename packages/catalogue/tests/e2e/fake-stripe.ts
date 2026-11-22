@@ -11,7 +11,10 @@
  * - `GET /refund/<payment intent>?refunded=<pence>` stands in for an admin refunding a payment in Stripe's dashboard:
  *   it sends a `charge.refunded` event, saying so much has been refunded of it in all;
  * - `GET /dispute/<payment intent>?status=<status>` stands in for a buyer disputing a payment with their bank: it sends
- *   a `charge.dispute.created` event, or `charge.dispute.closed` for a status of `won` or `lost`.
+ *   a `charge.dispute.created` event, or `charge.dispute.closed` for a status of `won` or `lost`;
+ * - `POST /v1/refunds` refunds a payment as the catalogue asks, once for each `Idempotency-Key`, and then sends the
+ *   `charge.refunded` event of it, with what has been refunded of it in all; `GET /refunds-fail/<payment intent>` has it
+ *   refuse to refund that payment, as Stripe might.
  *
  * Run by Playwright beside the server (playwright.config.ts). Plain Node, its types stripped as it runs.
  */
@@ -31,6 +34,12 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+/** What has been refunded of each payment in all, by its PaymentIntent. */
+const refunded = new Map<string, number>();
+/** The refunds made, by their idempotency keys, so that one asked for again is not made again. */
+const refunds = new Map<string, string>();
+/** The payments it refuses to refund. */
+const unrefundable = new Set<string>();
 let made = 0;
 /** Ids unique to each run, as Stripe's are, as the end-to-end database keeps what earlier runs made. */
 const run = Date.now().toString(36);
@@ -120,6 +129,41 @@ const server = createServer((request, response) => {
       return;
     }
 
+    if (request.method === 'POST' && pathname === '/v1/refunds') {
+      const paymentIntent = form.get('payment_intent') ?? '';
+      const key = request.headers['idempotency-key'];
+      const made = typeof key === 'string' ? refunds.get(key) : undefined;
+      if (made !== undefined) {
+        reply(200, { id: made, object: 'refund' });
+        return;
+      }
+      if (unrefundable.has(paymentIntent)) {
+        reply(402, { error: { type: 'invalid_request_error', message: 'This payment cannot be refunded' } });
+        return;
+      }
+      const id = next('re');
+      if (typeof key === 'string') refunds.set(key, id);
+      const total = (refunded.get(paymentIntent) ?? 0) + Number(form.get('amount') ?? CHARGED);
+      refunded.set(paymentIntent, total);
+      reply(200, { id, object: 'refund', payment_intent: paymentIntent });
+      // As Stripe does, it says so by webhook once it is made.
+      setTimeout(() => {
+        void send('charge.refunded', {
+          id: next('ch'),
+          object: 'charge',
+          payment_intent: paymentIntent,
+          amount: CHARGED,
+          amount_refunded: total,
+        });
+      }, 50);
+      return;
+    }
+    const failing = /^\/refunds-fail\/([^/]+)$/.exec(pathname);
+    if (request.method === 'GET' && failing !== null) {
+      unrefundable.add(decodeURIComponent(failing[1] ?? ''));
+      reply(200, { refusing: true });
+      return;
+    }
     const reversed = /^\/(refund|dispute)\/([^/]+)$/.exec(pathname);
     if (request.method === 'GET' && reversed !== null) {
       const paymentIntent = decodeURIComponent(reversed[2] ?? '');

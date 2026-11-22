@@ -528,7 +528,7 @@ describe("a purchase's refund, on the subscription page", () => {
         patreon: null,
         patreonDone: null,
         patreonError: null,
-        refundDone: false,
+        refundDone: null,
         ...more,
       },
       form: more.form ?? null,
@@ -555,9 +555,12 @@ describe("a purchase's refund, on the subscription page", () => {
     for (const index of [3, 4, 5]) expect(within(rowOf(rows, index)).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('confirms a refund asked for at once, and says why one could not be', () => {
-    show([], { refundDone: true });
-    expect(screen.getByRole('status')).toHaveTextContent(en.subscription_refund_done);
+  it.each([
+    ['requested', en.subscription_refund_done],
+    ['refunded', en.subscription_refund_done_at_once],
+  ])('confirms a refund asked for at once: %s', (refundDone, message) => {
+    show([], { refundDone });
+    expect(screen.getByRole('status')).toHaveTextContent(message);
   });
 
   it.each([
@@ -565,7 +568,7 @@ describe("a purchase's refund, on the subscription page", () => {
     ['impersonating', en.subscription_buy_problem_impersonating],
     ['unknown', en.subscription_refund_problem_credit],
   ])('says why a refund was refused: %s', (refund, message) => {
-    show([], { form: { refund }, refundDone: true });
+    show([], { form: { refund }, refundDone: 'requested' });
     expect(screen.getByText(message)).toBeInTheDocument();
     expect(screen.queryByText(en.subscription_refund_done)).not.toBeInTheDocument();
   });
@@ -698,5 +701,162 @@ describe("a user's admin page's refunds and disputes", () => {
     ]) {
       expect(section).toHaveTextContent(text);
     }
+  });
+});
+
+describe("a purchase's refund dialog, on the subscription page", () => {
+  const PREVIEW = {
+    amount: 1800,
+    days: 15,
+    of: 30,
+    paid: 3600,
+    currency: 'GBP',
+    countedFrom: UNTIL,
+    atOnce: false,
+    endsSubscription: true,
+  };
+  const ROW = {
+    id: 'c1',
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 3600, currency: 'GBP' },
+    refund: 'refundable',
+  };
+  const show = (preview: unknown) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [{ ...ROW, preview }],
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: null,
+      params: {},
+    } as never);
+  const opened = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Cancel the purchase of/ }));
+    return screen.getByRole('dialog');
+  };
+
+  it("shows the pro rata refund, what it ends, and asks why, before an admin's refund is asked for", async () => {
+    show(PREVIEW);
+    const dialog = await opened();
+    expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_request_heading);
+    expect(dialog).toHaveTextContent(
+      fill(en.subscription_refund_dialog_amount, {
+        paid: '£36.00',
+        of: 30,
+        days: 15,
+        date: day(UNTIL),
+        amount: '£18.00',
+      }),
+    );
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_later);
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_ends);
+    const reason = within(dialog).getByRole('combobox', { name: en.subscription_refund_reason });
+    expect(reason).toBeRequired();
+    expect(within(dialog).queryByRole('textbox', { name: en.subscription_refund_reason_text })).not.toBeInTheDocument();
+    await userEvent.selectOptions(reason, 'other');
+    expect(await within(dialog).findByRole('textbox', { name: en.subscription_refund_reason_text })).toBeRequired();
+    expect(within(dialog).getByRole('button', { name: en.subscription_refund_confirm })).toHaveAttribute(
+      'type',
+      'submit',
+    );
+
+    await userEvent.click(within(dialog).getByRole('button', { name: en.subscription_refund_dismiss }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('cancels a purchase within 14 days at once, asking no reason, and warns of nothing it keeps', async () => {
+    show({ ...PREVIEW, atOnce: true, endsSubscription: false });
+    const dialog = await opened();
+    expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_cancel_heading);
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_at_once);
+    expect(dialog).not.toHaveTextContent(en.subscription_refund_dialog_ends);
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('says what was paid as unknown where it was not kept', async () => {
+    show({ ...PREVIEW, paid: null });
+    expect(await opened()).toHaveTextContent('You paid – for 30 days');
+  });
+
+  it('opens nothing where there is nothing to preview', async () => {
+    show(null);
+    await userEvent.click(screen.getByRole('button', { name: /Cancel the purchase of/ }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['reason', en.subscription_refund_problem_reason],
+    ['unconfirmed', en.subscription_refund_problem_unconfirmed],
+  ])('says why a refund was refused: %s', (refund, message) => {
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
+        admin: false,
+        history: [],
+        offers: [],
+        canBuy: false,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: { refund },
+      params: {},
+    } as never);
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+});
+
+describe("the offers page's refund reasons", () => {
+  it("shows why each refund was asked for, with the buyer's own words for Other", () => {
+    const asked = (creditId: string, reason: string | null, reasonText: string | null) => ({
+      creditId,
+      userId: 'u1',
+      handle: 'amber-fox-oak-01',
+      requestedAt: UNTIL,
+      purchasedAt: UNTIL,
+      startsAt: UNTIL,
+      endsAt: UNTIL,
+      paid: null,
+      refunded: 0,
+      suggested: null,
+      dashboard: null,
+      reason,
+      reasonText,
+    });
+    render(Offers, {
+      data: {
+        offers: [],
+        refundRequests: [
+          asked('c1', 'too-expensive', null),
+          asked('c2', 'other', 'Moving on'),
+          asked('c3', null, null),
+        ],
+        done: null,
+        stripeCurrency: 'GBP',
+      },
+      form: null,
+      params: {},
+    } as never);
+    const rows = within(screen.getByRole('region', { name: en.admin_refunds_heading })).getAllByRole('row');
+    expect(rowOf(rows, 1)).toHaveTextContent(en.subscription_refund_reason_too_expensive);
+    expect(rowOf(rows, 2)).toHaveTextContent(`${en.subscription_refund_reason_other} Moving on`);
+    expect(rowOf(rows, 3)).toHaveTextContent('–');
   });
 });

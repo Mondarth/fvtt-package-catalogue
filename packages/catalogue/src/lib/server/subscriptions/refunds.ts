@@ -40,3 +40,18 @@ export function suggestedRefund(
   const owed = of === 0 ? 0 : Math.floor((credit.amountPaid * days) / of);
   return { amount: Math.max(0, owed - credit.refundedAmount), days, of };
 }
+
+/** The days after a purchase within which cancelling it refunds it at once, with no admin to make it (Terms B.II.1). */
+export const CANCELLATION_DAYS = 14;
+
+/**
+ * Whether a purchase is still within the days after it was bought that cancelling it refunds it at once. The days run
+ * from when it was bought, not from when its time starts.
+ *
+ * @param credit - The purchase's credit
+ * @param now - The time now
+ * @returns `true` within them
+ */
+export function withinCancellation(credit: Pick<Credit, 'createdAt'>, now: Date = new Date()): boolean {
+  return now.getTime() - credit.createdAt.getTime() <= CANCELLATION_DAYS * DAY_MS;
+}

@@ -312,13 +312,15 @@ describe('refunds asked for', () => {
     const free = await store.credit({ userId: 'u1', source: 'payment', months: 1, days: 0 }, NOW);
     if (granted === 'duplicate' || bought === 'duplicate' || free === 'duplicate') throw new Error('Credited already');
 
-    expect(await store.requestRefund('u1', granted.id, NOW)).toBeUndefined();
-    expect(await store.requestRefund('u1', free.id, NOW)).toBeUndefined();
-    expect(await store.requestRefund('u2', bought.id, NOW)).toBeUndefined();
-    expect(await store.requestRefund('u1', 'none', NOW)).toBeUndefined();
-    expect(await store.requestRefund('u1', bought.id, NOW)).toMatchObject({ refundRequestedAt: NOW });
+    expect(await store.requestRefund('u1', granted.id, undefined, NOW)).toBeUndefined();
+    expect(await store.requestRefund('u1', free.id, undefined, NOW)).toBeUndefined();
+    expect(await store.requestRefund('u2', bought.id, undefined, NOW)).toBeUndefined();
+    expect(await store.requestRefund('u1', 'none', undefined, NOW)).toBeUndefined();
+    expect(
+      await store.requestRefund('u1', bought.id, { reason: 'other', text: 'Moving to another tool' }, NOW),
+    ).toMatchObject({ refundRequestedAt: NOW, refundReason: 'other', refundReasonText: 'Moving to another tool' });
     // Asking again changes nothing.
-    expect(await store.requestRefund('u1', bought.id, at('2026-11-17T00:00:00Z'))).toMatchObject({
+    expect(await store.requestRefund('u1', bought.id, undefined, at('2026-11-17T00:00:00Z'))).toMatchObject({
       refundRequestedAt: NOW,
     });
     expect(await store.refundRequests()).toMatchObject([{ credit: { id: bought.id }, handle: 'amber-fox-oak-01' }]);
@@ -327,12 +329,65 @@ describe('refunds asked for', () => {
     const later = at('2026-11-18T00:00:00Z');
     await store.takeBack({ creditId: bought.id, refunded: 1000, amount: 3000 }, later);
     expect(await store.refundRequests()).toEqual([]);
-    expect(await store.requestRefund('u1', bought.id, at('2026-11-19T00:00:00Z'))).toMatchObject({
+    expect(
+      await store.requestRefund(
+        'u1',
+        bought.id,
+        { reason: 'too-expensive', text: 'ignored' },
+        at('2026-11-19T00:00:00Z'),
+      ),
+    ).toMatchObject({
       refundRequestedAt: at('2026-11-19T00:00:00Z'),
+      refundReason: 'too-expensive',
+      refundReasonText: null,
     });
     expect(await store.refundRequests()).toHaveLength(1);
     // Refunded in full: nothing more to ask for.
     await store.takeBack({ creditId: bought.id, refunded: 3000, amount: 3000 }, at('2026-11-20T00:00:00Z'));
     expect(await store.requestRefund('u1', bought.id)).toBeUndefined();
+  });
+});
+
+describe('a refund asked for as Other', () => {
+  it('keeps no reason where none was given, as for one Stripe could not refund at once', async () => {
+    const bought = await store.credit(
+      {
+        userId: 'u1',
+        source: 'payment',
+        provider: 'stripe',
+        externalRef: 'pi_3',
+        amountPaid: 100,
+        currencyPaid: 'GBP',
+        months: 1,
+        days: 0,
+      },
+      NOW,
+    );
+    if (bought === 'duplicate') throw new Error('Credited already');
+    expect(await store.requestRefund('u1', bought.id, undefined, NOW)).toMatchObject({
+      refundReason: null,
+      refundReasonText: null,
+    });
+  });
+
+  it('keeps no words of its own where none were given', async () => {
+    const other = await store.credit(
+      {
+        userId: 'u1',
+        source: 'payment',
+        provider: 'stripe',
+        externalRef: 'pi_2',
+        amountPaid: 100,
+        currencyPaid: 'GBP',
+        months: 1,
+        days: 0,
+      },
+      NOW,
+    );
+    if (other === 'duplicate') throw new Error('Credited already');
+    expect(await store.requestRefund('u1', other.id, { reason: 'other' }, NOW)).toMatchObject({
+      refundReason: 'other',
+      refundReasonText: null,
+    });
   });
 });

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { suggestedRefund } from '../../../../src/lib/server/subscriptions/refunds.js';
+import {
+  CANCELLATION_DAYS,
+  suggestedRefund,
+  withinCancellation,
+} from '../../../../src/lib/server/subscriptions/refunds.js';
 
 const NOW = new Date('2026-11-22T00:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
@@ -34,5 +38,14 @@ describe('the refund a purchase is owed', () => {
     expect(suggestedRefund(credit({ amountPaid: null }), NOW)).toBeUndefined();
     expect(suggestedRefund(credit({ days: 0 }), NOW)).toEqual({ amount: 0, days: 0, of: 0 });
     expect(suggestedRefund(credit({ startsAt: new Date(Date.now() + 1000 * DAY) }))).toMatchObject({ days: 30 });
+  });
+});
+
+describe('the days a cancellation refunds at once', () => {
+  it('are the 14 after buying, counted from when it was bought, not when its time starts', () => {
+    expect(CANCELLATION_DAYS).toBe(14);
+    expect(withinCancellation({ createdAt: days(-14) }, NOW)).toBe(true);
+    expect(withinCancellation({ createdAt: new Date(days(-14).getTime() - 1) }, NOW)).toBe(false);
+    expect(withinCancellation({ createdAt: new Date() })).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ import { subscriptionCheckouts, subscriptionCredits, subscriptionOffers } from '
 
 import type { Database } from '../db/database.js';
 import type { Period } from './period.js';
-import type { CheckoutStatus, CreditSource, DisputeState, OfferProviderRefs } from './schema.js';
+import type { CheckoutStatus, CreditSource, DisputeState, OfferProviderRefs, RefundReason } from './schema.js';
 
 /** Whether a user is subscribed, and until when. */
 export interface SubscriptionStatus {
@@ -94,6 +94,12 @@ export interface TakenBack {
   readonly after: Date;
 }
 
+/** Why a buyer asked for a refund, where they said: a reason they chose, and, for `other`, their own words. */
+export interface GivenReason {
+  readonly reason: RefundReason;
+  readonly text?: string | undefined;
+}
+
 /** A refund asked for, which an admin has yet to make, with its buyer. */
 export interface RefundRequest {
   readonly credit: Credit;
@@ -162,7 +168,7 @@ export interface SubscriptionStore {
    *
    * @returns The credit, or `undefined` for none of theirs that was paid for and is not refunded in full
    */
-  requestRefund(userId: string, creditId: string, now?: Date): Promise<Credit | undefined>;
+  requestRefund(userId: string, creditId: string, reason?: GivenReason, now?: Date): Promise<Credit | undefined>;
   /** The refunds asked for since each credit was last refunded, oldest first, with their buyers. */
   refundRequests(): Promise<RefundRequest[]>;
 }
@@ -399,7 +405,7 @@ export function subscriptionStore(db: Database): SubscriptionStore {
       await db.update(subscriptionCredits).set({ disputed: state }).where(eq(subscriptionCredits.id, creditId));
     },
 
-    async requestRefund(userId, creditId, now = new Date()) {
+    async requestRefund(userId, creditId, reason, now = new Date()) {
       const [credit] = await db
         .select()
         .from(subscriptionCredits)
@@ -415,7 +421,11 @@ export function subscriptionStore(db: Database): SubscriptionStore {
       }
       const [asked] = await db
         .update(subscriptionCredits)
-        .set({ refundRequestedAt: now })
+        .set({
+          refundRequestedAt: now,
+          refundReason: reason?.reason ?? null,
+          refundReasonText: reason?.reason === 'other' ? (reason.text ?? null) : null,
+        })
         .where(eq(subscriptionCredits.id, creditId))
         .returning();
       return asked;

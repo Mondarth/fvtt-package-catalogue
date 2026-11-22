@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
   import Callout from '#lib/components/Callout.svelte';
+  import RefundDialog from '#lib/components/RefundDialog.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
@@ -61,6 +62,8 @@
   const REFUND_PROBLEMS: Readonly<Record<string, () => string>> = {
     credit: m.subscription_refund_problem_credit,
     impersonating: m.subscription_buy_problem_impersonating,
+    reason: m.subscription_refund_problem_reason,
+    unconfirmed: m.subscription_refund_problem_unconfirmed,
   };
   const refundProblem = $derived(refused !== null && 'refund' in refused ? refused.refund : undefined);
   /** Whether the buyer has accepted the terms of sale, once for every offer: the Buy buttons wait for it. */
@@ -248,7 +251,9 @@
     <Callout id="refund-problem"
       >{REFUND_PROBLEMS[refundProblem]?.() ?? m.subscription_refund_problem_credit()}</Callout>
   {:else if data.refundDone}
-    <p role="status">{m.subscription_refund_done()}</p>
+    <p role="status">
+      {data.refundDone === 'refunded' ? m.subscription_refund_done_at_once() : m.subscription_refund_done()}
+    </p>
   {/if}
   {#if data.history.length === 0}
     <p>{m.subscription_history_none()}</p>
@@ -277,14 +282,13 @@
             <td>
               {#if credit.refund === 'refundable' || credit.refund === 'partly'}
                 {#if credit.refund === 'partly'}<span class="hint">{m.subscription_refund_partly()}</span>{/if}
-                <form method="post" action="?/refund">
-                  <input type="hidden" name="credit" value={credit.id} />
-                  <button
-                    aria-label={m.subscription_refund_ask_named({
-                      date: date(credit.purchasedAt),
-                      period: periodLabel(credit),
-                    })}>{m.subscription_refund_ask()}</button>
-                </form>
+                <RefundDialog
+                  credit={credit.id}
+                  label={m.subscription_refund_ask_named({
+                    date: date(credit.purchasedAt),
+                    period: periodLabel(credit),
+                  })}
+                  preview={credit.preview ?? null} />
               {:else if credit.refund === 'refunded' || credit.refund === 'requested'}
                 {REFUND_STATES[credit.refund]()}
               {:else}

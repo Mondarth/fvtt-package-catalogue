@@ -164,6 +164,20 @@ describe('the Stripe gateway', () => {
     expect(sent[1]?.form.has('customer_email')).toBe(false);
   });
 
+  it('refunds some of a payment as its buyer asked, once for its key', async () => {
+    const { gateway: stripe, sent } = gateway({ 'POST /v1/refunds': { id: 're_1', object: 'refund' } });
+    await expect(
+      stripe.refund({ paymentIntent: 'pi_1', amount: 1800, creditId: 'c1', idempotencyKey: 'refund-c1-at' }),
+    ).resolves.toEqual({ id: 're_1' });
+    expect(Object.fromEntries(sent[0]?.form ?? [])).toEqual({
+      payment_intent: 'pi_1',
+      amount: '1800',
+      reason: 'requested_by_customer',
+      'metadata[credit]': 'c1',
+    });
+    expect(sent[0]?.headers.get('idempotency-key')).toBe('refund-c1-at');
+  });
+
   it("reaches a stand-in's address, where one is given", async () => {
     const answers = { 'POST /v1/prices/p': {}, 'POST /v1/products/q': {} };
     const plain = gateway(answers, 'http://127.0.0.1:4175');

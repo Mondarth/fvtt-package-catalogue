@@ -21,6 +21,7 @@ function stripeReading(event: PaymentEvent | undefined) {
     offerPrice: vi.fn<StripeGateway['offerPrice']>(),
     retireOfferPrice: vi.fn<StripeGateway['retireOfferPrice']>(),
     checkout: vi.fn<StripeGateway['checkout']>(),
+    refund: vi.fn<StripeGateway['refund']>(),
     event: vi.fn<StripeGateway['event']>(() => event),
   };
 }

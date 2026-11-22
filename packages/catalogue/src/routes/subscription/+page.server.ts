@@ -1,8 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 
 import { field } from '#lib/server/form.js';
+import { suggestedRefund, withinCancellation } from '#lib/server/subscriptions/refunds.js';
 
-import type { Credit } from '#lib/server/subscriptions/store.js';
+import { REFUND_REASONS, REFUND_REASON_MAX } from '#lib/refund-reasons.js';
+
+import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
+import type { Credit, GivenReason } from '#lib/server/subscriptions/store.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /** What a Patreon link that failed came back saying, as Better Auth names it, or the link route did. */
@@ -12,7 +16,8 @@ const LINK_ERRORS: Readonly<Record<string, 'taken' | 'failed' | 'refused'>> = {
 };
 
 /**
- * How a credit stands with refunds, for its buyer: `refunded` in full, or charged back; `partly` refunded; `requested`,
+ * How a credit stands with refunds, for its buyer: `refunded` in full, for all its time not yet used, or charged back;
+ * `partly` refunded; `requested`,
  * a refund asked for and not yet made; `refundable`, paid for and not refunded, which a refund may be asked for; or
  * none, for time granted or given by Patreon.
  *
@@ -22,11 +27,89 @@ const LINK_ERRORS: Readonly<Record<string, 'taken' | 'failed' | 'refused'>> = {
 function refundOf(credit: Credit): 'refunded' | 'partly' | 'requested' | 'refundable' | null {
   if (credit.source !== 'payment' || credit.amountPaid === null) return null;
   if (credit.refundedAmount >= credit.amountPaid || credit.disputed === 'lost') return 'refunded';
+  // Refunded for all its time not yet used: nothing more is owed, though what was used was kept.
+  if (credit.refundedAmount > 0 && suggestedRefund(credit)?.amount === 0) return 'refunded';
   const asked =
     credit.refundRequestedAt !== null && (credit.refundedAt === null || credit.refundedAt < credit.refundRequestedAt);
   if (asked) return 'requested';
   return credit.refundedAmount > 0 ? 'partly' : 'refundable';
 }
+
+/**
+ * Refunds a purchase cancelled within 14 days of buying it at once, through Stripe, for the time not yet used. A key
+ * made of the purchase and when the refund was asked for makes it once, however often it is asked.
+ *
+ * @param locals - The request's, with Stripe and where to log
+ * @param credit - The purchase's credit, its refund just asked for
+ * @returns What was refunded, or `undefined` for one an admin is to make: one Stripe did not take, older than 14 days,
+ *   with nothing owed, or that Stripe could not refund now
+ */
+async function refundAtOnce(locals: App.Locals, credit: Credit): Promise<number | undefined> {
+  const { stripe } = locals;
+  if (
+    stripe === undefined ||
+    credit.provider !== 'stripe' ||
+    credit.externalRef === null ||
+    credit.refundRequestedAt === null ||
+    !withinCancellation(credit)
+  ) {
+    return undefined;
+  }
+  const owed = suggestedRefund(credit)?.amount ?? 0;
+  if (owed <= 0) return undefined;
+  try {
+    await stripe.refund({
+      paymentIntent: credit.externalRef,
+      amount: owed,
+      creditId: credit.id,
+      idempotencyKey: `refund-${credit.id}-${credit.refundRequestedAt.toISOString()}`,
+    });
+    return owed;
+  } catch (cause) {
+    locals.log.warn('Stripe could not refund a cancellation: an admin is to make it', {
+      credit: credit.id,
+      error: cause,
+    });
+    return undefined;
+  }
+}
+
+/** A day, in milliseconds. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * What cancelling a purchase would do, for its buyer to see before confirming: the refund, pro rata, and how its days
+ * are counted; whether it is made at once, within 14 days of buying it through Stripe, or by an admin; and whether it
+ * would end their subscription, leaving no time on their account and no Patreon pledge that subscribes them.
+ *
+ * @param credit - The purchase's credit
+ * @param entitlement - Whether, and until when, the buyer is subscribed
+ * @param admin - Whether they are an admin, who loses nothing
+ * @param stripe - Whether Stripe refunds at once
+ * @returns What it would do, or none for a purchase whose refund cannot be asked for
+ */
+function previewOf(credit: Credit, entitlement: Entitlement, admin: boolean, stripe: boolean) {
+  const refund = refundOf(credit);
+  const owed = suggestedRefund(credit);
+  if ((refund !== 'refundable' && refund !== 'partly') || owed === undefined || credit.currencyPaid === null)
+    return null;
+  const now = Date.now();
+  // What would remain beyond the time of this purchase not yet used: none but what of it is used, if nothing else is.
+  const from = Math.max(now, credit.startsAt.getTime());
+  const unused = Math.max(0, credit.startsAt.getTime() + owed.of * DAY_MS - from);
+  const left = entitlement.paidUntil === null ? now : entitlement.paidUntil.getTime() - unused;
+  return {
+    ...owed,
+    paid: credit.amountPaid,
+    currency: credit.currencyPaid,
+    countedFrom: new Date(from),
+    atOnce: stripe && credit.provider === 'stripe' && withinCancellation(credit),
+    endsSubscription: !admin && !entitlement.patreon && left <= now,
+  };
+}
+
+/** How a refund asked for can come back. */
+const REFUND_DONE = ['requested', 'refunded'] as const;
 
 /** Whether the signed-in session is an admin's, viewing the site as the user: nothing is bought then. */
 const impersonating = (locals: App.Locals) => typeof locals.session?.impersonatedBy === 'string';
@@ -66,6 +149,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           ? null
           : { amount: credit.amountPaid, currency: credit.currencyPaid },
       refund: refundOf(credit),
+      // What cancelling it would refund, and what it would end, for the buyer to confirm first.
+      preview: previewOf(credit, entitlement, locals.isAdmin, stripe !== undefined),
     })),
     offers: offers.map(({ id, name, months, days, prices, providerRefs }) => {
       // Its price before tax, where it is sold through Stripe.
@@ -101,7 +186,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                   },
           },
     patreonDone: url.searchParams.get('patreon'),
-    refundDone: url.searchParams.get('refund') === 'requested',
+    // How the refund just asked for came back: made at once, within 14 days of buying, or asked of an admin.
+    refundDone: REFUND_DONE.find(done => done === url.searchParams.get('refund')) ?? null,
     patreonError: linkError === null ? null : (LINK_ERRORS[linkError] ?? 'failed'),
   };
 };
@@ -152,24 +238,46 @@ export const actions: Actions = {
 
   /**
    * Cancels a purchase and asks for its refund, as the terms of sale allow at any time: the time not yet used is
-   * refunded, counted from when the purchase's time starts, which an admin makes in Stripe's dashboard. The request is
-   * confirmed on the page at once, and recorded; asking again changes nothing.
+   * refunded, counted from when the purchase's time starts. The request is recorded, and confirmed on the page at once;
+   * asking again changes nothing. Within 14 days of buying it, Stripe is asked to refund it at once, with no admin to
+   * make it; later, or if Stripe cannot, an admin makes it from the admin pages.
    */
   refund: async ({ locals, request }) => {
     const { user } = locals;
     if (user === null) redirect(303, '/');
     if (impersonating(locals)) return fail(403, { refund: 'impersonating' as const });
-    const creditId = field(await request.formData(), 'credit');
-    const asked = await locals.subscriptions.requestRefund(user.id, creditId);
+    const form = await request.formData();
+    // Asked only once the buyer has seen what it refunds, and what it ends, and confirmed it.
+    if (form.get('confirmed') !== 'yes') return fail(400, { refund: 'unconfirmed' as const });
+    const creditId = field(form, 'credit');
+    // Why, where an admin is to make it: a reason chosen, and for `other` the buyer's own words.
+    const chosen = field(form, 'reason');
+    const words = field(form, 'reason_text');
+    let reason: GivenReason | undefined;
+    if (chosen !== '') {
+      const known = REFUND_REASONS.find(given => given === chosen);
+      if (known === undefined) return fail(400, { refund: 'reason' as const, credit: creditId });
+      if (known === 'other' && (words === '' || words.length > REFUND_REASON_MAX)) {
+        return fail(400, { refund: 'reason' as const, credit: creditId });
+      }
+      reason = { reason: known, ...(known === 'other' && { text: words }) };
+    }
+    const asked = await locals.subscriptions.requestRefund(user.id, creditId, reason);
     if (asked === undefined) return fail(400, { refund: 'credit' as const });
+    const refunded = await refundAtOnce(locals, asked);
     await locals.audit.record({
       actorId: user.id,
       action: 'refund.request',
       subjectId: user.id,
-      after: { credit: asked.id, paymentIntent: asked.externalRef },
+      after: {
+        credit: asked.id,
+        paymentIntent: asked.externalRef,
+        refundedAtOnce: refunded ?? null,
+        reason: reason?.reason ?? null,
+      },
       requestId: locals.requestId,
     });
-    redirect(303, '/subscription?refund=requested');
+    redirect(303, `/subscription?refund=${refunded === undefined ? 'requested' : 'refunded'}`);
   },
 
   /** Unlinks the user's Patreon, unless it is how they sign in alone, which Better Auth refuses. */

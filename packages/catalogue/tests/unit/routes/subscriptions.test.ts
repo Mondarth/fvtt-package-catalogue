@@ -30,6 +30,8 @@ const aCredit = (more: Partial<Credit> = {}): Credit => ({
   refundedAmount: 0,
   refundedAt: null,
   refundRequestedAt: null,
+  refundReason: null,
+  refundReasonText: null,
   disputed: null,
   months: 12,
   days: 0,
@@ -106,6 +108,7 @@ describe('the subscription page', () => {
           purchasedAt: BEFORE,
           paid: null,
           refund: null,
+          preview: null,
         },
         {
           id: 'c2',
@@ -117,6 +120,13 @@ describe('the subscription page', () => {
           purchasedAt: BEFORE,
           paid: { amount: 3600, currency: 'GBP' },
           refund: 'refundable',
+          // What cancelling it would do, for the buyer to confirm: no Stripe here, so an admin's to make.
+          preview: expect.objectContaining({
+            paid: 3600,
+            currency: 'GBP',
+            atOnce: false,
+            endsSubscription: false,
+          }) as unknown,
         },
       ],
       offers: [{ id: 'o1', name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, stripePrice: null }],
@@ -126,7 +136,7 @@ describe('the subscription page', () => {
       patreon: null,
       patreonDone: null,
       patreonError: null,
-      refundDone: false,
+      refundDone: null,
     });
   });
 
@@ -370,6 +380,7 @@ describe('the offers page', () => {
         fails ? Promise.reject(new Error('Stripe is down')) : Promise.resolve(),
       ),
       checkout: vi.fn<StripeGateway['checkout']>(),
+      refund: vi.fn<StripeGateway['refund']>(),
       event: vi.fn<StripeGateway['event']>(),
     };
   }

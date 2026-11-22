@@ -47,6 +47,17 @@ export interface CheckoutInput {
   readonly cancelUrl: string;
 }
 
+/** A refund to make. */
+export interface RefundInput {
+  readonly paymentIntent: string;
+  /** In the minor unit of the payment's currency. */
+  readonly amount: number;
+  /** The credit it is of, which Stripe keeps with it. */
+  readonly creditId: string;
+  /** Makes it once: Stripe makes no second refund for the same key. */
+  readonly idempotencyKey: string;
+}
+
 /** Which of Stripe's modes an event came from: a sandbox's (`test`), or real payments (`live`). */
 export type StripeMode = 'test' | 'live';
 
@@ -106,6 +117,11 @@ export interface StripeGateway {
   retireOfferPrice(refs: StripeRefs): Promise<void>;
   /** Starts a checkout of one offer, for the buyer to pay at the address it gives. */
   checkout(input: CheckoutInput): Promise<{ readonly id: string; readonly url: string }>;
+  /**
+   * Refunds some of a payment, as its buyer asked: once for a key, however often asked with it, so that asking twice
+   * cannot refund twice. Its time is taken back once Stripe's `charge.refunded` event says it is made.
+   */
+  refund(input: RefundInput): Promise<{ readonly id: string }>;
   /**
    * Reads a webhook event from its raw body and its `Stripe-Signature` header.
    *
@@ -215,6 +231,14 @@ export function stripeGateway(options: StripeGatewayOptions): StripeGateway {
       /* v8 ignore next */
       if (session.url === null) throw new Error('Stripe gave the checkout no address');
       return { id: session.id, url: session.url };
+    },
+
+    async refund({ paymentIntent, amount, creditId, idempotencyKey }) {
+      const made = await stripe.refunds.create(
+        { payment_intent: paymentIntent, amount, reason: 'requested_by_customer', metadata: { credit: creditId } },
+        { idempotencyKey },
+      );
+      return { id: made.id };
     },
 
     event(payload, signature) {

@@ -14,11 +14,14 @@ import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'dr
 
 import { sql } from 'drizzle-orm';
 
+import { REFUND_REASONS } from '../../refund-reasons.js';
 import { users } from '../accounts/schema.js';
 
 const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
 
 /** Where a credit's time came from. */
+export type { RefundReason } from '../../refund-reasons.js';
+
 export const CREDIT_SOURCES = ['grant', 'patreon', 'payment'] as const;
 export type CreditSource = (typeof CREDIT_SOURCES)[number];
 
@@ -136,6 +139,9 @@ export const subscriptionCredits = pgTable(
     refundedAt: timestamp({ withTimezone: true }),
     /** When its buyer asked, on their Subscription page, to cancel it and be refunded. */
     refundRequestedAt: timestamp({ withTimezone: true }),
+    /** Why, as they chose: one of {@link REFUND_REASONS}; for `other`, in their own words too. */
+    refundReason: text({ enum: REFUND_REASONS }),
+    refundReasonText: text(),
     /** How a dispute of its payment with the buyer's bank stands, if there is one: `open`, `won` or `lost`. */
     disputed: text({ enum: DISPUTE_STATES }),
     /** The period bought or granted: so many calendar months and days. */

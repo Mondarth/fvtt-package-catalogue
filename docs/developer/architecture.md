@@ -264,8 +264,11 @@ from the catalogue so that it can move to a service of its own, shared by every 
   payment in all, and `takeBack` (`store.ts`, in one transaction holding the user and the credit) takes off the end of
   the subscription the credit's share of days for what is newly refunded, rounded down (`creditDays`, cumulative, so a
   repeated event takes nothing), recording `refunded_amount` and `refunded_at`. A dispute is `disputed` = `open`, then
-  `won`, or `lost`, which takes back what remains. A buyer's request (`?/refund`) sets `refund_requested_at`; the admin
-  Subscriptions page lists those since the credit was last refunded, with `suggestedRefund` (`refunds.ts`): the share
+  `won`, or `lost`, which takes back what remains. A buyer's request (`?/refund`, sent only from the dialog of `RefundDialog.svelte`, which
+  shows the page load's `preview`) sets `refund_requested_at`, and `refund_reason` (`lib/refund-reasons.ts`) with
+  `refund_reason_text` for Other. Within 14 days of buying (`withinCancellation`) the action refunds it at once through
+  the gateway's `refund`, with an idempotency key of the credit and when it was asked, so it is made once; the admin
+  Subscriptions page lists the rest since the credit was last refunded, with `suggestedRefund` (`refunds.ts`): the share
   of what was paid for the days not yet used, counted from the credit's own start. Refunds are made in Stripe's
   dashboard; audited `payment.refund`, `payment.dispute` and `refund.request`.
 - **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of

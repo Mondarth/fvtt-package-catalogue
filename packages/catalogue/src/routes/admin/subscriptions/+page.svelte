@@ -10,6 +10,7 @@
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
   import { formatPrice } from '#lib/prices.js';
+  import { REFUND_REASON_LABELS } from '#lib/refund-reason-labels.js';
   import { MAX_DAYS, MAX_MONTHS } from '#lib/subscription-limits.js';
 
   import type { PageProps } from './$types';
@@ -112,6 +113,7 @@
           <th scope="col">{m.admin_refunds_column_purchase()}</th>
           <th scope="col">{m.admin_refunds_column_paid()}</th>
           <th scope="col">{m.admin_refunds_column_suggested()}</th>
+          <th scope="col">{m.admin_refunds_column_reason()}</th>
           <th scope="col"><span class="visually-hidden">{m.admin_refunds_make()}</span></th>
         </tr>
       </thead>
@@ -135,6 +137,14 @@
                   days: asked.suggested.days,
                   of: asked.suggested.of,
                 })}
+              {:else}
+                –
+              {/if}
+            </td>
+            <td>
+              {#if asked.reason}
+                {REFUND_REASON_LABELS[asked.reason]()}
+                {#if asked.reasonText}<span class="hint">{asked.reasonText}</span>{/if}
               {:else}
                 –
               {/if}

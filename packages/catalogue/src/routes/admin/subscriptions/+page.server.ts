@@ -34,6 +34,8 @@ export const load: PageServerLoad = async ({ locals, url }) => ({
         ? null
         : { amount: credit.amountPaid, currency: credit.currencyPaid },
     refunded: credit.refundedAmount,
+    reason: credit.refundReason,
+    reasonText: credit.refundReasonText,
     suggested: suggestedRefund(credit) ?? null,
     dashboard:
       credit.provider === 'stripe' && credit.externalRef !== null
