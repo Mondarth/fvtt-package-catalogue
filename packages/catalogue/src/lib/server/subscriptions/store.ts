@@ -282,7 +282,10 @@ export function subscriptionStore(db: Database): SubscriptionStore {
           // Who granted or paid for it is kept; the audit log records who changed its end.
           await tx
             .update(subscriptionCredits)
-            .set({ startsAt: sql`least(${subscriptionCredits.startsAt}, ${end})`, endsAt: end })
+            .set({
+              startsAt: sql`least(${subscriptionCredits.startsAt}, ${end.toISOString()}::timestamptz)`,
+              endsAt: end,
+            })
             .where(and(eq(subscriptionCredits.userId, userId), gt(subscriptionCredits.endsAt, end)));
         }
         return { before, after: await paidUntil(tx, userId) };

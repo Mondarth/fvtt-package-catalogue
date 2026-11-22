@@ -178,6 +178,12 @@ test.describe('subscriptions', () => {
       en.audit_action_subscription_grant,
     );
 
+    // An earlier end, still to come, which cuts every credit back to it: the user stays subscribed until then.
+    const earlier = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await subscription.getByLabel(en.admin_set_end_date).fill(earlier);
+    await subscription.getByRole('button', { name: en.admin_set_end_button }).click();
+    await expect(page.getByRole('status').filter({ hasText: en.admin_done_set_end })).toBeVisible();
+
     // An offer, made and retired.
     await page
       .getByRole('navigation', { name: en.admin_nav_label })
