@@ -58,6 +58,8 @@ const paid = (paymentIntent = 'pi_1'): Extract<PaymentEvent, { kind: 'paid' }> =
   sessionId: 'cs_1',
   paymentIntent,
   mode: 'test',
+  amount: 360,
+  currency: 'GBP',
 });
 
 describe("a Stripe event's purchase", () => {
@@ -70,6 +72,8 @@ describe("a Stripe event's purchase", () => {
       externalRef: 'pi_1',
       providerAccount: 'test',
       offerId: begun.offerId,
+      amountPaid: 360,
+      currencyPaid: 'GBP',
       months: 1,
       days: 0,
     });
@@ -110,6 +114,8 @@ describe("a Stripe event's purchase", () => {
       sessionId: 'cs_x',
       paymentIntent: 'pi_x',
       mode: 'live',
+      amount: null,
+      currency: null,
     });
     expect(applied).toBe('unknown');
     expect(log.lines.map(line => [line.level, line.msg ?? line.message])).toContainEqual([

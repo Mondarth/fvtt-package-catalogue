@@ -55,6 +55,9 @@ export interface CreditInput extends Period {
   readonly externalRef?: string | null | undefined;
   readonly providerAccount?: string | null | undefined;
   readonly offerId?: string | null | undefined;
+  /** What was paid in all, tax included, in the minor unit of `currencyPaid`. */
+  readonly amountPaid?: number | null | undefined;
+  readonly currencyPaid?: string | null | undefined;
   readonly grantedBy?: string | null | undefined;
   readonly note?: string | null | undefined;
 }
@@ -174,6 +177,8 @@ export function subscriptionStore(db: Database): SubscriptionStore {
               externalRef: input.externalRef ?? null,
               providerAccount: input.providerAccount ?? null,
               offerId: input.offerId ?? null,
+              amountPaid: input.amountPaid ?? null,
+              currencyPaid: input.currencyPaid ?? null,
               months: input.months,
               days: input.days,
               startsAt,

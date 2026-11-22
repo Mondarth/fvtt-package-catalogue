@@ -65,6 +65,10 @@ export type PaymentEvent =
       /** The PaymentIntent, Stripe's reference for the payment, which the credit is kept by. */
       readonly paymentIntent: string;
       readonly mode: StripeMode;
+      /** What was paid in all, tax included, in the minor unit of `currency`, as Stripe says; none if it does not. */
+      readonly amount: number | null;
+      /** The currency it was paid in, such as `GBP`; none if Stripe does not say. */
+      readonly currency: string | null;
     }
   | {
       readonly kind: 'processing' | 'failed' | 'expired';
@@ -142,7 +146,15 @@ export function stripeGateway(options: StripeGatewayOptions): StripeGateway {
     const paymentIntent = typeof intent === 'string' ? intent : intent?.id;
     // A session paid in full has its PaymentIntent; one that needed no payment has none, and buys nothing here.
     if (paymentIntent === undefined) return { kind: 'ignored', type: event.type };
-    return { kind: 'paid', checkoutId, sessionId: session.id, paymentIntent, mode: event.livemode ? 'live' : 'test' };
+    return {
+      kind: 'paid',
+      checkoutId,
+      sessionId: session.id,
+      paymentIntent,
+      mode: event.livemode ? 'live' : 'test',
+      amount: session.amount_total,
+      currency: session.currency === null ? null : session.currency.toUpperCase(),
+    };
   }
 
   return {

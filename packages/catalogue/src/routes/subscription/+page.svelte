@@ -231,19 +231,23 @@
     <table>
       <thead>
         <tr>
+          <th scope="col">{m.subscription_column_purchased()}</th>
           <th scope="col">{m.subscription_column_from()}</th>
           <th scope="col">{m.subscription_column_until()}</th>
           <th scope="col">{m.subscription_column_source()}</th>
           <th scope="col">{m.subscription_column_period()}</th>
+          <th scope="col">{m.subscription_column_paid()}</th>
         </tr>
       </thead>
       <tbody>
         {#each data.history as credit (credit.id)}
           <tr>
+            <td>{date(credit.purchasedAt)}</td>
             <td>{date(credit.startsAt)}</td>
             <td>{date(credit.endsAt)}</td>
             <td>{SOURCES[credit.source]?.() ?? credit.source}</td>
             <td>{credit.months + credit.days > 0 ? periodLabel(credit) : '–'}</td>
+            <td>{credit.paid === null ? '–' : formatPrice(credit.paid.currency, credit.paid.amount, getLocale())}</td>
           </tr>
         {/each}
       </tbody>

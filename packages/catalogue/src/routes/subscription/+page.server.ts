@@ -34,13 +34,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   return {
     entitlement,
     admin: locals.isAdmin,
-    history: history.map(({ id, source, startsAt, endsAt, months, days }) => ({
+    history: history.map(({ id, source, startsAt, endsAt, months, days, createdAt, amountPaid, currencyPaid }) => ({
       id,
       source,
       startsAt,
       endsAt,
       months,
       days,
+      // When it was bought or granted, and what was paid for it, tax included, where it was paid for.
+      purchasedAt: createdAt,
+      paid: amountPaid === null || currencyPaid === null ? null : { amount: amountPaid, currency: currencyPaid },
     })),
     offers: offers.map(({ id, name, months, days, prices, providerRefs }) => {
       // Its price before tax, where it is sold through Stripe.

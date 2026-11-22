@@ -53,6 +53,9 @@ async function sendEvent(type: string, session: Session, paid: boolean): Promise
         mode: form.get('mode'),
         payment_status: paid ? 'paid' : 'unpaid',
         payment_intent: paid ? `pi_for_${session.id}` : null,
+        // What the stand-in charges: the Price, which it does not keep, as 300p, and 20% tax on it.
+        amount_total: paid ? 360 : null,
+        currency: 'gbp',
         client_reference_id: form.get('client_reference_id'),
         metadata: { checkout: form.get('metadata[checkout]'), offer: form.get('metadata[offer]') },
       },

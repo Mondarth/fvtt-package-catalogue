@@ -62,8 +62,26 @@ describe('the subscription page', () => {
     show({
       entitlement: { paidUntil: UNTIL, active: true, entitled: true },
       history: [
-        { id: 'c1', source: 'grant', startsAt: new Date('2026-12-01T00:00:00Z'), endsAt: UNTIL, months: 12, days: 0 },
-        { id: 'c2', source: 'other', startsAt: UNTIL, endsAt: UNTIL, months: 0, days: 0 },
+        {
+          id: 'c1',
+          source: 'grant',
+          startsAt: new Date('2026-12-01T00:00:00Z'),
+          endsAt: UNTIL,
+          months: 12,
+          days: 0,
+          purchasedAt: new Date('2026-11-20T00:00:00Z'),
+          paid: null,
+        },
+        {
+          id: 'c2',
+          source: 'other',
+          startsAt: UNTIL,
+          endsAt: UNTIL,
+          months: 0,
+          days: 0,
+          purchasedAt: UNTIL,
+          paid: { amount: 3600, currency: 'GBP' },
+        },
       ],
       offers: [OFFER],
     });
@@ -77,8 +95,13 @@ describe('the subscription page', () => {
     const rows = within(screen.getByRole('table')).getAllByRole('row');
     expect(rows[1]).toHaveTextContent(en.subscription_source_grant);
     expect(rows[1]).toHaveTextContent('12 months');
+    expect(rows[1]).toHaveTextContent(day(new Date('2026-11-20T00:00:00Z')));
     expect(rows[2]).toHaveTextContent('other');
     expect(rows[2]).toHaveTextContent('–');
+    // What was paid, tax included, where it was paid for.
+    expect(rows[2]).toHaveTextContent('£36.00');
+    expect(rows[0]).toHaveTextContent(en.subscription_column_paid);
+    expect(screen.getByRole('region', { name: en.subscription_history_heading })).toBeInTheDocument();
   });
 
   it('says when it ended', () => {

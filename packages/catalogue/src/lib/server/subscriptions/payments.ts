@@ -55,6 +55,8 @@ export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): 
     externalRef: event.paymentIntent,
     providerAccount: event.mode,
     offerId: offer.id,
+    amountPaid: event.amount,
+    currencyPaid: event.currency,
     months: offer.months,
     days: offer.days,
   });
@@ -70,6 +72,8 @@ export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): 
       name: offer.name,
       paymentIntent: event.paymentIntent,
       mode: event.mode,
+      amount: event.amount,
+      currency: event.currency,
       startsAt: made.startsAt.toISOString(),
       endsAt: made.endsAt.toISOString(),
     },

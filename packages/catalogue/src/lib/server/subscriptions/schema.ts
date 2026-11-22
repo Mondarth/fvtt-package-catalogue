@@ -117,6 +117,12 @@ export const subscriptionCredits = pgTable(
     providerAccount: text(),
     /** The offer it was bought by. */
     offerId: text().references(() => subscriptionOffers.id),
+    /**
+     * What was paid for it in all, tax included, in the minor unit of the currency it was paid in, as the provider
+     * said; none for a grant or Patreon. Its invoice is the provider's.
+     */
+    amountPaid: integer(),
+    currencyPaid: text(),
     /** The period bought or granted: so many calendar months and days. */
     months: integer().notNull().default(0),
     days: integer().notNull().default(0),

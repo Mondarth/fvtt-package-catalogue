@@ -80,6 +80,8 @@ const SESSION = {
   mode: 'payment',
   payment_status: 'paid',
   payment_intent: 'pi_1',
+  amount_total: 3600,
+  currency: 'gbp',
   metadata: { checkout: 'k1', offer: 'o1' },
 };
 
@@ -186,10 +188,12 @@ describe('the Stripe gateway', () => {
       sessionId: 'cs_1',
       paymentIntent: 'pi_1',
       mode: 'test',
+      amount: 3600,
+      currency: 'GBP',
     });
     const later = signed(
       'checkout.session.async_payment_succeeded',
-      { ...SESSION, payment_intent: { id: 'pi_2', object: 'payment_intent' } },
+      { ...SESSION, payment_intent: { id: 'pi_2', object: 'payment_intent' }, amount_total: null, currency: null },
       true,
     );
     expect(stripe.event(later.payload, later.signature)).toMatchObject({

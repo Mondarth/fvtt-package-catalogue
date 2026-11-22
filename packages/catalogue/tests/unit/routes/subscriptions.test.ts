@@ -25,6 +25,8 @@ const aCredit = (more: Partial<Credit> = {}): Credit => ({
   externalRef: null,
   providerAccount: null,
   offerId: null,
+  amountPaid: null,
+  currencyPaid: null,
   months: 12,
   days: 0,
   startsAt: BEFORE,
@@ -75,7 +77,11 @@ describe('the subscription page', () => {
           isAdmin: false,
           entitlement: () => Promise.resolve({ paidUntil: AFTER, active: true, patreon: false, entitled: true }),
           subscriptions: {
-            history: () => Promise.resolve([aCredit()]),
+            history: () =>
+              Promise.resolve([
+                aCredit(),
+                aCredit({ id: 'c2', source: 'payment', amountPaid: 3600, currencyPaid: 'GBP' }),
+              ]),
             activeOffers: () => Promise.resolve([offer()]),
             processingCheckouts: () => Promise.resolve([]),
           } as unknown as SubscriptionStore,
@@ -85,7 +91,28 @@ describe('the subscription page', () => {
     expect(result).toEqual({
       entitlement: { paidUntil: AFTER, active: true, patreon: false, entitled: true },
       admin: false,
-      history: [{ id: 'c1', source: 'grant', startsAt: BEFORE, endsAt: AFTER, months: 12, days: 0 }],
+      history: [
+        {
+          id: 'c1',
+          source: 'grant',
+          startsAt: BEFORE,
+          endsAt: AFTER,
+          months: 12,
+          days: 0,
+          purchasedAt: BEFORE,
+          paid: null,
+        },
+        {
+          id: 'c2',
+          source: 'payment',
+          startsAt: BEFORE,
+          endsAt: AFTER,
+          months: 12,
+          days: 0,
+          purchasedAt: BEFORE,
+          paid: { amount: 3600, currency: 'GBP' },
+        },
+      ],
       offers: [{ id: 'o1', name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, stripePrice: null }],
       canBuy: false,
       processing: 0,
