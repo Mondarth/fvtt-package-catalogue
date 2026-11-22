@@ -109,13 +109,16 @@
 {#if data.patreon !== null}
   <section aria-labelledby="patreon">
     <h2 id="patreon">{m.subscription_patreon_heading()}</h2>
-    <p>
-      {data.patreon.minimum === null
-        ? m.subscription_patreon_intro_unset()
-        : m.subscription_patreon_intro({
-            amount: formatPrice(data.patreon.minimum.currency, data.patreon.minimum.amount, getLocale()),
-          })}
-    </p>
+    <!-- How a pledge subscribes, for anyone it does not subscribe yet. -->
+    {#if !(data.patreon.linked && data.patreon.subscribed)}
+      <p>
+        {data.patreon.minimum === null
+          ? m.subscription_patreon_intro_unset()
+          : m.subscription_patreon_intro({
+              amount: formatPrice(data.patreon.minimum.currency, data.patreon.minimum.amount, getLocale()),
+            })}
+      </p>
+    {/if}
     {#if patreonProblem !== null}
       <Callout id="patreon-problem"
         >{PATREON_PROBLEMS[patreonProblem]?.() ?? m.subscription_patreon_error_refused()}</Callout>

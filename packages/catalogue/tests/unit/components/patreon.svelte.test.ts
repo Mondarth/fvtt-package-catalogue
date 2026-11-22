@@ -77,6 +77,8 @@ describe("the subscription page's Patreon", () => {
     expect(screen.getByText(en.subscription_by_patreon)).toBeInTheDocument();
     expect(screen.queryByText(en.subscription_gives)).not.toBeInTheDocument();
     expect(section()).toHaveTextContent(en.subscription_patreon_subscribed);
+    // A patron it subscribes is not told how a pledge subscribes.
+    expect(section()).not.toHaveTextContent(fill(en.subscription_patreon_intro, { amount: money('GBP', 300) }));
     expect(section()).toHaveTextContent(fill(en.subscription_patreon_checked, { date: day(CHECKED) }));
     expect(section()).toHaveTextContent(fill(en.subscription_patreon_next, { date: day(NEXT) }));
     expect(within(section()).getByRole('button', { name: en.subscription_patreon_check })).toBeInTheDocument();
@@ -92,6 +94,8 @@ describe("the subscription page's Patreon", () => {
   ])('says why a pledge does not subscribe: %j', (said, text) => {
     show({ membership: membership(said) });
     expect(section()).toHaveTextContent(text);
+    // Linked, but not subscribed by it: still told how a pledge subscribes.
+    expect(section()).toHaveTextContent(fill(en.subscription_patreon_intro, { amount: money('GBP', 300) }));
   });
 
   it('says a patron is one, with no least pledge set', () => {
