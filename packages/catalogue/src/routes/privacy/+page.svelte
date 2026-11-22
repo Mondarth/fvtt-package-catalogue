@@ -27,6 +27,7 @@
     device_sign_in: { what: m.privacy_device_sign_in_what, why: m.privacy_device_sign_in_why },
     audit: { what: m.privacy_audit_what, why: m.privacy_audit_why },
     subscription: { what: m.privacy_subscription_what, why: m.privacy_subscription_why },
+    checkout: { what: m.privacy_checkout_what, why: m.privacy_checkout_why },
     payment: { what: m.privacy_payment_what, why: m.privacy_payment_why },
     patreon: { what: m.privacy_patreon_what, why: m.privacy_patreon_why },
     pending: { what: m.privacy_pending_what, why: m.privacy_pending_why },
@@ -36,6 +37,7 @@
   /** What each payment processor keeps, by its id in `PROCESSORS`. */
   const KEEPS: Record<string, () => string> = {
     patreon: m.privacy_processor_patreon_what,
+    stripe: m.privacy_processor_stripe_what,
   };
 
   const FROM: Record<StoredFrom, () => string> = {

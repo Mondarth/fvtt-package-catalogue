@@ -11,16 +11,16 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, desc, eq, gt, isNull, lte, max, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
 
 import { users } from '../accounts/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
 import { addPeriod } from './period.js';
-import { subscriptionCredits, subscriptionOffers } from './schema.js';
+import { subscriptionCheckouts, subscriptionCredits, subscriptionOffers } from './schema.js';
 
 import type { Database } from '../db/database.js';
 import type { Period } from './period.js';
-import type { CreditSource } from './schema.js';
+import type { CheckoutStatus, CreditSource, OfferProviderRefs } from './schema.js';
 
 /** Whether a user is subscribed, and until when. */
 export interface SubscriptionStatus {
@@ -35,6 +35,17 @@ export type Credit = typeof subscriptionCredits.$inferSelect;
 /** An offer, as it is read back. */
 export type Offer = typeof subscriptionOffers.$inferSelect;
 
+/** A purchase begun, as it is read back. */
+export type Checkout = typeof subscriptionCheckouts.$inferSelect;
+
+/** A purchase to begin: who buys which offer, through which provider, and when they consented. */
+export interface CheckoutInput {
+  readonly userId: string;
+  readonly offerId: string;
+  readonly provider: string;
+  readonly consentedAt: Date;
+}
+
 /** Time credited for a payment or a pledge, or granted. */
 export interface CreditInput extends Period {
   readonly userId: string;
@@ -44,17 +55,25 @@ export interface CreditInput extends Period {
   readonly externalRef?: string | null | undefined;
   readonly providerAccount?: string | null | undefined;
   readonly offerId?: string | null | undefined;
+  /** What was paid in all, tax included, in the minor unit of `currencyPaid`. */
+  readonly amountPaid?: number | null | undefined;
+  readonly currencyPaid?: string | null | undefined;
   readonly grantedBy?: string | null | undefined;
   readonly note?: string | null | undefined;
 }
 
 /** A new offer. */
 export interface OfferInput extends Period {
+  /** Its id, where it was put to a provider first; a new one otherwise. */
+  readonly id?: string | undefined;
   readonly name: string;
   readonly prices: Readonly<Record<string, number>>;
   readonly availableFrom?: Date | null | undefined;
   readonly availableUntil?: Date | null | undefined;
   readonly createdBy: string;
+  /** The payment providers it is put to, and what each knows it by. */
+  readonly providers?: readonly string[] | undefined;
+  readonly providerRefs?: OfferProviderRefs | undefined;
 }
 
 /** What changing a subscription's end did. */
@@ -83,10 +102,30 @@ export interface SubscriptionStore {
   offers(): Promise<Offer[]>;
   /** The offers on sale now. */
   activeOffers(now?: Date): Promise<Offer[]>;
+  /** An offer, retired or not. */
+  offer(id: string): Promise<Offer | undefined>;
   createOffer(input: OfferInput): Promise<Offer>;
   /** Retires an offer: it is offered no longer. Does nothing to one retired already. */
   retireOffer(id: string, now?: Date): Promise<Offer | undefined>;
+  /** The credit a provider's payment made, by the provider's reference for it. */
+  creditOf(provider: string, externalRef: string): Promise<Credit | undefined>;
+  /** Begins a purchase, before the buyer is sent to the provider's checkout. */
+  openCheckout(input: CheckoutInput): Promise<Checkout>;
+  /** Records the provider's reference for a purchase's checkout, once it is made. */
+  attachSession(id: string, sessionId: string): Promise<void>;
+  /** A purchase, by the catalogue's id for it, or else by the provider's for its checkout. */
+  checkoutOf(provider: string, id: string | undefined, sessionId: string): Promise<Checkout | undefined>;
+  /**
+   * Records how a purchase now stands. A paid one, or one closed without payment, is not changed again: an event
+   * Stripe sends late, or twice, cannot undo it.
+   */
+  settleCheckout(id: string, status: CheckoutStatus, creditId?: string, now?: Date): Promise<void>;
+  /** A user's purchases still being paid for: finished at the checkout with a payment that confirms later. */
+  processingCheckouts(userId: string): Promise<Checkout[]>;
 }
+
+/** How a purchase may stand before it changes: one paid, failed or expired is settled for good. */
+const UNSETTLED: readonly CheckoutStatus[] = ['open', 'processing'];
 
 /**
  * The store, over the database.
@@ -138,6 +177,8 @@ export function subscriptionStore(db: Database): SubscriptionStore {
               externalRef: input.externalRef ?? null,
               providerAccount: input.providerAccount ?? null,
               offerId: input.offerId ?? null,
+              amountPaid: input.amountPaid ?? null,
+              currencyPaid: input.currencyPaid ?? null,
               months: input.months,
               days: input.days,
               startsAt,
@@ -186,6 +227,63 @@ export function subscriptionStore(db: Database): SubscriptionStore {
 
     offers: () => db.select().from(subscriptionOffers).orderBy(desc(subscriptionOffers.createdAt)),
 
+    async offer(id) {
+      const [found] = await db.select().from(subscriptionOffers).where(eq(subscriptionOffers.id, id));
+      return found;
+    },
+
+    async creditOf(provider, externalRef) {
+      const [found] = await db
+        .select()
+        .from(subscriptionCredits)
+        .where(and(eq(subscriptionCredits.provider, provider), eq(subscriptionCredits.externalRef, externalRef)));
+      return found;
+    },
+
+    async openCheckout(input) {
+      const [made] = await db
+        .insert(subscriptionCheckouts)
+        .values({ id: randomUUID(), ...input })
+        .returning();
+      // An insert returns what it made.
+      /* v8 ignore next */
+      if (made === undefined) throw new Error('The checkout was not made');
+      return made;
+    },
+
+    async attachSession(id, sessionId) {
+      await db.update(subscriptionCheckouts).set({ sessionId }).where(eq(subscriptionCheckouts.id, id));
+    },
+
+    async checkoutOf(provider, id, sessionId) {
+      const [found] = await db
+        .select()
+        .from(subscriptionCheckouts)
+        .where(
+          and(
+            eq(subscriptionCheckouts.provider, provider),
+            id === undefined
+              ? eq(subscriptionCheckouts.sessionId, sessionId)
+              : or(eq(subscriptionCheckouts.id, id), eq(subscriptionCheckouts.sessionId, sessionId)),
+          ),
+        );
+      return found;
+    },
+
+    async settleCheckout(id, status, creditId, now = new Date()) {
+      await db
+        .update(subscriptionCheckouts)
+        .set({ status, updatedAt: now, ...(creditId !== undefined && { creditId }) })
+        .where(and(eq(subscriptionCheckouts.id, id), inArray(subscriptionCheckouts.status, [...UNSETTLED])));
+    },
+
+    processingCheckouts: userId =>
+      db
+        .select()
+        .from(subscriptionCheckouts)
+        .where(and(eq(subscriptionCheckouts.userId, userId), eq(subscriptionCheckouts.status, 'processing')))
+        .orderBy(desc(subscriptionCheckouts.createdAt)),
+
     activeOffers: (now = new Date()) =>
       db
         .select()
@@ -203,7 +301,7 @@ export function subscriptionStore(db: Database): SubscriptionStore {
       const [made] = await db
         .insert(subscriptionOffers)
         .values({
-          id: randomUUID(),
+          id: input.id ?? randomUUID(),
           name: input.name,
           months: input.months,
           days: input.days,
@@ -211,6 +309,8 @@ export function subscriptionStore(db: Database): SubscriptionStore {
           availableFrom: input.availableFrom ?? null,
           availableUntil: input.availableUntil ?? null,
           createdBy: input.createdBy,
+          providers: [...(input.providers ?? [])],
+          providerRefs: input.providerRefs ?? {},
         })
         .returning();
       // An insert returns what it made.

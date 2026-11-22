@@ -6,6 +6,7 @@ import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
 import type { PatreonChecker } from '#lib/server/subscriptions/patreon.js';
+import type { StripeGateway } from '#lib/server/subscriptions/stripe.js';
 import type { SubscriptionStore } from '#lib/server/subscriptions/store.js';
 import type { Logger } from '#lib/server/log.js';
 import type { SafeFetched } from '#lib/server/safe-fetch.js';
@@ -49,6 +50,8 @@ declare global {
       subscriptions: SubscriptionStore;
       /** Patreon, if the catalogue offers it as a way to be subscribed. */
       patreon: PatreonChecker | undefined;
+      /** Stripe, if the catalogue sells subscription time through it, on the website's and webhooks' requests. */
+      stripe: StripeGateway | undefined;
       /** Whether whoever is signed in may use what a subscription gives, read when first asked. */
       entitlement: () => Promise<Entitlement>;
     }

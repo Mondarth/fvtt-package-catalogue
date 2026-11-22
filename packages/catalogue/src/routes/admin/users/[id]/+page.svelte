@@ -305,7 +305,10 @@
             <td>{date(credit.endsAt)}</td>
             <td>
               {SOURCES[credit.source]?.() ?? credit.source}
-              {#if credit.provider !== null}<span class="hint"
+              {#if credit.dashboard !== null}<a class="hint" href={credit.dashboard} rel="external noopener"
+                  >{credit.provider}
+                  {credit.externalRef}{credit.providerAccount === 'test' ? ` (${m.admin_credit_test()})` : ''}</a
+                >{:else if credit.provider !== null}<span class="hint"
                   >{credit.provider}{credit.externalRef === null ? '' : ` ${credit.externalRef}`}</span
                 >{/if}
             </td>

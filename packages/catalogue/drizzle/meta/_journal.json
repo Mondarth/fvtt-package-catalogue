@@ -120,6 +120,20 @@
       "when": 1795105375421,
       "tag": "0016_patreon",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795298965730,
+      "tag": "0017_stripe",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795346817717,
+      "tag": "0018_amount-paid",
+      "breakpoints": true
     }
   ]
 }

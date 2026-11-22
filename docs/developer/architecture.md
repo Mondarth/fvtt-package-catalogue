@@ -248,7 +248,18 @@ from the catalogue so that it can move to a service of its own, shared by every 
   last day of February). Each change is made in a transaction that holds the user's profile (`FOR UPDATE`), so that
   two cannot start from the same end. Setting an earlier end cuts every credit back to it.
 - **Offers** (`subscription_offers`): a period, a price in each currency in its minor unit (`lib/prices.ts`), the dates
-  it is on sale between, and when it was retired. Never edited: a change is a new offer.
+  it is on sale between, when it was retired, and the payment providers it is sold through, with what each knows it by
+  (`provider_refs`, such as its Stripe Product and Price). Never edited: a change is a new offer.
+- **Stripe** (`stripe.ts`, the one place the Stripe SDK is used, at `STRIPE_API_VERSION`): an offer made with a price
+  in `STRIPE_CURRENCY` becomes a Product, with `STRIPE_TAX_CODE`, and a Price before tax (`tax_behavior: exclusive`),
+  archived as it is retired. Buying (`routes/subscription`, `?/buy`) records the buyer's consent in a checkout
+  (`subscription_checkouts`: who, which offer, the session, how it stands) and sends them to a Checkout Session in
+  `payment` mode with Managed Payments, Stripe the merchant of record. The webhook (`routes/webhooks/stripe`, under
+  `/webhooks`, which is neither the API nor the website: no key, no session, not localised) reads each event from its
+  raw body and signature into a `PaymentEvent`, and `payments.ts` applies it: a paid one credits the offer's period by
+  its PaymentIntent (`provider_account` = `test` or `live`), audited as `payment.credit` by `stripe`; the others mark
+  the checkout processing, failed or expired. A checkout paid, failed or expired is settled for good. Routes and tests
+  use the `StripeGateway` interface; `STRIPE_API_URL` points it at the end-to-end tests' stand-in.
 - **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of
   `PATREON_CAMPAIGN_ID` pledging at least the least pledge (`catalogue_settings`, `patreon_minimum`, set on the admin
   Subscriptions page). The checker asks Patreon's identity endpoint, with memberships, using the user's token, which

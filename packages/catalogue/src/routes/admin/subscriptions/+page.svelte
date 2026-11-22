@@ -72,6 +72,7 @@
               {m.admin_offer_retired({ date: date(offer.retiredAt) })}
             {:else}
               {m.admin_offer_on_sale()}
+              {#if offer.providers.includes('stripe')}<span class="hint">{m.admin_offer_stripe()}</span>{/if}
               {#if offer.availableFrom !== null}<span class="hint"
                   >{m.admin_offer_from({ date: date(offer.availableFrom) })}</span
                 >{/if}
@@ -131,6 +132,8 @@
           {form !== null && 'line' in form && form.line !== ''
             ? m.admin_offer_problem_prices({ line: form.line })
             : m.admin_offer_problem_no_prices()}
+        {:else if problem === 'stripe'}
+          {m.admin_offer_problem_stripe()}
         {:else}
           {m.admin_offer_problem_dates()}
         {/if}
@@ -177,7 +180,14 @@
       name="prices"
       rows="3"
       aria-invalid={problem === 'prices'}
-      aria-describedby={problem === 'prices' ? 'offer-problem' : undefined}>{given('prices')}</textarea>
+      aria-describedby={problem === 'prices'
+        ? 'offer-problem'
+        : data.stripeCurrency === null
+          ? undefined
+          : 'stripe-hint'}>{given('prices')}</textarea>
+    {#if data.stripeCurrency !== null}
+      <p id="stripe-hint" class="hint">{m.admin_offer_stripe_hint({ currency: data.stripeCurrency })}</p>
+    {/if}
     <div class="period">
       <label>
         {m.admin_offer_available_from()}

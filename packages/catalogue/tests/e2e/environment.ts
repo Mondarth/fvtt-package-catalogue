@@ -20,6 +20,12 @@ export const FORWARDED_PROTO = { 'X-Forwarded-Proto': 'http' } as const;
 export const FAKE_PROVIDER_PORT = Number(process.env.FAKE_PROVIDER_PORT ?? 4174);
 export const FAKE_PROVIDER_URL = `http://127.0.0.1:${String(FAKE_PROVIDER_PORT)}`;
 
+/** The Stripe stand-in's port (fake-stripe.ts). */
+export const FAKE_STRIPE_PORT = Number(process.env.FAKE_STRIPE_PORT ?? 4175);
+export const FAKE_STRIPE_URL = `http://127.0.0.1:${String(FAKE_STRIPE_PORT)}`;
+/** The secret the stand-in signs Stripe's webhook events with. */
+export const E2E_STRIPE_WEBHOOK_SECRET = 'whsec_e2e_secret';
+
 /**
  * The admin the tests sign in as: seeded (global-setup.ts) with a profile and a stand-in provider's account of this
  * name, and an admin as ADMIN_USER_IDS names them.
@@ -46,4 +52,8 @@ export const E2E_ENV = {
   PATREON_CAMPAIGN_ID: 'e2e-campaign',
   PATREON_URL: FAKE_PROVIDER_URL,
   ADMIN_USER_IDS: E2E_ADMIN,
+  // Stripe, stood in for by fake-stripe.ts, as a sandbox: its key a test one.
+  STRIPE_SECRET_KEY: 'sk_test_e2e',
+  STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
+  STRIPE_API_URL: FAKE_STRIPE_URL,
 } as const;

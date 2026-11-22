@@ -6,13 +6,17 @@ import { refusalOf } from '#lib/server/accounts/admin-hooks.js';
 import { dayOf, field, periodOf } from '#lib/server/form.js';
 import { isRole } from '#lib/server/accounts/permissions.js';
 import { isPeriod } from '#lib/server/subscriptions/period.js';
+import { stripeDashboardUrl } from '#lib/server/subscriptions/stripe.js';
 
 import type { Actions, PageServerLoad } from './$types';
 
 /** How many of the audit log's entries about the user the page shows. */
 const AUDIT_SHOWN = 20;
 
-/** A user's admin page: what is held of them, what admins did about them, and what an admin may do. */
+/**
+ * A user's admin page: what is held of them, what admins did about them, and what an admin may do. Each credit a
+ * payment made links to the payment in its provider's dashboard, which keeps its invoice: the catalogue keeps none.
+ */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
   const user = await locals.accounts.userDetail(params.id);
   if (user === undefined) error(404);
@@ -25,7 +29,13 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   ]);
   return {
     subscription,
-    credits,
+    credits: credits.map(credit => ({
+      ...credit,
+      dashboard:
+        credit.provider === 'stripe' && credit.externalRef !== null
+          ? stripeDashboardUrl(credit.providerAccount, credit.externalRef)
+          : null,
+    })),
     patreon: patreon ?? null,
     user: {
       ...user,
