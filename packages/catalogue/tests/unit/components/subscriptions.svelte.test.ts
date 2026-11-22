@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import Offers from '../../../src/routes/admin/subscriptions/+page.svelte';
@@ -67,6 +68,8 @@ describe('the subscription page', () => {
       offers: [OFFER],
     });
     expect(screen.getByText(fill(en.subscription_active, { date: day(UNTIL) }))).toBeInTheDocument();
+    // A subscriber is not told a subscription is needed.
+    expect(screen.queryByText(en.subscription_gives)).not.toBeInTheDocument();
     const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
     expect(offers).toHaveTextContent('12 months');
     expect(offers).toHaveTextContent('£30.00 · €35.00');
@@ -81,6 +84,7 @@ describe('the subscription page', () => {
   it('says when it ended', () => {
     show({ entitlement: { paidUntil: UNTIL, active: false, entitled: false } });
     expect(screen.getByText(fill(en.subscription_ended, { date: day(UNTIL) }))).toBeInTheDocument();
+    expect(screen.getByText(en.subscription_gives)).toBeInTheDocument();
   });
 
   it('says when there is none, nor anything on sale, and tells an admin they need none', () => {
@@ -291,19 +295,41 @@ describe('buying through Stripe, on the subscription page', () => {
       params: {},
     } as never);
 
-  it('prices an offer before tax, asks for the consent the terms need, and says how paying works', () => {
+  it('prices an offer before tax, and says how paying works', () => {
     show({});
     const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
     expect(offers).toHaveTextContent(fill(en.subscription_price_before_tax, { price: '£30.00' }));
     expect(offers).not.toHaveTextContent('€35.00');
-    const consent = within(offers).getByRole('checkbox', { name: en.subscription_buy_consent });
-    expect(consent).toBeRequired();
-    expect(
-      within(offers).getByRole('button', { name: fill(en.subscription_buy_named, { name: '12 months' }) }),
-    ).toBeInTheDocument();
     expect(offers).toHaveTextContent(en.subscription_buy_how);
     expect(within(offers).getByRole('link', { name: en.subscription_buy_terms })).toHaveAttribute('href', '/terms');
     expect(offers).not.toHaveTextContent(en.subscription_buy_soon);
+  });
+
+  it('asks once, for every offer, for the consent the terms need, each Buy waiting for it and saying why', async () => {
+    show({ offers: [STRIPE_OFFER, { ...STRIPE_OFFER, id: 'o2', name: '1 month' }] });
+    const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
+    const consents = within(offers).getAllByRole('checkbox', { name: en.subscription_buy_consent });
+    expect(consents).toHaveLength(1);
+    const buttons = ['12 months', '1 month'].map(name =>
+      within(offers).getByRole('button', { name: fill(en.subscription_buy_named, { name }) }),
+    );
+    for (const button of buttons) {
+      expect(button).toBeDisabled();
+      expect(button).toHaveAccessibleDescription(en.subscription_buy_needs_consent);
+      expect(button.parentElement).toHaveAttribute('title', en.subscription_buy_needs_consent);
+    }
+    const sent = () =>
+      [...offers.querySelectorAll<HTMLInputElement>('input[type="hidden"][name="consent"]')].map(input => input.value);
+    expect(sent()).toEqual(['', '']);
+
+    const [consent] = consents;
+    if (consent === undefined) throw new Error('No consent');
+    await userEvent.click(consent);
+    for (const button of buttons) {
+      expect(button).toBeEnabled();
+      expect(button.parentElement).not.toHaveAttribute('title');
+    }
+    expect(sent()).toEqual(['on', 'on']);
   });
 
   it('offers no button where nothing may be bought, as while an admin views the site as the user', () => {
@@ -336,12 +362,10 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(screen.getByText(message)).toBeInTheDocument();
     // The problem is said instead of how the checkout came back.
     expect(screen.queryByText(en.subscription_checkout_done)).not.toBeInTheDocument();
-    if (buy === 'consent') {
-      expect(screen.getByRole('checkbox', { name: en.subscription_buy_consent })).toHaveAttribute(
-        'aria-invalid',
-        'true',
-      );
-    }
+    expect(screen.getByRole('checkbox', { name: en.subscription_buy_consent })).toHaveAttribute(
+      'aria-invalid',
+      String(buy === 'consent'),
+    );
   });
 });
 

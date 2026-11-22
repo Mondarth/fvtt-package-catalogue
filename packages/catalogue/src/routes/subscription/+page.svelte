@@ -52,6 +52,10 @@
     cancelled: m.subscription_checkout_cancelled,
   };
   const checkoutDone = $derived(CHECKOUT_DONE[data.checkout ?? '']?.());
+  /** Whether the buyer has accepted the terms of sale, once for every offer: the Buy buttons wait for it. */
+  let consented = $state(false);
+  /** Whether any offer may be bought here, which the consent is asked for. */
+  const buying = $derived(data.canBuy && data.offers.some(offer => offer.stripePrice !== null));
   const patreonDone = $derived(patreonProblem === null ? PATREON_DONE[data.patreonDone ?? '']?.() : undefined);
 
   /**
@@ -100,7 +104,7 @@
   {/if}
 </p>
 {#if data.admin}<p class="hint">{m.subscription_admin()}</p>{/if}
-<p>{m.subscription_gives()}</p>
+{#if !active && !byPatreon}<p>{m.subscription_gives()}</p>{/if}
 
 {#if data.patreon !== null}
   <section aria-labelledby="patreon">
@@ -160,6 +164,18 @@
   {#if data.offers.length === 0}
     <p>{m.subscription_offers_none()}</p>
   {:else}
+    {#if buying}
+      <!-- One consent for every offer; each Buy sends it with its own form. -->
+      <label class="consent">
+        <input
+          type="checkbox"
+          bind:checked={consented}
+          aria-invalid={buyProblem === 'consent'}
+          aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
+        {m.subscription_buy_consent()}
+      </label>
+      <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
+    {/if}
     <ul class="offers">
       {#each data.offers as offer (offer.id)}
         <li>
@@ -174,19 +190,14 @@
             {#if data.canBuy}
               <form method="post" action="?/buy" class="buy">
                 <input type="hidden" name="offer" value={offer.id} />
-                <label>
-                  <input
-                    type="checkbox"
-                    name="consent"
-                    required
-                    aria-invalid={buyProblem === 'consent' &&
-                      refused !== null &&
-                      'offer' in refused &&
-                      refused.offer === offer.id}
-                    aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
-                  {m.subscription_buy_consent()}
-                </label>
-                <button aria-label={m.subscription_buy_named({ name: offer.name })}>{m.subscription_buy()}</button>
+                <input type="hidden" name="consent" value={consented ? 'on' : ''} />
+                <!-- The tooltip is the wrapper's: a disabled button takes no pointer events in every browser. -->
+                <span class="buy-button" title={consented ? undefined : m.subscription_buy_needs_consent()}>
+                  <button
+                    disabled={!consented}
+                    aria-label={m.subscription_buy_named({ name: offer.name })}
+                    aria-describedby={consented ? undefined : 'buy-needs-consent'}>{m.subscription_buy()}</button>
+                </span>
               </form>
             {/if}
           {:else}
@@ -280,11 +291,32 @@
   }
 
   .buy {
+    margin-inline-start: auto;
+  }
+
+  .consent {
     display: flex;
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    gap: 0.4rem 1rem;
-    align-items: center;
+    gap: 0.5rem;
+    align-items: start;
+    margin-block-end: 0.8rem;
+  }
+
+  .buy-button {
+    display: inline-block;
+  }
+
+  .buy-button button:disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   table {

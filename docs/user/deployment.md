@@ -181,8 +181,8 @@ reference for each payment.
 **Stripe.** Offers are sold through Stripe Managed Payments, with Stripe, through Onelink, the merchant of record: it
 works out, charges and pays the tax where each buyer lives, and emails their receipt and invoice. Each purchase is a
 one-off payment for an offer's period; nothing renews. Before a buyer is sent to Stripe's checkout, the
-**Subscription** page asks them to have their time start as soon as they pay and to agree to the Terms and Conditions,
-and records when they did. Their time is added when Stripe's webhook says the payment succeeded, once however often
+**Subscription** page asks them, once for every offer, to ask that their time be activated as soon as they pay and to
+agree to the Terms and Conditions (each **Buy** waits for it), and records when they did. Their time is added when Stripe's webhook says the payment succeeded, once however often
 it says so.
 
 - In Stripe's dashboard, with Managed Payments set up: make a restricted key that may write Checkout Sessions,
