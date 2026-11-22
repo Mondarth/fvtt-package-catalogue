@@ -414,9 +414,12 @@ describe('cancelling within 14 days of buying', () => {
   const DAY = 24 * 60 * 60 * 1000;
   const asked = new Date();
 
-  /** A purchase's credit, its refund just asked for: £36.00 for 30 days, bought `ago` days ago, starting then. */
+  /**
+   * A purchase's credit, its refund just asked for: £36.00 for 30 days, bought `ago` days ago and an hour more, so that
+   * the whole days left of it cannot change as the test runs, starting then.
+   */
   const credit = (ago: number, more: Record<string, unknown> = {}) => {
-    const bought = new Date(Date.now() - ago * DAY);
+    const bought = new Date(Date.now() - ago * DAY - DAY / 24);
     return {
       id: 'c1',
       userId: 'u1',
@@ -470,7 +473,7 @@ describe('cancelling within 14 days of buying', () => {
     stripe.refund.mockResolvedValue({ id: 're_1' });
     const { location, record } = await cancel(credit(3), stripe);
     expect(location).toBe('/subscription?refund=refunded');
-    // 26 whole days of 30 not yet used, as a moment of the 27th has passed, of £36.00.
+    // 26 whole days of 30 not yet used, as an hour of the 27th has passed, of £36.00.
     expect(stripe.refund).toHaveBeenCalledWith({
       paymentIntent: 'pi_1',
       amount: 3120,
@@ -534,7 +537,8 @@ describe("a purchase's refund, as its buyer sees it before confirming", () => {
     subscribed: Record<string, unknown> = {},
     locals: Partial<App.Locals> = {},
   ): Promise<Preview> {
-    const bought = new Date(Date.now() - DAY);
+    // A day ago and an hour more, so that the whole days left of it cannot change as the test runs.
+    const bought = new Date(Date.now() - DAY - DAY / 24);
     const credit = {
       id: 'c1',
       userId: 'u1',
@@ -578,7 +582,7 @@ describe("a purchase's refund, as its buyer sees it before confirming", () => {
 
   it('is the pro rata refund, made at once within 14 days of buying, and warns it ends the subscription', async () => {
     const preview = await previewed({});
-    // A moment of the 29th day not yet used has passed: 28 whole days, of £36.00.
+    // An hour of the 29th day not yet used has passed: 28 whole days, of £36.00.
     expect(preview).toMatchObject({ amount: 3360, days: 28, of: 30, atOnce: true, endsSubscription: true });
     expect(preview?.countedFrom.getTime()).toBeGreaterThan(Date.now() - 1000);
   });
