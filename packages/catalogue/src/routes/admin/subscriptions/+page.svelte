@@ -3,6 +3,8 @@
   one on sale, and the form for a new one.
 -->
 <script lang="ts">
+  import { resolve } from '$app/paths';
+
   import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -95,6 +97,59 @@
     </tbody>
   </table>
 {/if}
+
+<section aria-labelledby="refund-requests">
+  <h2 id="refund-requests">{m.admin_refunds_heading()}</h2>
+  {#if data.refundRequests.length === 0}
+    <p>{m.admin_refunds_none()}</p>
+  {:else}
+    <p>{m.admin_refunds_lede()}</p>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{m.admin_refunds_column_user()}</th>
+          <th scope="col">{m.admin_refunds_column_asked()}</th>
+          <th scope="col">{m.admin_refunds_column_purchase()}</th>
+          <th scope="col">{m.admin_refunds_column_paid()}</th>
+          <th scope="col">{m.admin_refunds_column_suggested()}</th>
+          <th scope="col"><span class="visually-hidden">{m.admin_refunds_make()}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.refundRequests as asked (asked.creditId)}
+          <tr>
+            <th scope="row"><a href={resolve('/admin/users/[id]', { id: asked.userId })}>{asked.handle}</a></th>
+            <td>{asked.requestedAt === null ? '–' : date(asked.requestedAt)}</td>
+            <td>
+              {m.admin_refunds_purchase({
+                purchased: date(asked.purchasedAt),
+                from: date(asked.startsAt),
+                until: date(asked.endsAt),
+              })}
+            </td>
+            <td>{asked.paid === null ? '–' : formatPrice(asked.paid.currency, asked.paid.amount, getLocale())}</td>
+            <td>
+              {#if asked.suggested !== null && asked.paid !== null}
+                {m.admin_refunds_suggested({
+                  amount: formatPrice(asked.paid.currency, asked.suggested.amount, getLocale()),
+                  days: asked.suggested.days,
+                  of: asked.suggested.of,
+                })}
+              {:else}
+                –
+              {/if}
+            </td>
+            <td>
+              {#if asked.dashboard !== null}<a href={asked.dashboard} rel="external noopener"
+                  >{m.admin_refunds_make()}</a
+                >{/if}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</section>
 
 {#if data.patreonMinimum !== undefined}
   <section aria-labelledby="patreon-minimum">

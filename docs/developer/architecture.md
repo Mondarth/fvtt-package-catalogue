@@ -260,6 +260,14 @@ from the catalogue so that it can move to a service of its own, shared by every 
   its PaymentIntent (`provider_account` = `test` or `live`), audited as `payment.credit` by `stripe`; the others mark
   the checkout processing, failed or expired. A checkout paid, failed or expired is settled for good. Routes and tests
   use the `StripeGateway` interface; `STRIPE_API_URL` points it at the end-to-end tests' stand-in.
+- **Refunds and disputes** (`charge.refunded`, `charge.dispute.*`): a refund event gives what has been refunded of the
+  payment in all, and `takeBack` (`store.ts`, in one transaction holding the user and the credit) takes off the end of
+  the subscription the credit's share of days for what is newly refunded, rounded down (`creditDays`, cumulative, so a
+  repeated event takes nothing), recording `refunded_amount` and `refunded_at`. A dispute is `disputed` = `open`, then
+  `won`, or `lost`, which takes back what remains. A buyer's request (`?/refund`) sets `refund_requested_at`; the admin
+  Subscriptions page lists those since the credit was last refunded, with `suggestedRefund` (`refunds.ts`): the share
+  of what was paid for the days not yet used, counted from the credit's own start. Refunds are made in Stripe's
+  dashboard; audited `payment.refund`, `payment.dispute` and `refund.request`.
 - **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of
   `PATREON_CAMPAIGN_ID` pledging at least the least pledge (`catalogue_settings`, `patreon_minimum`, set on the admin
   Subscriptions page). The checker asks Patreon's identity endpoint, with memberships, using the user's token, which

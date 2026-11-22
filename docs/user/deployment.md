@@ -188,7 +188,8 @@ it says so.
 - In Stripe's dashboard, with Managed Payments set up: make a restricted key that may write Checkout Sessions,
   Products and Prices, and set it as `STRIPE_SECRET_KEY` (a sandbox's, `rk_test_…`, sells nothing for real).
 - Add a webhook endpoint at `https://<SITE_URL>/webhooks/stripe` for the events `checkout.session.completed`,
-  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`,
+  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`,
+  `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed`,
   and set its signing secret as `STRIPE_WEBHOOK_SECRET`. Without it the catalogue does not start with a key set.
 - Set a support email address in Stripe's dashboard: Stripe shows it to buyers.
 - `STRIPE_CURRENCY` is the one currency sold in, `GBP` by default; `STRIPE_TAX_CODE` the tax code on each offer's
@@ -197,6 +198,15 @@ it says so.
   and sold through Stripe; the **Subscription** page shows its price with "+ applicable tax". An offer made before is
   not: make a new one. Retiring an offer archives its Stripe Price and Product.
 - A user's admin page links each payment to Stripe's dashboard, which keeps its invoice; a sandbox's are marked.
+- **Refunds.** A buyer can cancel a purchase and ask for a refund on their **Subscription** page at any time, which it
+  confirms at once. The admin pages' **Subscriptions** page lists the refunds asked for, oldest first, each with the
+  refund owed now (what was paid for the days not yet used, counted from when that purchase's time starts, less what
+  was refunded of it already: time bought on to the end of a running subscription has used none of itself yet) and a
+  link to make it in Stripe's dashboard. Once Stripe says a refund is made, by an admin or by Stripe itself (as merchant
+  of record it may refund within 60 days), its share of the purchase's days, rounded down, is taken off the end of
+  the subscription, and the request leaves the list. Each is audited, by `stripe`.
+- **Disputes.** A payment disputed with the buyer's bank is flagged on the user's admin page while it is decided, and
+  cleared once won. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
 - The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
   for real.
 

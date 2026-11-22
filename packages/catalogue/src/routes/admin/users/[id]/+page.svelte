@@ -11,12 +11,20 @@
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
+  import { formatPrice } from '#lib/prices.js';
   import { providerName } from '#lib/providers.js';
   import { MAX_DAYS, MAX_MONTHS } from '#lib/subscription-limits.js';
 
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
+
+  /** How a dispute of a payment stands, as the page says it. */
+  const DISPUTES: Readonly<Record<string, () => string>> = {
+    open: m.admin_credit_disputed_open,
+    won: m.admin_credit_disputed_won,
+    lost: m.admin_credit_disputed_lost,
+  };
 
   const DONE: Readonly<Record<string, () => string>> = {
     role: m.admin_done_role,
@@ -308,7 +316,14 @@
               {#if credit.dashboard !== null}<a class="hint" href={credit.dashboard} rel="external noopener"
                   >{credit.provider}
                   {credit.externalRef}{credit.providerAccount === 'test' ? ` (${m.admin_credit_test()})` : ''}</a
-                >{:else if credit.provider !== null}<span class="hint"
+                >{/if}{#if credit.disputed !== null}<span class="hint">{DISPUTES[credit.disputed]?.()}</span
+                >{:else if credit.refundedAmount > 0 && credit.currencyPaid !== null}<span class="hint"
+                  >{m.admin_credit_refunded({
+                    amount: formatPrice(credit.currencyPaid, credit.refundedAmount, getLocale()),
+                  })}</span
+                >{:else if credit.refundRequestedAt !== null}<span class="hint"
+                  >{m.subscription_refund_requested()}</span
+                >{/if}{#if credit.dashboard === null && credit.provider !== null}<span class="hint"
                   >{credit.provider}{credit.externalRef === null ? '' : ` ${credit.externalRef}`}</span
                 >{/if}
             </td>

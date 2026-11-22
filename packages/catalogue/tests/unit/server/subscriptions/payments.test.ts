@@ -129,3 +129,78 @@ describe("a Stripe event's purchase", () => {
     expect((await apply({ kind: 'ignored', type: 'charge.succeeded' })).applied).toBe('ignored');
   });
 });
+
+describe("a Stripe refund or dispute of a payment's credit", () => {
+  /** The purchase, paid for: 1 month credited by `pi_1`, for 360p. */
+  async function bought() {
+    await apply(paid());
+    record.mockClear();
+  }
+  const credit = () => subscriptions.creditOf('stripe', 'pi_1');
+
+  it('takes back its share of time, once, audited by Stripe', async () => {
+    await bought();
+    const before = (await subscriptions.status('u1')).paidUntil;
+    expect((await apply({ kind: 'refunded', paymentIntent: 'pi_1', amount: 360, refunded: 360 })).applied).toBe(
+      'taken-back',
+    );
+    expect((await subscriptions.status('u1')).paidUntil?.getTime()).toBeLessThan(before?.getTime() ?? 0);
+    expect(await credit()).toMatchObject({ refundedAmount: 360 });
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: STRIPE_ACTOR,
+        action: 'payment.refund',
+        subjectId: 'u1',
+        after: expect.objectContaining({ paymentIntent: 'pi_1', refunded: 360, amount: 360 }) as unknown,
+      }),
+    );
+    record.mockClear();
+    expect((await apply({ kind: 'refunded', paymentIntent: 'pi_1', amount: 360, refunded: 360 })).applied).toBe(
+      'duplicate',
+    );
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('flags a dispute while open, clears it once won, and takes everything back once lost', async () => {
+    await bought();
+    expect((await apply({ kind: 'dispute', paymentIntent: 'pi_1', state: 'open' })).applied).toBe('flagged');
+    expect(await credit()).toMatchObject({ disputed: 'open' });
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'payment.dispute', before: { disputed: null } }),
+    );
+    expect((await apply({ kind: 'dispute', paymentIntent: 'pi_1', state: 'open' })).applied).toBe('duplicate');
+    expect((await apply({ kind: 'dispute', paymentIntent: 'pi_1', state: 'won' })).applied).toBe('flagged');
+    expect(await credit()).toMatchObject({ disputed: 'won' });
+
+    record.mockClear();
+    expect((await apply({ kind: 'dispute', paymentIntent: 'pi_1', state: 'lost' })).applied).toBe('taken-back');
+    expect(await credit()).toMatchObject({ disputed: 'lost', refundedAmount: 360 });
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'payment.dispute',
+        after: expect.objectContaining({ disputed: 'lost' }) as unknown,
+      }),
+    );
+  });
+
+  it('counts a dispute lost of a payment whose total was not kept as all of it', async () => {
+    await subscriptions.credit({
+      userId: 'u1',
+      source: 'payment',
+      provider: 'stripe',
+      externalRef: 'pi_old',
+      months: 1,
+      days: 0,
+    });
+    expect((await apply({ kind: 'dispute', paymentIntent: 'pi_old', state: 'lost' })).applied).toBe('taken-back');
+    expect(await subscriptions.creditOf('stripe', 'pi_old')).toMatchObject({ refundedAmount: 1, disputed: 'lost' });
+  });
+
+  it('leaves alone, and logs, a payment the catalogue did not credit', async () => {
+    const { applied, log } = await apply({ kind: 'refunded', paymentIntent: 'pi_x', amount: 1, refunded: 1 });
+    expect(applied).toBe('unknown');
+    expect(log.lines.map(line => line.msg ?? line.message)).toContain(
+      'Stripe event of a payment the catalogue did not credit',
+    );
+  });
+});

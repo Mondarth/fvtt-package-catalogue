@@ -52,6 +52,17 @@
     cancelled: m.subscription_checkout_cancelled,
   };
   const checkoutDone = $derived(CHECKOUT_DONE[data.checkout ?? '']?.());
+  /** How a purchase stands with refunds, once there is nothing more to ask. */
+  const REFUND_STATES: Readonly<Record<'refunded' | 'requested', () => string>> = {
+    refunded: m.subscription_refund_refunded,
+    requested: m.subscription_refund_requested,
+  };
+  /** Why asking for a refund was refused. */
+  const REFUND_PROBLEMS: Readonly<Record<string, () => string>> = {
+    credit: m.subscription_refund_problem_credit,
+    impersonating: m.subscription_buy_problem_impersonating,
+  };
+  const refundProblem = $derived(refused !== null && 'refund' in refused ? refused.refund : undefined);
   /** Whether the buyer has accepted the terms of sale, once for every offer: the Buy buttons wait for it. */
   let consented = $state(false);
   /** Whether any offer may be bought here, which the consent is asked for. */
@@ -233,6 +244,12 @@
 
 <section aria-labelledby="history">
   <h2 id="history">{m.subscription_history_heading()}</h2>
+  {#if refundProblem !== undefined}
+    <Callout id="refund-problem"
+      >{REFUND_PROBLEMS[refundProblem]?.() ?? m.subscription_refund_problem_credit()}</Callout>
+  {:else if data.refundDone}
+    <p role="status">{m.subscription_refund_done()}</p>
+  {/if}
   {#if data.history.length === 0}
     <p>{m.subscription_history_none()}</p>
   {:else}
@@ -245,6 +262,7 @@
           <th scope="col">{m.subscription_column_source()}</th>
           <th scope="col">{m.subscription_column_period()}</th>
           <th scope="col">{m.subscription_column_paid()}</th>
+          <th scope="col">{m.subscription_column_refund()}</th>
         </tr>
       </thead>
       <tbody>
@@ -256,6 +274,23 @@
             <td>{SOURCES[credit.source]?.() ?? credit.source}</td>
             <td>{credit.months + credit.days > 0 ? periodLabel(credit) : '–'}</td>
             <td>{credit.paid === null ? '–' : formatPrice(credit.paid.currency, credit.paid.amount, getLocale())}</td>
+            <td>
+              {#if credit.refund === 'refundable' || credit.refund === 'partly'}
+                {#if credit.refund === 'partly'}<span class="hint">{m.subscription_refund_partly()}</span>{/if}
+                <form method="post" action="?/refund">
+                  <input type="hidden" name="credit" value={credit.id} />
+                  <button
+                    aria-label={m.subscription_refund_ask_named({
+                      date: date(credit.purchasedAt),
+                      period: periodLabel(credit),
+                    })}>{m.subscription_refund_ask()}</button>
+                </form>
+              {:else if credit.refund === 'refunded' || credit.refund === 'requested'}
+                {REFUND_STATES[credit.refund]()}
+              {:else}
+                –
+              {/if}
+            </td>
           </tr>
         {/each}
       </tbody>

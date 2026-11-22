@@ -243,3 +243,128 @@ describe('the subscription page, where the catalogue sells through Stripe', () =
     expect(without.offers.every(given => given.stripePrice === null)).toBe(true);
   });
 });
+
+describe('asking for a refund, on the subscription page', () => {
+  type RefundEvent = Parameters<NonNullable<(typeof actions)['refund']>>[0];
+  const record = vi.fn(() => Promise.resolve());
+
+  /**
+   * Asks for a refund of a credit.
+   * @param requestRefund - What the store does
+   * @param locals - What the request has besides
+   * @returns What the action gave
+   */
+  function ask(requestRefund: SubscriptionStore['requestRefund'], locals: Partial<App.Locals> = {}) {
+    const run = actions.refund;
+    if (run === undefined) throw new Error('No refund action');
+    return run(
+      fakeEvent<RefundEvent>({
+        url: 'https://catalogue.test/subscription?/refund',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ credit: 'c1' }).toString(),
+        locals: {
+          user: USER as never,
+          session: {} as never,
+          subscriptions: { requestRefund } as unknown as SubscriptionStore,
+          audit: { record } as never,
+          ...locals,
+        },
+      }),
+    );
+  }
+
+  it('records it, audited, and confirms it on the page at once', async () => {
+    const requestRefund = vi.fn(() => Promise.resolve({ id: 'c1', externalRef: 'pi_1' } as never));
+    const error = await thrown(() => ask(requestRefund));
+    expect(isRedirect(error) && error.location).toBe('/subscription?refund=requested');
+    expect(requestRefund).toHaveBeenCalledWith('u1', 'c1');
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'u1',
+        action: 'refund.request',
+        after: { credit: 'c1', paymentIntent: 'pi_1' },
+      }),
+    );
+  });
+
+  it('refuses a credit that cannot be refunded, and anything while an admin views the site as the user', async () => {
+    const none = await ask(() => Promise.resolve(undefined));
+    expect(isActionFailure(none) && none.data).toEqual({ refund: 'credit' });
+    const impersonated = await ask(vi.fn(), { session: { impersonatedBy: 'admin' } as never });
+    expect(isActionFailure(impersonated) && impersonated.data).toEqual({ refund: 'impersonating' });
+    const signedOut = await thrown(() => ask(vi.fn(), { user: null }));
+    expect(isRedirect(signedOut) && signedOut.location).toBe('/');
+  });
+});
+
+describe('how each purchase stands with refunds, on the subscription page', () => {
+  it('says each paid one is refundable, partly or wholly refunded, charged back, or asked to be', async () => {
+    const at = (iso: string) => new Date(iso);
+    const base = {
+      userId: 'u1',
+      provider: 'stripe',
+      method: null,
+      externalRef: 'pi',
+      providerAccount: 'test',
+      offerId: 'o1',
+      amountPaid: 3000,
+      currencyPaid: 'GBP',
+      refundedAmount: 0,
+      refundedAt: null,
+      refundRequestedAt: null,
+      disputed: null,
+      months: 1,
+      days: 0,
+      startsAt: NOW,
+      endsAt: NOW,
+      grantedBy: null,
+      note: null,
+      createdAt: NOW,
+      source: 'payment',
+    };
+    const credits = [
+      { ...base, id: 'refundable' },
+      { ...base, id: 'partly', refundedAmount: 1000, refundedAt: at('2026-12-02T00:00:00Z') },
+      { ...base, id: 'refunded', refundedAmount: 3000 },
+      { ...base, id: 'lost', disputed: 'lost' },
+      { ...base, id: 'requested', refundRequestedAt: at('2026-12-02T00:00:00Z') },
+      {
+        ...base,
+        id: 'asked again',
+        refundedAmount: 1000,
+        refundedAt: at('2026-12-02T00:00:00Z'),
+        refundRequestedAt: at('2026-12-03T00:00:00Z'),
+      },
+      { ...base, id: 'free', amountPaid: null },
+      { ...base, id: 'granted', source: 'grant' },
+    ];
+    const result = (await load(
+      fakeEvent<LoadEvent>({
+        url: 'https://catalogue.test/subscription?refund=requested',
+        locals: {
+          user: USER as never,
+          session: {} as never,
+          isAdmin: false,
+          entitlement: () => Promise.resolve({ paidUntil: null, active: false, patreon: false, entitled: false }),
+          subscriptions: {
+            history: () => Promise.resolve(credits),
+            activeOffers: () => Promise.resolve([]),
+            processingCheckouts: () => Promise.resolve([]),
+          } as unknown as SubscriptionStore,
+        },
+      }),
+    )) as unknown as { history: { id: string; refund: unknown }[]; refundDone: boolean };
+    expect(result.refundDone).toBe(true);
+    expect(Object.fromEntries(result.history.map(credit => [credit.id, credit.refund]))).toEqual({
+      refundable: 'refundable',
+      partly: 'partly',
+      refunded: 'refunded',
+      lost: 'refunded',
+      requested: 'requested',
+      'asked again': 'requested',
+      free: null,
+      granted: null,
+    });
+  });
+});

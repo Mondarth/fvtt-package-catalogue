@@ -242,7 +242,10 @@ describe("the offers page's least Patreon pledge", () => {
       fakeEvent<OffersEvent>({
         url: 'http://catalogue.test/admin/subscriptions',
         locals: {
-          subscriptions: { offers: () => Promise.resolve([]) } as unknown as SubscriptionStore,
+          subscriptions: {
+            offers: () => Promise.resolve([]),
+            refundRequests: () => Promise.resolve([]),
+          } as unknown as SubscriptionStore,
           patreon: patreonWith(),
         },
       }),

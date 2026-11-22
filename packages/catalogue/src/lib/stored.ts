@@ -105,6 +105,10 @@ export const STORED: readonly StoredItem[] = [
       'subscription_credits.provider_account',
       'subscription_credits.amount_paid',
       'subscription_credits.currency_paid',
+      'subscription_credits.refunded_amount',
+      'subscription_credits.refunded_at',
+      'subscription_credits.refund_requested_at',
+      'subscription_credits.disputed',
     ],
   },
   {

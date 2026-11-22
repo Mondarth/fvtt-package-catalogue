@@ -18,6 +18,9 @@ const ACTIONS: Readonly<Record<string, () => string>> = {
   'offer.retire': m.audit_action_offer_retire,
   'patreon.minimum': m.audit_action_patreon_minimum,
   'payment.credit': m.audit_action_payment_credit,
+  'payment.refund': m.audit_action_payment_refund,
+  'payment.dispute': m.audit_action_payment_dispute,
+  'refund.request': m.audit_action_refund_request,
 };
 
 /**

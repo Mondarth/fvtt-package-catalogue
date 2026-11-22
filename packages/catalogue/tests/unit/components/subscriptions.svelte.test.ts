@@ -122,7 +122,7 @@ describe('the subscription page', () => {
 describe('the offers page', () => {
   const show = (offers: (typeof OFFER)[], more: { done?: string | null; form?: unknown; stripe?: string } = {}) =>
     render(Offers, {
-      data: { offers, done: more.done ?? null, stripeCurrency: more.stripe ?? null },
+      data: { offers, refundRequests: [], done: more.done ?? null, stripeCurrency: more.stripe ?? null },
       form: more.form ?? null,
       params: {},
     } as never);
@@ -394,7 +394,11 @@ describe('buying through Stripe, on the subscription page', () => {
 
 describe('the offers page, where the catalogue sells through Stripe', () => {
   const show = (offers: (typeof OFFER)[], form: unknown = null) =>
-    render(Offers, { data: { offers, done: null, stripeCurrency: 'GBP' }, form, params: {} } as never);
+    render(Offers, {
+      data: { offers, refundRequests: [], done: null, stripeCurrency: 'GBP' },
+      form,
+      params: {},
+    } as never);
 
   it('says which offers are sold through Stripe, and that a price in its currency puts one there', () => {
     show([{ ...OFFER, providers: ['stripe'] }]);
@@ -498,5 +502,201 @@ describe('the subscription page, to someone with no subscription', () => {
     show({});
     const said = screen.getByText(en.subscription_gives, { exact: false }).textContent;
     expect(said.trim()).toBe(en.subscription_gives);
+  });
+});
+
+describe("a purchase's refund, on the subscription page", () => {
+  const ROW = {
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 360, currency: 'GBP' },
+  };
+  const show = (history: unknown[], more: Record<string, unknown> = {}) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history,
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: false,
+        ...more,
+      },
+      form: more.form ?? null,
+      params: {},
+    } as never);
+
+  it('offers to cancel and ask for one where it may be asked, and says where it stands otherwise', () => {
+    show([
+      { ...ROW, id: 'a', refund: 'refundable' },
+      { ...ROW, id: 'b', refund: 'partly' },
+      { ...ROW, id: 'c', refund: 'requested' },
+      { ...ROW, id: 'd', refund: 'refunded' },
+      { ...ROW, id: 'e', refund: null, paid: null, source: 'grant' },
+    ]);
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    const ask = within(rowOf(rows, 1)).getByRole('button', {
+      name: fill(en.subscription_refund_ask_named, { date: day(UNTIL), period: '1 month' }),
+    });
+    expect(ask).toHaveTextContent(en.subscription_refund_ask);
+    expect(rowOf(rows, 2)).toHaveTextContent(en.subscription_refund_partly);
+    expect(within(rowOf(rows, 2)).getByRole('button')).toBeInTheDocument();
+    expect(rowOf(rows, 3)).toHaveTextContent(en.subscription_refund_requested);
+    expect(rowOf(rows, 4)).toHaveTextContent(en.subscription_refund_refunded);
+    for (const index of [3, 4, 5]) expect(within(rowOf(rows, index)).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('confirms a refund asked for at once, and says why one could not be', () => {
+    show([], { refundDone: true });
+    expect(screen.getByRole('status')).toHaveTextContent(en.subscription_refund_done);
+  });
+
+  it.each([
+    ['credit', en.subscription_refund_problem_credit],
+    ['impersonating', en.subscription_buy_problem_impersonating],
+    ['unknown', en.subscription_refund_problem_credit],
+  ])('says why a refund was refused: %s', (refund, message) => {
+    show([], { form: { refund }, refundDone: true });
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(en.subscription_refund_done)).not.toBeInTheDocument();
+  });
+});
+
+describe("the offers page's refunds asked for", () => {
+  const show = (refundRequests: unknown[]) =>
+    render(Offers, {
+      data: { offers: [], refundRequests, done: null, stripeCurrency: 'GBP' },
+      form: null,
+      params: {},
+    } as never);
+
+  it('says when none is waiting', () => {
+    show([]);
+    expect(screen.getByText(en.admin_refunds_none)).toBeInTheDocument();
+  });
+
+  it('lists each, with its buyer, the refund owed now, and a link to make it in Stripe', () => {
+    show([
+      {
+        creditId: 'c1',
+        userId: 'u1',
+        handle: 'amber-fox-oak-01',
+        requestedAt: UNTIL,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: { amount: 3600, currency: 'GBP' },
+        refunded: 0,
+        suggested: { amount: 1800, days: 15, of: 30 },
+        dashboard: 'https://dashboard.stripe.com/test/payments/pi_1',
+      },
+      {
+        creditId: 'c2',
+        userId: 'u2',
+        handle: 'bold-owl-elm-02',
+        requestedAt: null,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: null,
+        refunded: 0,
+        suggested: null,
+        dashboard: null,
+      },
+    ]);
+    const section = screen.getByRole('region', { name: en.admin_refunds_heading });
+    expect(section).toHaveTextContent(en.admin_refunds_lede);
+    const rows = within(section).getAllByRole('row');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: 'amber-fox-oak-01' })).toHaveAttribute(
+      'href',
+      '/admin/users/u1',
+    );
+    expect(rowOf(rows, 1)).toHaveTextContent(fill(en.admin_refunds_suggested, { amount: '£18.00', days: 15, of: 30 }));
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: en.admin_refunds_make })).toHaveAttribute(
+      'href',
+      'https://dashboard.stripe.com/test/payments/pi_1',
+    );
+    expect(within(rowOf(rows, 2)).queryByRole('link', { name: en.admin_refunds_make })).not.toBeInTheDocument();
+    expect(rowOf(rows, 2)).toHaveTextContent('–');
+  });
+});
+
+describe("a user's admin page's refunds and disputes", () => {
+  it('says how each payment stands: disputed, refunded, or a refund asked for', () => {
+    const credit = (id: string, more: Record<string, unknown>) => ({
+      id,
+      source: 'payment',
+      provider: 'stripe',
+      externalRef: `pi_${id}`,
+      providerAccount: 'live',
+      dashboard: `https://dashboard.stripe.com/payments/pi_${id}`,
+      months: 1,
+      days: 0,
+      startsAt: UNTIL,
+      endsAt: UNTIL,
+      grantedBy: null,
+      note: null,
+      currencyPaid: 'GBP',
+      refundedAmount: 0,
+      refundRequestedAt: null,
+      disputed: null,
+      ...more,
+    });
+    render(User, {
+      data: {
+        user: {
+          id: 'u1',
+          handle: 'amber-fox-oak-01',
+          nickname: null,
+          name: 'One',
+          email: 'one@example.test',
+          role: null,
+          banned: false,
+          createdAt: UNTIL,
+          image: null,
+          banReason: null,
+          banExpires: null,
+          providers: [],
+          sessions: 0,
+          admin: false,
+          configured: false,
+          self: false,
+        },
+        audit: [],
+        done: null,
+        refused: null,
+        subscription: { paidUntil: UNTIL, active: true },
+        credits: [
+          credit('a', { disputed: 'open' }),
+          credit('b', { disputed: 'won' }),
+          credit('c', { disputed: 'lost' }),
+          credit('d', { refundedAmount: 1800 }),
+          credit('e', { refundRequestedAt: UNTIL }),
+          credit('f', { disputed: 'odd' }),
+        ],
+        patreon: null,
+      },
+      form: null,
+      params: { id: 'u1' },
+    } as never);
+    const section = screen.getByRole('region', { name: en.admin_subscription_heading });
+    for (const text of [
+      en.admin_credit_disputed_open,
+      en.admin_credit_disputed_won,
+      en.admin_credit_disputed_lost,
+      fill(en.admin_credit_refunded, { amount: '£18.00' }),
+      en.subscription_refund_requested,
+    ]) {
+      expect(section).toHaveTextContent(text);
+    }
   });
 });

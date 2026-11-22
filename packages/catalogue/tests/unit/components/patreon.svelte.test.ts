@@ -149,7 +149,7 @@ describe("the subscription page's Patreon", () => {
 
 describe("the offers page's least Patreon pledge", () => {
   const show = (patreonMinimum: unknown, form: unknown = null, done: string | null = null) =>
-    render(Offers, { data: { offers: [], patreonMinimum, done }, form, params: {} } as never);
+    render(Offers, { data: { offers: [], refundRequests: [], patreonMinimum, done }, form, params: {} } as never);
 
   it('is not shown where the catalogue does not offer Patreon', () => {
     show(undefined);

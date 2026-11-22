@@ -52,6 +52,10 @@ export const subscriptionOffers = pgTable('subscription_offers', {
   createdAt,
 });
 
+/** How a dispute of a payment stands: being decided, won by the catalogue, or lost (charged back). */
+export const DISPUTE_STATES = ['open', 'won', 'lost'] as const;
+export type DisputeState = (typeof DISPUTE_STATES)[number];
+
 /** What each payment provider knows an offer by. */
 export interface OfferProviderRefs {
   readonly stripe?: { readonly product: string; readonly price: string };
@@ -123,6 +127,17 @@ export const subscriptionCredits = pgTable(
      */
     amountPaid: integer(),
     currencyPaid: text(),
+    /**
+     * What has been refunded of its payment in all, in the same unit: the whole of it once charged back. The time it
+     * paid for is taken back in proportion (see `store.ts`).
+     */
+    refundedAmount: integer().notNull().default(0),
+    /** When a refund of it was last taken back. */
+    refundedAt: timestamp({ withTimezone: true }),
+    /** When its buyer asked, on their Subscription page, to cancel it and be refunded. */
+    refundRequestedAt: timestamp({ withTimezone: true }),
+    /** How a dispute of its payment with the buyer's bank stands, if there is one: `open`, `won` or `lost`. */
+    disputed: text({ enum: DISPUTE_STATES }),
     /** The period bought or granted: so many calendar months and days. */
     months: integer().notNull().default(0),
     days: integer().notNull().default(0),
