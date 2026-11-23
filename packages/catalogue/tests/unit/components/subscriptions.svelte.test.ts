@@ -124,7 +124,7 @@ describe('the subscription page', () => {
 describe('the offers page', () => {
   const show = (offers: (typeof OFFER)[], more: { done?: string | null; form?: unknown; stripe?: string } = {}) =>
     render(Offers, {
-      data: { offers, refundRequests: [], done: more.done ?? null, stripeCurrency: more.stripe ?? null },
+      data: { offers, refundRequests: [], disputes: [], done: more.done ?? null, stripeCurrency: more.stripe ?? null },
       form: more.form ?? null,
       params: {},
     } as never);
@@ -397,7 +397,7 @@ describe('buying through Stripe, on the subscription page', () => {
 describe('the offers page, where the catalogue sells through Stripe', () => {
   const show = (offers: (typeof OFFER)[], form: unknown = null) =>
     render(Offers, {
-      data: { offers, refundRequests: [], done: null, stripeCurrency: 'GBP' },
+      data: { offers, refundRequests: [], disputes: [], done: null, stripeCurrency: 'GBP' },
       form,
       params: {},
     } as never);
@@ -579,7 +579,7 @@ describe("a purchase's refund, on the subscription page", () => {
 describe("the offers page's refunds asked for", () => {
   const show = (refundRequests: unknown[]) =>
     render(Offers, {
-      data: { offers: [], refundRequests, done: null, stripeCurrency: 'GBP' },
+      data: { offers: [], refundRequests, disputes: [], done: null, stripeCurrency: 'GBP' },
       form: null,
       params: {},
     } as never);
@@ -845,6 +845,7 @@ describe("the offers page's refund reasons", () => {
     render(Offers, {
       data: {
         offers: [],
+        disputes: [],
         refundRequests: [
           asked('c1', 'too-expensive', null),
           asked('c2', 'other', 'Moving on'),
@@ -919,5 +920,63 @@ describe('a refund made at once, on the subscription page', () => {
     show(refundDone, refund);
     vi.advanceTimersByTime(10_000);
     expect(navigation.refreshAll).not.toHaveBeenCalled();
+  });
+});
+
+describe("the offers page's outstanding disputes", () => {
+  const show = (disputes: unknown[]) =>
+    render(Offers, {
+      data: { offers: [], refundRequests: [], disputes, done: null, stripeCurrency: 'GBP' },
+      form: null,
+      params: {},
+    } as never);
+
+  it('says when none is waiting', () => {
+    show([]);
+    expect(screen.getByText(en.admin_disputes_none)).toBeInTheDocument();
+  });
+
+  it('lists each below the refunds asked for, with its buyer, when it opened, and where to answer it', () => {
+    show([
+      {
+        creditId: 'c1',
+        userId: 'u1',
+        handle: 'amber-fox-oak-01',
+        openedAt: UNTIL,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: { amount: 3600, currency: 'GBP' },
+        dashboard: 'https://dashboard.stripe.com/payments/pi_1',
+      },
+      {
+        creditId: 'c2',
+        userId: 'u2',
+        handle: 'bold-owl-elm-02',
+        openedAt: null,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: null,
+        dashboard: null,
+      },
+    ]);
+    const section = screen.getByRole('region', { name: en.admin_disputes_heading });
+    // Just below the refunds asked for.
+    expect(section.previousElementSibling).toBe(screen.getByRole('region', { name: en.admin_refunds_heading }));
+    expect(section).toHaveTextContent(en.admin_disputes_lede);
+    const rows = within(section).getAllByRole('row');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: 'amber-fox-oak-01' })).toHaveAttribute(
+      'href',
+      '/admin/users/u1',
+    );
+    expect(rowOf(rows, 1)).toHaveTextContent(day(UNTIL));
+    expect(rowOf(rows, 1)).toHaveTextContent('£36.00');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: en.admin_disputes_answer })).toHaveAttribute(
+      'href',
+      'https://dashboard.stripe.com/payments/pi_1',
+    );
+    expect(within(rowOf(rows, 2)).queryByRole('link', { name: en.admin_disputes_answer })).not.toBeInTheDocument();
+    expect(rowOf(rows, 2)).toHaveTextContent('–');
   });
 });

@@ -161,6 +161,47 @@
   {/if}
 </section>
 
+<section aria-labelledby="disputes">
+  <h2 id="disputes">{m.admin_disputes_heading()}</h2>
+  {#if data.disputes.length === 0}
+    <p>{m.admin_disputes_none()}</p>
+  {:else}
+    <p>{m.admin_disputes_lede()}</p>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{m.admin_refunds_column_user()}</th>
+          <th scope="col">{m.admin_disputes_column_opened()}</th>
+          <th scope="col">{m.admin_refunds_column_purchase()}</th>
+          <th scope="col">{m.admin_refunds_column_paid()}</th>
+          <th scope="col"><span class="visually-hidden">{m.admin_disputes_answer()}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.disputes as disputed (disputed.creditId)}
+          <tr>
+            <th scope="row"><a href={resolve('/admin/users/[id]', { id: disputed.userId })}>{disputed.handle}</a></th>
+            <td>{disputed.openedAt ? date(disputed.openedAt) : '–'}</td>
+            <td>
+              {m.admin_refunds_purchase({
+                purchased: date(disputed.purchasedAt),
+                from: date(disputed.startsAt),
+                until: date(disputed.endsAt),
+              })}
+            </td>
+            <td>{disputed.paid ? formatPrice(disputed.paid.currency, disputed.paid.amount, getLocale()) : '–'}</td>
+            <td>
+              {#if disputed.dashboard}<a href={disputed.dashboard} rel="external noopener"
+                  >{m.admin_disputes_answer()}</a
+                >{/if}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</section>
+
 {#if data.patreonMinimum !== undefined}
   <section aria-labelledby="patreon-minimum">
     <h2 id="patreon-minimum">{m.admin_patreon_heading()}</h2>

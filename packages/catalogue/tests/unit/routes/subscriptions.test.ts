@@ -33,6 +33,7 @@ const aCredit = (more: Partial<Credit> = {}): Credit => ({
   refundReason: null,
   refundReasonText: null,
   disputed: null,
+  disputedAt: null,
   months: 12,
   days: 0,
   startsAt: BEFORE,
@@ -154,6 +155,7 @@ describe("the offers page's refunds asked for", () => {
         locals: {
           subscriptions: {
             offers: () => Promise.resolve([]),
+            openDisputes: () => Promise.resolve([]),
             refundRequests: () =>
               Promise.resolve([
                 {
@@ -186,6 +188,53 @@ describe("the offers page's refunds asked for", () => {
         dashboard: 'https://dashboard.stripe.com/test/payments/pi_1',
       },
       { creditId: 'c2', paid: null, suggested: null, dashboard: null },
+    ]);
+  });
+});
+
+describe("the offers page's outstanding disputes", () => {
+  it('lists each, its buyer, when it opened, what was paid, and where to answer it', async () => {
+    const result = await offersLoad(
+      fakeEvent<OffersEvent>({
+        url: 'http://catalogue.test/admin/subscriptions',
+        locals: {
+          subscriptions: {
+            offers: () => Promise.resolve([]),
+            refundRequests: () => Promise.resolve([]),
+            openDisputes: () =>
+              Promise.resolve([
+                {
+                  credit: aCredit({
+                    source: 'payment',
+                    provider: 'stripe',
+                    externalRef: 'pi_1',
+                    providerAccount: 'live',
+                    amountPaid: 3600,
+                    currencyPaid: 'GBP',
+                    disputed: 'open',
+                    disputedAt: AFTER,
+                  }),
+                  handle: USER.handle,
+                },
+                { credit: aCredit({ id: 'c2', disputed: 'open' }), handle: USER.handle },
+              ]),
+          } as unknown as SubscriptionStore,
+        },
+      }),
+    );
+    expect(result?.disputes).toEqual([
+      {
+        creditId: 'c1',
+        userId: 'u1',
+        handle: USER.handle,
+        openedAt: AFTER,
+        purchasedAt: BEFORE,
+        startsAt: BEFORE,
+        endsAt: AFTER,
+        paid: { amount: 3600, currency: 'GBP' },
+        dashboard: 'https://dashboard.stripe.com/payments/pi_1',
+      },
+      expect.objectContaining({ creditId: 'c2', openedAt: null, paid: null, dashboard: null }),
     ]);
   });
 });
@@ -311,13 +360,18 @@ describe('the offers page', () => {
       fakeEvent<OffersEvent>({
         url: 'http://catalogue.test/admin/subscriptions?done=create',
         locals: {
-          subscriptions: { offers, refundRequests: () => Promise.resolve([]) } as unknown as SubscriptionStore,
+          subscriptions: {
+            offers,
+            refundRequests: () => Promise.resolve([]),
+            openDisputes: () => Promise.resolve([]),
+          } as unknown as SubscriptionStore,
         },
       }),
     );
     expect(result).toEqual({
       offers: [offer()],
       refundRequests: [],
+      disputes: [],
       stripeCurrency: null,
       patreonMinimum: undefined,
       done: 'create',

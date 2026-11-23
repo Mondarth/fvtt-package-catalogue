@@ -144,6 +144,8 @@ export const subscriptionCredits = pgTable(
     refundReasonText: text(),
     /** How a dispute of its payment with the buyer's bank stands, if there is one: `open`, `won` or `lost`. */
     disputed: text({ enum: DISPUTE_STATES }),
+    /** When that dispute was opened, as Stripe first said so. */
+    disputedAt: timestamp({ withTimezone: true }),
     /** The period bought or granted: so many calendar months and days. */
     months: integer().notNull().default(0),
     days: integer().notNull().default(0),

@@ -111,6 +111,7 @@ export const STORED: readonly StoredItem[] = [
       'subscription_credits.refund_reason',
       'subscription_credits.refund_reason_text',
       'subscription_credits.disputed',
+      'subscription_credits.disputed_at',
     ],
   },
   {

@@ -210,8 +210,9 @@ it says so.
   - Once Stripe says a refund is made, by the catalogue, an admin, or Stripe itself (as merchant of record it may refund
     within 60 days), its share of the purchase's days, rounded down, comes off the end of the subscription, and the
     request leaves the list. Each is audited, by `stripe`.
-- **Disputes.** A payment disputed with the buyer's bank is flagged on the user's admin page while it is decided, and
-  cleared once won. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
+- **Disputes.** A payment disputed with the buyer's bank is listed under **Outstanding disputes** on the admin pages'
+  **Subscriptions** page, the longest open first, with a link to answer it in Stripe's dashboard, and flagged on the
+  user's admin page, while it is decided; it leaves the list, cleared, once won. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
 - The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
   for real.
 

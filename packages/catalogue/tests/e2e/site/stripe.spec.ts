@@ -227,12 +227,27 @@ test('a cancellation Stripe will not refund at once is left to an admin', async 
   ).toHaveCount(1);
 });
 
-test('a dispute lost with the bank charges a purchase back, taking its time', async ({ page }, info) => {
-  const { paymentIntent } = await bought(page, info);
+test('a dispute is listed for admins while open, and once lost charges the purchase back', async ({ page }, info) => {
+  const { buyer, paymentIntent } = await bought(page, info);
   expect((await page.request.get(`${FAKE_STRIPE_URL}/dispute/${paymentIntent}?status=needs_response`)).status()).toBe(
     200,
   );
+  await signOut(page);
+
+  // The admin sees it among the outstanding disputes, with where to answer it, until it is decided.
+  await signInAs(page, E2E_ADMIN);
+  await page.goto('/admin/subscriptions');
+  const disputed = page
+    .getByRole('region', { name: en.admin_disputes_heading })
+    .getByRole('row')
+    .filter({ has: page.locator(`a[href$="/payments/${paymentIntent}"]`) });
+  await expect(disputed).toHaveCount(1);
   expect((await page.request.get(`${FAKE_STRIPE_URL}/dispute/${paymentIntent}?status=lost`)).status()).toBe(200);
+  await page.reload();
+  await expect(disputed).toHaveCount(0);
+  await signOut(page);
+
+  await signInAs(page, buyer);
   await page.goto('/subscription');
   await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
     en.subscription_refund_refunded,

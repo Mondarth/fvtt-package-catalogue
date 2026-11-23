@@ -391,3 +391,47 @@ describe('a refund asked for as Other', () => {
     });
   });
 });
+
+describe('disputes still being decided', () => {
+  it('are listed, the longest open first, keeping when each opened as it is decided, until won or lost', async () => {
+    const pay = async (ref: string) => {
+      const made = await store.credit(
+        {
+          userId: 'u1',
+          source: 'payment',
+          provider: 'stripe',
+          externalRef: ref,
+          amountPaid: 100,
+          currencyPaid: 'GBP',
+          months: 1,
+          days: 0,
+        },
+        NOW,
+      );
+      if (made === 'duplicate') throw new Error('Credited already');
+      return made;
+    };
+    const first = await pay('pi_a');
+    const second = await pay('pi_b');
+    await store.setDisputed(second.id, 'open', at('2026-11-18T00:00:00Z'));
+    await store.setDisputed(first.id, 'open', at('2026-11-17T00:00:00Z'));
+    // Still being decided: when it opened is kept.
+    await store.setDisputed(first.id, 'open', at('2026-11-19T00:00:00Z'));
+    expect((await store.openDisputes()).map(({ credit, handle }) => [credit.id, credit.disputedAt, handle])).toEqual([
+      [first.id, at('2026-11-17T00:00:00Z'), 'amber-fox-oak-01'],
+      [second.id, at('2026-11-18T00:00:00Z'), 'amber-fox-oak-01'],
+    ]);
+
+    await store.setDisputed(first.id, 'won');
+    expect((await store.openDisputes()).map(({ credit }) => credit.id)).toEqual([second.id]);
+    // Opened again after it was decided: from then.
+    await store.setDisputed(first.id, 'open', at('2026-11-20T00:00:00Z'));
+    expect((await store.creditOf('stripe', 'pi_a'))?.disputedAt).toEqual(at('2026-11-20T00:00:00Z'));
+    await store.setDisputed(second.id, 'lost');
+    await store.setDisputed(first.id, 'won');
+    expect(await store.openDisputes()).toEqual([]);
+    // Taken now by default.
+    await store.setDisputed(second.id, 'open');
+    expect((await store.creditOf('stripe', 'pi_b'))?.disputedAt?.getTime()).toBeGreaterThan(NOW.getTime());
+  });
+});

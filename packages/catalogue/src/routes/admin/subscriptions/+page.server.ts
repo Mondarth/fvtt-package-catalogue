@@ -42,6 +42,24 @@ export const load: PageServerLoad = async ({ locals, url }) => ({
         ? stripeDashboardUrl(credit.providerAccount, credit.externalRef)
         : null,
   })),
+  // The disputes still being decided, the longest open first, each with where to answer it.
+  disputes: (await locals.subscriptions.openDisputes()).map(({ credit, handle }) => ({
+    creditId: credit.id,
+    userId: credit.userId,
+    handle,
+    openedAt: credit.disputedAt,
+    purchasedAt: credit.createdAt,
+    startsAt: credit.startsAt,
+    endsAt: credit.endsAt,
+    paid:
+      credit.amountPaid === null || credit.currencyPaid === null
+        ? null
+        : { amount: credit.amountPaid, currency: credit.currencyPaid },
+    dashboard:
+      credit.provider === 'stripe' && credit.externalRef !== null
+        ? stripeDashboardUrl(credit.providerAccount, credit.externalRef)
+        : null,
+  })),
   stripeCurrency: locals.stripe?.currency ?? null,
   patreonMinimum: locals.patreon === undefined ? undefined : await locals.patreon.minimum(),
   done: url.searchParams.get('done'),

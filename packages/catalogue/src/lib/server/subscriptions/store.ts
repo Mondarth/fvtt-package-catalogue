@@ -100,7 +100,7 @@ export interface GivenReason {
   readonly text?: string | undefined;
 }
 
-/** A refund asked for, which an admin has yet to make, with its buyer. */
+/** A credit an admin is to act on, such as a refund asked for or a dispute open, with its buyer. */
 export interface RefundRequest {
   readonly credit: Credit;
   readonly handle: string;
@@ -161,8 +161,8 @@ export interface SubscriptionStore {
    *   credit
    */
   takeBack(input: TakeBack, now?: Date): Promise<TakenBack | 'duplicate' | undefined>;
-  /** Records how a dispute of a credit's payment stands. */
-  setDisputed(creditId: string, state: DisputeState): Promise<void>;
+  /** Records how a dispute of a credit's payment stands, and, as it is opened, when. */
+  setDisputed(creditId: string, state: DisputeState, now?: Date): Promise<void>;
   /**
    * Records that a credit's buyer asked to cancel it and be refunded, once: asking again changes nothing.
    *
@@ -171,6 +171,8 @@ export interface SubscriptionStore {
   requestRefund(userId: string, creditId: string, reason?: GivenReason, now?: Date): Promise<Credit | undefined>;
   /** The refunds asked for since each credit was last refunded, oldest first, with their buyers. */
   refundRequests(): Promise<RefundRequest[]>;
+  /** The payments disputed whose disputes are still being decided, the longest open first, with their buyers. */
+  openDisputes(): Promise<RefundRequest[]>;
 }
 
 /** A day, in milliseconds. */
@@ -401,9 +403,26 @@ export function subscriptionStore(db: Database): SubscriptionStore {
       });
     },
 
-    async setDisputed(creditId, state) {
-      await db.update(subscriptionCredits).set({ disputed: state }).where(eq(subscriptionCredits.id, creditId));
+    async setDisputed(creditId, state, now = new Date()) {
+      await db
+        .update(subscriptionCredits)
+        .set({
+          disputed: state,
+          // When it was opened: kept as it is decided, and set afresh only for a dispute opened after another closed.
+          ...(state === 'open' && {
+            disputedAt: sql`case when ${subscriptionCredits.disputed} = 'open' then ${subscriptionCredits.disputedAt} else ${now.toISOString()}::timestamptz end`,
+          }),
+        })
+        .where(eq(subscriptionCredits.id, creditId));
     },
+
+    openDisputes: () =>
+      db
+        .select({ credit: subscriptionCredits, handle: users.handle })
+        .from(subscriptionCredits)
+        .innerJoin(users, eq(users.id, subscriptionCredits.userId))
+        .where(eq(subscriptionCredits.disputed, 'open'))
+        .orderBy(asc(subscriptionCredits.disputedAt)),
 
     async requestRefund(userId, creditId, reason, now = new Date()) {
       const [credit] = await db

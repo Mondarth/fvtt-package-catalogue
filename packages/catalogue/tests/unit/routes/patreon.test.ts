@@ -245,6 +245,7 @@ describe("the offers page's least Patreon pledge", () => {
           subscriptions: {
             offers: () => Promise.resolve([]),
             refundRequests: () => Promise.resolve([]),
+            openDisputes: () => Promise.resolve([]),
           } as unknown as SubscriptionStore,
           patreon: patreonWith(),
         },
