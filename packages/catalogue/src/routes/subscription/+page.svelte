@@ -67,6 +67,7 @@
     offer: m.subscription_buy_problem_offer,
     stripe: m.subscription_buy_problem_stripe,
     impersonating: m.subscription_buy_problem_impersonating,
+    disputed: m.subscription_buy_disputed,
   };
   const buyProblem = $derived(refused !== null && 'buy' in refused ? refused.buy : undefined);
   /** How a checkout came back. */
@@ -197,73 +198,78 @@
 
 <section aria-labelledby="offers">
   <h2 id="offers">{m.subscription_offers_heading()}</h2>
-  {#if buyProblem !== undefined}
-    <Callout id="buy-problem">{BUY_PROBLEMS[buyProblem]?.() ?? m.subscription_buy_problem_stripe()}</Callout>
-  {:else if checkoutDone !== undefined}
-    <p role="status">{checkoutDone}</p>
-  {/if}
-  {#if data.processing > 0}
-    <p role="status">{m.subscription_checkout_processing()}</p>
-  {/if}
-  {#if data.offers.length === 0}
-    <p>{m.subscription_offers_none()}</p>
+  {#if data.disputing}
+    <!-- While a payment of theirs is disputed, nothing more is sold: the section says why, instead. -->
+    <p class="disputed">{m.subscription_buy_disputed()}</p>
   {:else}
-    {#if buying}
-      <!-- One consent for every offer; each Buy sends it with its own form. -->
-      <label class="consent">
-        <input
-          type="checkbox"
-          bind:checked={consented}
-          aria-invalid={buyProblem === 'consent'}
-          aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
-        {m.subscription_buy_consent()}
-      </label>
-      <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
+    {#if buyProblem !== undefined}
+      <Callout id="buy-problem">{BUY_PROBLEMS[buyProblem]?.() ?? m.subscription_buy_problem_stripe()}</Callout>
+    {:else if checkoutDone !== undefined}
+      <p role="status">{checkoutDone}</p>
     {/if}
-    <ul class="offers">
-      {#each data.offers as offer (offer.id)}
-        <li>
-          <strong>{offer.name}</strong>
-          <span>{periodLabel(offer)}</span>
-          {#if offer.stripePrice !== null}
-            <span class="prices">
-              {m.subscription_price_before_tax({
-                price: formatPrice(offer.stripePrice.currency, offer.stripePrice.amount, getLocale()),
-              })}
-            </span>
-            {#if data.canBuy}
-              <form method="post" action="?/buy" class="buy">
-                <input type="hidden" name="offer" value={offer.id} />
-                <input type="hidden" name="consent" value={consented ? 'on' : ''} />
-                <!-- The tooltip is the wrapper's: a disabled button takes no pointer events in every browser. -->
-                <span class="buy-button" title={consented ? undefined : m.subscription_buy_needs_consent()}>
-                  <button
-                    disabled={!consented}
-                    aria-label={m.subscription_buy_named({ name: offer.name })}
-                    aria-describedby={consented ? undefined : 'buy-needs-consent'}>{m.subscription_buy()}</button>
-                </span>
-              </form>
+    {#if data.processing > 0}
+      <p role="status">{m.subscription_checkout_processing()}</p>
+    {/if}
+    {#if data.offers.length === 0}
+      <p>{m.subscription_offers_none()}</p>
+    {:else}
+      {#if buying}
+        <!-- One consent for every offer; each Buy sends it with its own form. -->
+        <label class="consent">
+          <input
+            type="checkbox"
+            bind:checked={consented}
+            aria-invalid={buyProblem === 'consent'}
+            aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
+          {m.subscription_buy_consent()}
+        </label>
+        <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
+      {/if}
+      <ul class="offers">
+        {#each data.offers as offer (offer.id)}
+          <li>
+            <strong>{offer.name}</strong>
+            <span>{periodLabel(offer)}</span>
+            {#if offer.stripePrice !== null}
+              <span class="prices">
+                {m.subscription_price_before_tax({
+                  price: formatPrice(offer.stripePrice.currency, offer.stripePrice.amount, getLocale()),
+                })}
+              </span>
+              {#if data.canBuy}
+                <form method="post" action="?/buy" class="buy">
+                  <input type="hidden" name="offer" value={offer.id} />
+                  <input type="hidden" name="consent" value={consented ? 'on' : ''} />
+                  <!-- The tooltip is the wrapper's: a disabled button takes no pointer events in every browser. -->
+                  <span class="buy-button" title={consented ? undefined : m.subscription_buy_needs_consent()}>
+                    <button
+                      disabled={!consented}
+                      aria-label={m.subscription_buy_named({ name: offer.name })}
+                      aria-describedby={consented ? undefined : 'buy-needs-consent'}>{m.subscription_buy()}</button>
+                  </span>
+                </form>
+              {/if}
+            {:else}
+              <span class="prices">
+                {Object.entries(offer.prices)
+                  .map(([currency, minor]) => formatPrice(currency, minor, getLocale()))
+                  .join(' · ')}
+              </span>
             {/if}
-          {:else}
-            <span class="prices">
-              {Object.entries(offer.prices)
-                .map(([currency, minor]) => formatPrice(currency, minor, getLocale()))
-                .join(' · ')}
-            </span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
-  {#if data.offers.some(offer => offer.stripePrice !== null)}
-    <p class="hint">{m.subscription_buy_how()}</p>
-    <p class="hint">
-      {m.subscription_buy_cancel()}
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the terms are published at /terms once final, which the site has no route for yet -->
-      <a href="/terms">{m.subscription_buy_terms()}</a>
-    </p>
-  {:else}
-    <p class="hint">{m.subscription_buy_soon()}</p>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    {#if data.offers.some(offer => offer.stripePrice !== null)}
+      <p class="hint">{m.subscription_buy_how()}</p>
+      <p class="hint">
+        {m.subscription_buy_cancel()}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the terms are published at /terms once final, which the site has no route for yet -->
+        <a href="/terms">{m.subscription_buy_terms()}</a>
+      </p>
+    {:else}
+      <p class="hint">{m.subscription_buy_soon()}</p>
+    {/if}
   {/if}
 </section>
 
@@ -381,6 +387,12 @@
   .buy-button button:disabled {
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  .disputed {
+    padding: 0.6rem 0.8rem;
+    border-inline-start: 3px solid var(--accent);
+    background: var(--note-bg);
   }
 
   .visually-hidden {

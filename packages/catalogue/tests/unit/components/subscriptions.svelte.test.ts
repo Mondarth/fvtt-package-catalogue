@@ -988,3 +988,31 @@ describe("the offers page's outstanding disputes", () => {
     expect(rowOf(rows, 2)).toHaveTextContent('–');
   });
 });
+
+describe('the subscription page, while a payment is disputed', () => {
+  it('offers no time to buy, saying why instead', () => {
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [],
+        offers: [{ ...OFFER, stripePrice: { currency: 'GBP', amount: 3000 } }],
+        canBuy: true,
+        disputing: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: null,
+      params: {},
+    } as never);
+    const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
+    expect(offers).toHaveTextContent(en.subscription_buy_disputed);
+    expect(within(offers).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(offers).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(offers).not.toHaveTextContent('12 months');
+  });
+});

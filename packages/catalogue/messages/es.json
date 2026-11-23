@@ -212,6 +212,7 @@
   "subscription_buy_problem_offer": "Esa oferta ya no está a la venta.",
   "subscription_buy_problem_stripe": "Stripe no pudo iniciar el pago y no se cobró nada: inténtalo de nuevo más tarde.",
   "subscription_buy_problem_impersonating": "No se puede comprar nada mientras ves el sitio como otra persona.",
+  "subscription_buy_disputed": "Un pago tuyo está en disputa con tu banco, así que no se puede añadir más tiempo a tu cuenta hasta que se resuelva la disputa. Si el pago sí era tuyo, puedes pedir a tu banco que retire la disputa; si algo en él es incorrecto, escríbenos y lo arreglaremos.",
   "subscription_checkout_done": "Gracias. Tu tiempo se añade en cuanto Stripe confirma el pago, normalmente en un minuto: recarga esta página para verlo.",
   "subscription_checkout_cancelled": "Saliste del pago y no se cobró nada.",
   "subscription_checkout_processing": "Uno de tus pagos aún se está confirmando: su tiempo se añade cuando se confirme.",

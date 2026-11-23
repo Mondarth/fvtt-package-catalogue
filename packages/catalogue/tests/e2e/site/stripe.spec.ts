@@ -247,6 +247,10 @@ test('a dispute is listed for admins while open, and once lost charges the purch
   );
   // The buyer uses the site while their payment is disputed: it is recorded, as evidence.
   await page.goto('/subscription');
+  // And can buy no more time until it is decided, which they are told.
+  const offers = page.getByRole('region', { name: en.subscription_offers_heading });
+  await expect(offers).toContainText(en.subscription_buy_disputed);
+  await expect(offers.getByRole('button')).toHaveCount(0);
   await signOut(page);
 
   // The admin sees it among the outstanding disputes, with where to answer it, until it is decided.

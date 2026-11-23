@@ -212,6 +212,7 @@
   "subscription_buy_problem_offer": "That offer is no longer on sale.",
   "subscription_buy_problem_stripe": "Stripe could not start the checkout, and nothing was charged: try again later.",
   "subscription_buy_problem_impersonating": "Nothing can be bought while viewing the site as someone else.",
+  "subscription_buy_disputed": "A payment of yours is disputed with your bank, so no more time can be added to your account until the dispute is decided. If the payment was yours after all, you can ask your bank to withdraw the dispute; if something about it is wrong, write to us, and we will put it right.",
   "subscription_checkout_done": "Thank you. Your time is added once Stripe confirms the payment, usually within a minute: reload this page to see it.",
   "subscription_checkout_cancelled": "You left the checkout, and nothing was charged.",
   "subscription_checkout_processing": "A payment of yours is still being confirmed: its time is added when it is.",

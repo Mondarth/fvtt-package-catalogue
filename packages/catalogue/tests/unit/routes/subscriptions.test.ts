@@ -132,6 +132,7 @@ describe('the subscription page', () => {
       ],
       offers: [{ id: 'o1', name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, stripePrice: null }],
       canBuy: false,
+      disputing: false,
       processing: 0,
       checkout: null,
       patreon: null,

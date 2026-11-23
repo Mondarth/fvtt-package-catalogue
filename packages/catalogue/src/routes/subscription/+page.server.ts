@@ -165,6 +165,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       };
     }),
     canBuy: stripe !== undefined && !impersonating(locals),
+    // While a payment of theirs is disputed with their bank, no more time is sold to them.
+    disputing: history.some(credit => credit.disputed === 'open'),
     processing: processing.length,
     checkout: url.searchParams.get('checkout'),
     patreon:
@@ -203,6 +205,9 @@ export const actions: Actions = {
     if (user === null) redirect(303, '/');
     if (stripe === undefined) error(404);
     if (impersonating(locals)) return fail(403, { buy: 'impersonating' as const });
+    if ((await locals.subscriptions.history(user.id)).some(credit => credit.disputed === 'open')) {
+      return fail(403, { buy: 'disputed' as const });
+    }
     const form = await request.formData();
     const offerId = field(form, 'offer');
     if (form.get('consent') !== 'on') return fail(400, { buy: 'consent' as const, offer: offerId });

@@ -57,8 +57,9 @@ function fakeStripe(fails = false) {
 }
 
 /** The subscriptions' store, as buying uses it. */
-function fakeStore(offers: Offer[] = [offer()]) {
+function fakeStore(offers: Offer[] = [offer()], history: unknown[] = []) {
   return {
+    history: vi.fn(() => Promise.resolve(history)),
     activeOffers: vi.fn(() => Promise.resolve(offers)),
     openCheckout: vi.fn<SubscriptionStore['openCheckout']>(() => Promise.resolve(checkout())),
     attachSession: vi.fn<SubscriptionStore['attachSession']>(() => Promise.resolve()),
@@ -167,6 +168,17 @@ describe('buying an offer through Stripe', () => {
     expect(store.attachSession).not.toHaveBeenCalled();
   });
 
+  it('sells nothing while a payment of the buyer is disputed with their bank', async () => {
+    const store = fakeStore([offer()], [{ disputed: 'won' }, { disputed: 'open' }]);
+    const result = await buy(
+      { offer: 'o1', consent: 'on' },
+      { stripe: fakeStripe(), subscriptions: store as unknown as SubscriptionStore },
+    );
+    expect(isActionFailure(result) && result.status).toBe(403);
+    expect(isActionFailure(result) && result.data).toEqual({ buy: 'disputed' });
+    expect(store.openCheckout).not.toHaveBeenCalled();
+  });
+
   it('sells nothing while an admin views the site as the user', async () => {
     const store = fakeStore();
     const result = await buy(
@@ -228,7 +240,7 @@ describe('the subscription page, where the catalogue sells through Stripe', () =
 
   it('prices each offer sold through Stripe before tax, in its currency, and says how the checkout came back', async () => {
     const result = await loaded({ stripe: fakeStripe() });
-    expect(result).toMatchObject({ canBuy: true, processing: 1, checkout: 'done' });
+    expect(result).toMatchObject({ canBuy: true, disputing: false, processing: 1, checkout: 'done' });
     expect(result.offers.map(given => [given.id, given.stripePrice])).toEqual([
       ['o1', { currency: 'GBP', amount: 3000 }],
       ['o2', null],
