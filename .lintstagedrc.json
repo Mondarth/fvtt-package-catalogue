@@ -23,6 +23,12 @@
     "bash -c 'pnpm --filter @mondarth/fvtt-package-catalogue typecheck && pnpm --filter @mondarth/fvtt-package-catalogue check'",
     "pnpm --dir apps/catalogue exec vitest related --run --passWithNoTests"
   ],
+  "apps/accounts/**/*.{ts,svelte}": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'pnpm --filter @mondarth/accounts typecheck && pnpm --filter @mondarth/accounts check'",
+    "pnpm --dir apps/accounts exec vitest related --run --passWithNoTests"
+  ],
   "{*.ts,{tests,scripts}/**/*.ts}": [
     "eslint --fix --max-warnings 0",
     "prettier --write",

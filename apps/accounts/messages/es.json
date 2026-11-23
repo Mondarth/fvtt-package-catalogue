@@ -1,0 +1,13 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "site_title": "Cuentas de Mondarth",
+  "site_description": "Inicia sesión una vez en todas las aplicaciones de Mondarth y gestiona tu perfil y tu suscripción.",
+  "home_heading": "Cuentas de Mondarth",
+  "home_intro": "Una sola cuenta para todas las aplicaciones de Mondarth. El inicio de sesión, tu perfil y tu suscripción se están trasladando aquí desde el Foundry VTT Package Catalogue.",
+  "language_label": "Idioma",
+  "machine_translation_notice": "Esta página se ha traducido automáticamente y la traducción no ha sido revisada. Si algo no está claro, la versión en inglés es la de referencia.",
+  "home_link": "Cuentas de Mondarth: inicio",
+  "error_heading": "Error {status}",
+  "error_not_found": "Aquí no hay ninguna página.",
+  "error_other": "Algo ha fallado por nuestra parte. Vuelve a intentarlo más tarde."
+}

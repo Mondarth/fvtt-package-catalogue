@@ -1,0 +1,13 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "site_title": "Mondarth accounts",
+  "site_description": "Sign in once to every Mondarth application, and manage your profile and subscription.",
+  "home_heading": "Mondarth accounts",
+  "home_intro": "One account for every Mondarth application. Signing in, your profile and your subscription are moving here from the Foundry VTT Package Catalogue.",
+  "language_label": "Language",
+  "machine_translation_notice": "This page was translated by machine and the translation has not been reviewed. If something is unclear, the English version is authoritative.",
+  "home_link": "Mondarth accounts: home",
+  "error_heading": "Error {status}",
+  "error_not_found": "There is no page here.",
+  "error_other": "Something went wrong on our side. Please try again later."
+}

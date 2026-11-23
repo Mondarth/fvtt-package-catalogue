@@ -22,6 +22,9 @@ flags:
   catalogue:
     paths: [apps/catalogue/src/]
     carryforward: true
+  accounts:
+    paths: [apps/accounts/src/]
+    carryforward: true
 
 comment:
   layout: 'condensed_header, diff, flags, files'

@@ -28,6 +28,14 @@ libraries they share or publish under `packages/`. Each releases from the commit
 : The SvelteKit 3 application, built with `@sveltejs/adapter-node`: the API, the website, and the worker. Released as
   a container image.
 
+`apps/accounts` (`@mondarth/accounts`, private)
+: Mondarth's accounts, on a subdomain of their own (`accounts.`): one sign-in to every Mondarth application, the
+  profile, and the subscription each application's subscriber features need. The other applications reach them
+  through `@mondarth/accounts-contract` alone. A SvelteKit 3 application, in the same languages as the catalogue,
+  with the shared theme and pieces from `@mondarth/ui`, released as an image of its own (`ghcr.io/mondarth/accounts`).
+  Signing in, the profile, subscriptions and payments move here from the catalogue; for now it serves its home page,
+  saying so, and its health check. Its development server runs on port 5174, beside the catalogue's on 5173.
+
 ## The catalogue
 
 ```text
