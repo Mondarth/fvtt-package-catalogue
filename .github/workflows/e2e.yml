@@ -1,7 +1,8 @@
 name: E2E
 
-# The built server and worker against PostgreSQL, in Playwright: the API once, then the worker against a stub of the
-# web, and the website in Chromium, Firefox and WebKit.
+# The catalogue's built server and worker against PostgreSQL, in Playwright: the API once, then the worker against a
+# stub of the web, and the website in Chromium, Firefox and WebKit. And the accounts' built server, in the three
+# browsers.
 # Runs on every pull request and every push to `dev`, and by hand. The release workflow calls it for pushes to `main`.
 on:
   push:
@@ -100,21 +101,75 @@ jobs:
             apps/catalogue/tests/e2e/test-results/
           if-no-files-found: ignore
 
+  accounts:
+    name: Accounts (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: apps/accounts
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Build
+        run: pnpm build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # As the catalogue's: a stalled install is stopped after five minutes and tried once more.
+      - name: Install the browser
+        timeout-minutes: 12
+        run: |
+          for attempt in 1 2; do
+            timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ matrix.project }} && exit 0
+            echo "::warning::Installing ${{ matrix.project }} failed or took over five minutes (attempt $attempt)"
+            sudo pkill -TERM -x apt-get || true
+            for _ in $(seq 30); do
+              pgrep -x 'apt-get|dpkg' > /dev/null || break
+              sleep 1
+            done
+            sudo dpkg --configure -a || true
+          done
+          exit 1
+
+      - name: Run Playwright
+        run: pnpm test:e2e --project=${{ matrix.project }}
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: accounts-playwright-report-${{ matrix.project }}
+          path: |
+            apps/accounts/tests/e2e/playwright-report/
+            apps/accounts/tests/e2e/test-results/
+          if-no-files-found: ignore
+
   # A single check for the rulesets to require.
   e2e-passed:
     name: E2E passed
     if: ${{ always() }}
-    needs: e2e
+    needs: [e2e, accounts]
     runs-on: ubuntu-latest
     steps:
       - name: Check that every project passed
         env:
           RESULT: ${{ needs.e2e.result }}
-        run: '[ "$RESULT" = success ]'
+          ACCOUNTS: ${{ needs.accounts.result }}
+        run: '[ "$RESULT" = success ] && [ "$ACCOUNTS" = success ]'
 
   comment:
     name: Comment on the pull request
-    needs: e2e
+    needs: [e2e, accounts]
     if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
@@ -123,11 +178,11 @@ jobs:
       - name: Post the result
         env:
           GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ needs.e2e.result }}
+          RESULT: ${{ needs.e2e.result == 'success' && needs.accounts.result || needs.e2e.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "$RESULT" = "success" ]; then
-            body="✅ End-to-end tests passed: the API, and the website in Chromium, Firefox and WebKit."
+            body="✅ End-to-end tests passed: the catalogue's API, worker and website, and the accounts' website, in Chromium, Firefox and WebKit."
           else
             body="❌ End-to-end tests finished with result: ${RESULT}."
           fi
