@@ -1,5 +1,8 @@
+<!-- The language picker, in the catalogue's languages, switching by Paraglide's cookie. -->
 <script lang="ts">
-  import { languageName, locales, type Locale } from '#lib/i18n.js';
+  import { LanguagePicker } from '@mondarth/ui';
+
+  import { locales, type Locale } from '#lib/i18n.js';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale, setLocale } from '#lib/paraglide/runtime.js';
 
@@ -11,33 +14,6 @@
   }
 
   let { current = getLocale(), choose = locale => void setLocale(locale) }: Props = $props();
-
-  const isLocale = (value: string): value is Locale => (locales as readonly string[]).includes(value);
-
-  function onchange(event: Event & { currentTarget: HTMLSelectElement }): void {
-    const { value } = event.currentTarget;
-    if (isLocale(value) && value !== current) choose(value);
-  }
 </script>
 
-<label>
-  <span>{m.language_label()}</span>
-  <select value={current} {onchange}>
-    {#each locales as locale (locale)}
-      <option value={locale} lang={locale}>{languageName(locale)}</option>
-    {/each}
-  </select>
-</label>
-
-<style>
-  label {
-    display: inline-flex;
-    gap: 0.5rem;
-    align-items: center;
-    color: var(--muted);
-  }
-
-  select {
-    font: inherit;
-  }
-</style>
+<LanguagePicker label={m.language_label()} {locales} {current} {choose} />

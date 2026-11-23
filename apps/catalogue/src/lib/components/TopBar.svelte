@@ -1,10 +1,11 @@
 <!--
   The workspace's bar along the top of every page while signed in: its menu, the user's subscription and, for an admin,
-  the admin pages,
-  then the language picker, and, at the far right, the button to the user's profile, showing the name they are shown
-  by.
+  the admin pages, then the language picker, and, at the far right, the button to the user's profile, showing the name
+  they are shown by.
 -->
 <script lang="ts">
+  import { TopBar } from '@mondarth/ui';
+
   import { resolve } from '$app/paths';
   import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -17,65 +18,18 @@
   }
 
   let { name, admin = false }: Props = $props();
+
+  const links = $derived([
+    { href: resolve('/subscription'), label: m.subscription_link() },
+    ...(admin ? [{ href: resolve('/admin'), label: m.admin_link() }] : []),
+  ]);
 </script>
 
-<nav aria-label={m.workspace_label()}>
-  <ul class="menu">
-    <li><a href={resolve('/subscription')}>{m.subscription_link()}</a></li>
-    {#if admin}
-      <li><a href={resolve('/admin')}>{m.admin_link()}</a></li>
-    {/if}
-  </ul>
+<TopBar
+  label={m.workspace_label()}
+  {links}
+  {name}
+  profileHref={resolve('/profile')}
+  profileLabel={m.profile_button_label({ name })}>
   <LanguagePicker />
-  <a class="profile" href={resolve('/profile')} aria-label={m.profile_button_label({ name })}>
-    {name}
-  </a>
-</nav>
-
-<style>
-  nav {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-  }
-
-  .menu {
-    flex: 1;
-    display: flex;
-    gap: 1rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .profile {
-    display: inline-flex;
-    gap: 0.4rem;
-    align-items: center;
-    padding: 0.3rem 0.8rem;
-    border: 1px solid var(--muted);
-    border-radius: 999px;
-    color: var(--fg);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .profile:hover,
-  .profile:focus-visible {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  /* Drawn, so that the button's text is the name alone. */
-  .profile::before {
-    content: '';
-    width: 0.6rem;
-    height: 0.6rem;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  .menu a {
-    color: var(--accent);
-  }
-</style>
+</TopBar>

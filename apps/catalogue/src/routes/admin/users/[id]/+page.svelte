@@ -4,11 +4,11 @@
   besides.
 -->
 <script lang="ts">
+  import { Callout } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { BAN_DAYS_MAX, BAN_REASON_MAX } from '#lib/admin.js';
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
-  import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';

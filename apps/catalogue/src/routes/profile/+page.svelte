@@ -2,9 +2,9 @@
   The profile page: the user's id and nickname, what is stored about them, and signing out or deleting the profile.
 -->
 <script lang="ts">
+  import { Callout } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
-  import Callout from '#lib/components/Callout.svelte';
   import { clientName } from '#lib/device-clients.js';
   import { m } from '#lib/paraglide/messages.js';
   import { providerName } from '#lib/providers.js';

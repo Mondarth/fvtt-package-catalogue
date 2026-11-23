@@ -3,10 +3,10 @@
   one on sale, and the form for a new one.
 -->
 <script lang="ts">
+  import { Callout } from '@mondarth/ui';
   import { resolve } from '$app/paths';
 
   import { useDates } from '#lib/dates.js';
-  import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';

@@ -3,7 +3,7 @@
   with the code to check, and approving or denying it; and what came of it.
 -->
 <script lang="ts">
-  import Callout from '#lib/components/Callout.svelte';
+  import { Callout } from '@mondarth/ui';
   import SignIn from '#lib/components/SignIn.svelte';
   import { clientName } from '#lib/device-clients.js';
   import { m } from '#lib/paraglide/messages.js';

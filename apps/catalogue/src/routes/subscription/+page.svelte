@@ -3,10 +3,10 @@
   offers it, and the offers on sale.
 -->
 <script lang="ts">
+  import { Callout } from '@mondarth/ui';
   import { refreshAll } from '$app/navigation';
 
   import { useDates } from '#lib/dates.js';
-  import Callout from '#lib/components/Callout.svelte';
   import RefundDialog from '#lib/components/RefundDialog.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
