@@ -11,6 +11,7 @@ export default defineConfig({
   routeStrategies: [
     { match: '/internal/:path(.*)?', exclude: true },
     { match: '/healthz', exclude: true },
+    { match: '/webhooks/:path(.*)?', exclude: true },
   ],
   emitTsDeclarations: true,
 });

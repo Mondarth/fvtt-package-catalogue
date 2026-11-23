@@ -211,8 +211,22 @@ Some of what SvelteKit 3 changed shapes the code:
 
 ### Signing in
 
-The website signs visitors in with [Better Auth](https://www.better-auth.com), in `lib/server/accounts/`, kept apart
-from the catalogue so that it can move to a service of its own, shared by every Mondarth site:
+The accounts (`apps/accounts`) sign visitors in with [Better Auth](https://www.better-auth.com), in
+`lib/server/accounts/`, for every Mondarth application: they were the catalogue's, and moved to an application of
+their own, in a database of their own, so that AIDE can share them. Their session cookie is set on the domain the
+applications share (`COOKIE_DOMAIN`, Better Auth's cross-subdomain cookies), and the other applications' origins
+(`APP_ORIGINS`) are trusted to send visitors to sign in, with `?next=` naming their page to come back to
+(`accounts/next.ts`).
+
+The catalogue signs no one in. It asks the accounts' internal API (`@mondarth/accounts-contract`'s `httpAccounts`),
+on the deployment's own network with its key, who a user's bearer token is for (the API) and who the website's cookies
+are for (`lib/server/signed-in.ts`, the bar along the top), with what they are entitled to. What moved is sent on
+(`lib/server/http/moved.ts`): pages, and Better Auth's endpoints, are redirected to the accounts, keeping their method
+(308, or 307 for a form); Stripe's webhook and the two endpoints a device signs in with, which follow no redirect, are
+passed on to the accounts and their answer given back. The catalogue's database keeps its old copies of the accounts'
+tables, declared frozen in `lib/server/db/legacy/`, so that no migration drops them until a later release does.
+
+In the accounts:
 
 - Better Auth answers under `/auth` (its callbacks from the providers at `/auth/callback/<provider>`), not its default
   `/api/auth`, which is the API's and needs a key. The accounts' `handle` hook (`accounts/handle.ts`) gives it those
@@ -344,10 +358,12 @@ Auth's `bearer` plugin), never the session cookie: the runtime hands Better Auth
 
 ### The environment
 
-`src/env.ts` declares the server's variables with `defineEnvVars`, each with a zod schema from `lib/server/config.ts`,
-and code reads them from `$app/env/private`. SvelteKit validates them when the server starts, **and when it builds**,
+Each application's `src/env.ts` declares its server's variables with `defineEnvVars`, each with a zod schema from its
+`lib/server/config.ts`, and code reads them from `$app/env/private`. SvelteKit validates them when the server starts, **and when it builds**,
 as it loads the server's modules to analyse them. The build is given placeholders (CI, the Dockerfile); the real values,
 read and validated again at start-up, come from the environment the server runs in.
+
+The catalogue's:
 
 | Variable       | Required | Meaning                                                    |
 | -------------- | -------- | ---------------------------------------------------------- |
@@ -355,14 +371,29 @@ read and validated again at start-up, come from the environment the server runs 
 | `API_KEYS`     | yes      | The keys accepted, separated by commas; `module:<key>` for the EMMA module's |
 | `API_RATE_PER_MINUTE` | no | The most API requests one key or user may make in a minute; 300 by default |
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
-| `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
-| `SITE_URL`     | yes      | The website's address as visitors reach it                 |
+| `ACCOUNTS_URL` | yes      | The accounts' address on the deployment's network, for their internal API |
+| `ACCOUNTS_KEY` | yes      | The catalogue's key to the internal API: 32 characters or more |
+| `ACCOUNTS_SITE_URL` | yes | The accounts' address as visitors reach it                 |
+| `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
+
+The accounts':
+
+| Variable       | Required | Meaning                                                    |
+| -------------- | -------- | ---------------------------------------------------------- |
+| `DATABASE_URL` | yes      | Their PostgreSQL connection string                         |
+| `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
+| `AUTH_SECRET`  | yes      | Signs their cookies and encrypts providers' tokens: 32 characters or more |
+| `SITE_URL`     | yes      | Their address as visitors reach it                         |
+| `INTERNAL_API_KEYS` | yes | The other applications' keys to the internal API, separated by commas |
+| `COOKIE_DOMAIN` | no      | The domain the session cookie is set on, shared by every application's subdomain |
+| `APP_ORIGINS`  | no       | The other applications' origins, which visitors are sent back to once signed in |
 | `AUTH_<PROVIDER>_ID`, `AUTH_<PROVIDER>_SECRET` | no | A provider's app, for `GITHUB`, `GOOGLE`, `DISCORD` and `PATREON`; each is offered only with both |
-| `PATREON_CAMPAIGN_ID` | no | The catalogue's Patreon campaign, whose patrons at the least pledge are subscribed |
+| `PATREON_CAMPAIGN_ID` | no | Mondarth's Patreon campaign, whose patrons at the least pledge are subscribed |
 | `PATREON_URL` | no | Patreon's address, for the end-to-end tests' stand-in alone |
 | `ADMIN_USER_IDS` | no | The user ids of admins whatever their role, separated by commas, such as the first admin |
 | `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
-| `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX_CODE`, `STRIPE_CURRENCY`, `STRIPE_API_URL` | no | Selling subscription time through Stripe |
+| `MIGRATIONS_DIR` | no (`migrate.js`) | Where the migrations are; `drizzle` by default |
 
 adapter-node reads its own: `PORT`, and behind a proxy `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER` and
 `XFF_DEPTH` (set in `deploy/compose.yaml`).

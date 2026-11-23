@@ -1,13 +1,7 @@
 import { httpClient } from '@mondarth/fvtt-resolver/sources';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  CORS_HEADERS,
-  createHandle,
-  DEVICE_CORS_HEADERS,
-  DEVICE_CORS_PATHS,
-  rateLimiter,
-} from '../../../../src/lib/server/http/handle.js';
+import { CORS_HEADERS, createHandle, rateLimiter } from '../../../../src/lib/server/http/handle.js';
 import { fakeEvent } from '../../support/event.js';
 import { memoryLogger } from '../../support/logger.js';
 import { mockStore } from '../../support/store.js';
@@ -84,49 +78,6 @@ describe('createHandle', () => {
     const response = await run('/').response;
     expect(resolve).toHaveBeenCalledOnce();
     expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
-  });
-
-  describe("a device's sign-in endpoints", () => {
-    const headersOf = (response: Response) =>
-      Object.fromEntries([...response.headers].filter(([name]) => name.startsWith('access-control-')));
-    const expected = Object.fromEntries(
-      Object.entries(DEVICE_CORS_HEADERS).map(([name, value]) => [name.toLowerCase(), value]),
-    );
-
-    it('are the code and the token alone', () => {
-      expect([...DEVICE_CORS_PATHS].sort()).toEqual(['/auth/device/code', '/auth/device/token']);
-    });
-
-    it.each([...DEVICE_CORS_PATHS])('answer the preflight of %s without Better Auth', async path => {
-      const { resolve, run } = setUp();
-      const response = await run(path, { method: 'OPTIONS' }).response;
-      expect(response.status).toBe(204);
-      expect(headersOf(response)).toEqual(expected);
-      expect(resolve).not.toHaveBeenCalled();
-    });
-
-    it.each([...DEVICE_CORS_PATHS])('let any origin read what Better Auth answers %s, without a key', async path => {
-      const { resolve, run } = setUp();
-      const response = await run(path, { method: 'POST', headers: { Origin: 'chrome-extension://emma' } }).response;
-      expect(resolve).toHaveBeenCalledOnce();
-      expect(response.status).toBe(200);
-      expect(headersOf(response)).toEqual(expected);
-    });
-
-    it('allow no credentials, nor any header but the type of a JSON body', () => {
-      expect(DEVICE_CORS_HEADERS).not.toHaveProperty('Access-Control-Allow-Credentials');
-      expect(DEVICE_CORS_HEADERS['Access-Control-Allow-Headers']).toBe('Content-Type');
-      expect(DEVICE_CORS_HEADERS['Access-Control-Allow-Methods']).toBe('POST, OPTIONS');
-    });
-
-    it.each(['/auth/device', '/auth/device/approve', '/auth/sign-out', '/auth/get-session'])(
-      'leave %s, which the website calls, without CORS headers',
-      async path => {
-        const { run } = setUp();
-        const response = await run(path, { method: 'POST' }).response;
-        expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
-      },
-    );
   });
 
   it('answers the CORS preflight without a key', async () => {
@@ -272,6 +223,14 @@ describe('who may call what', () => {
     const { run } = setUp();
     expect((await run('/api/v2/recheck', { headers: { 'X-API-Key': 'secret' } }).response).status).toBe(200);
     expect((await run('/api/v2/me', { headers: { 'X-API-Key': 'secret' } }).response).status).toBe(403);
+  });
+
+  it("gives every request the accounts, for the website's pages to ask who is signed in", async () => {
+    const accounts = users();
+    const { run } = setUp({ accounts });
+    const { event, response } = run('/');
+    await response;
+    expect(event.locals.accounts).toBe(accounts);
   });
 
   it('gives the endpoint who is asking', async () => {

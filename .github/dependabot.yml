@@ -57,7 +57,8 @@ updates:
         update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker-compose
-    directories: ['/deploy', '/apps/catalogue', '/apps/catalogue/tests/e2e']
+    directories:
+      ['/deploy', '/apps/catalogue', '/apps/catalogue/tests/e2e', '/apps/accounts', '/apps/accounts/tests/e2e']
     target-branch: dev
     schedule:
       interval: weekly

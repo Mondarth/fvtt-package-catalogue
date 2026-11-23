@@ -1,0 +1,31 @@
+## SWAG proxy configuration for Mondarth's accounts.
+##
+## Copy to SWAG's /config/nginx/proxy-confs/mondarth-accounts.subdomain.conf, set server_name to the accounts'
+## subdomain (ACCOUNTS_SITE_URL in deploy/.env), and restart SWAG. The accounts' server must be on SWAG's network
+## (deploy/compose.yaml, SWAG_NETWORK), where it answers as mondarth-accounts on port 3000.
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    server_name accounts.*;
+
+    include /config/nginx/ssl.conf;
+
+    # Forms and Stripe's webhook events are small.
+    client_max_body_size 1m;
+
+    # The internal API is the other applications', on the deployment's own network: never the web's.
+    location ^~ /internal {
+        return 404;
+    }
+
+    location / {
+        include /config/nginx/proxy.conf;
+        include /config/nginx/resolver.conf;
+        set $upstream_app mondarth-accounts;
+        set $upstream_port 3000;
+        set $upstream_proto http;
+        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+    }
+}

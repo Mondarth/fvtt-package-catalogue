@@ -1,14 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/** The port the built server is served on, apart from the catalogue's E2E server. */
-export const E2E_PORT = 4274;
+import {
+  E2E_ENV,
+  E2E_STRIPE_WEBHOOK_SECRET,
+  E2E_URL,
+  FAKE_PROVIDER_PORT,
+  FAKE_PROVIDER_URL,
+  FAKE_STRIPE_PORT,
+  FAKE_STRIPE_URL,
+  FORWARDED_PROTO,
+} from './environment.js';
 
 /**
- * The accounts' end-to-end tests, against the built server (`pnpm build` first), in Chromium, Firefox and WebKit.
+ * The accounts' end-to-end tests, against the built server (`pnpm build` first) and a throwaway PostgreSQL
+ * (`pnpm e2e:db`), with stand-ins for the sign-in providers, Patreon and Stripe: the internal API once, and the website
+ * in Chromium, Firefox and WebKit.
  */
 export default defineConfig({
   testDir: '.',
   outputDir: './test-results',
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -16,22 +27,55 @@ export default defineConfig({
     ? [['github'], ['html', { outputFolder: './playwright-report', open: 'never' }]]
     : [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
   use: {
-    baseURL: `http://127.0.0.1:${String(E2E_PORT)}`,
+    baseURL: E2E_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: process.env.CI ? 'retain-on-failure' : 'off',
   },
-  webServer: {
-    command: 'node build/index.js',
-    cwd: '../..',
-    url: `http://127.0.0.1:${String(E2E_PORT)}/healthz`,
-    env: { PORT: String(E2E_PORT), HOST: '127.0.0.1' },
-    reuseExistingServer: !process.env.CI,
-    stdout: 'pipe',
-  },
+  webServer: [
+    {
+      command: 'node build/index.js',
+      cwd: '../..',
+      url: `${E2E_URL}/healthz`,
+      env: E2E_ENV,
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+    },
+    {
+      command: 'node tests/e2e/fake-provider.ts',
+      cwd: '../..',
+      url: `${FAKE_PROVIDER_URL}/healthz`,
+      env: { FAKE_PROVIDER_PORT: String(FAKE_PROVIDER_PORT) },
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'node tests/e2e/fake-stripe.ts',
+      cwd: '../..',
+      url: `${FAKE_STRIPE_URL}/healthz`,
+      env: {
+        FAKE_STRIPE_PORT: String(FAKE_STRIPE_PORT),
+        SITE_URL: E2E_ENV.SITE_URL,
+        STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
+      },
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
   projects: [
-    { name: 'chromium', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', testMatch: 'site/**/*.spec.ts', use: { ...devices['Desktop Safari'] } },
+    { name: 'internal', testMatch: 'internal/**/*.spec.ts' },
+    {
+      name: 'chromium',
+      testMatch: 'site/**/*.spec.ts',
+      use: { ...devices['Desktop Chrome'], extraHTTPHeaders: FORWARDED_PROTO },
+    },
+    {
+      name: 'firefox',
+      testMatch: 'site/**/*.spec.ts',
+      use: { ...devices['Desktop Firefox'], extraHTTPHeaders: FORWARDED_PROTO },
+    },
+    {
+      name: 'webkit',
+      testMatch: 'site/**/*.spec.ts',
+      use: { ...devices['Desktop Safari'], extraHTTPHeaders: FORWARDED_PROTO },
+    },
   ],
 });

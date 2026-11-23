@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { load } from '../../../src/routes/+layout.server.js';
 import { GET as health } from '../../../src/routes/healthz/+server.js';
-import { isSitePath } from '../../../src/lib/server/i18n.js';
+import { isSitePath } from '../../../src/lib/server/http/paths.js';
 import { fakeEvent } from '../support/event.js';
 
-import type { LayoutServerLoadEvent } from '../../../src/routes/$types.js';
 import type { RequestEvent } from '@sveltejs/kit';
 
 describe('the health check', () => {
@@ -16,20 +14,13 @@ describe('the health check', () => {
   });
 });
 
-describe('every page', () => {
-  it("is given the regional form of its language the reader's browser prefers, for dates", () => {
-    const event = fakeEvent<LayoutServerLoadEvent>({ headers: { 'Accept-Language': 'en-GB,en;q=0.9' } });
-    expect(load(event)).toEqual({ dateLocale: 'en-GB' });
-    expect(load(fakeEvent<LayoutServerLoadEvent>())).toEqual({ dateLocale: 'en' });
-  });
-});
-
 describe('the paths', () => {
-  it('are pages, but for the internal API and the health check', () => {
+  it("are pages, but for the internal API's, the health check, and webhooks", () => {
     expect(isSitePath('/')).toBe(true);
     expect(isSitePath('/internally')).toBe(true);
     expect(isSitePath('/internal')).toBe(false);
     expect(isSitePath('/internal/v1/use')).toBe(false);
     expect(isSitePath('/healthz')).toBe(false);
+    expect(isSitePath('/webhooks/stripe')).toBe(false);
   });
 });

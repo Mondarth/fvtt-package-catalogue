@@ -1,0 +1,22 @@
+# PostgreSQL for the accounts' development (`pnpm db:start`), on localhost:55434, beside the catalogue's on 55432.
+# See .env.example.
+name: mondarth-accounts-dev
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: accounts
+      POSTGRES_PASSWORD: accounts
+      POSTGRES_DB: accounts
+    ports:
+      - '127.0.0.1:${DB_PORT:-55434}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U accounts -d accounts']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  pgdata:

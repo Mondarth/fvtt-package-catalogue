@@ -140,6 +140,10 @@ jobs:
           API_KEYS: build-only
           AUTH_SECRET: build-only-placeholder-not-a-secret-0000
           SITE_URL: http://build.invalid
+          INTERNAL_API_KEYS: build-only-placeholder-not-a-key-000000
+          ACCOUNTS_URL: http://build.invalid
+          ACCOUNTS_SITE_URL: http://build.invalid
+          ACCOUNTS_KEY: build-only-placeholder-not-a-key-000000
       # What npm would receive, without publishing it.
       - name: Pack the contract
         run: pnpm --filter @mondarth/fvtt-package-catalogue-contract pack --dry-run

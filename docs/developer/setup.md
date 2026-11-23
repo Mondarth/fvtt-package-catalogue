@@ -3,19 +3,29 @@
 You need Node.js 24 or later, [pnpm](https://pnpm.io) 12 and Docker. Python is never installed on the host: the
 documentation builds in a container.
 
+The catalogue and the accounts run side by side, each with its own database: the catalogue on
+<http://localhost:5173>, the accounts, where you sign in, on <http://localhost:5174>. Browsers share cookies between a
+host's ports, so the accounts' session cookie signs you in to the catalogue too, as the cookie on the parent domain
+does in a deployment.
+
 ```shell
 pnpm install                                # also installs the git hooks
 cp apps/catalogue/.env.example apps/catalogue/.env
+cp apps/accounts/.env.example apps/accounts/.env
 pnpm --filter @mondarth/fvtt-package-catalogue db:start     # PostgreSQL on localhost:55432
 pnpm --filter @mondarth/fvtt-package-catalogue db:migrate
-pnpm dev                                    # http://localhost:5173
+pnpm --filter @mondarth/accounts db:start                   # PostgreSQL on localhost:55434
+pnpm --filter @mondarth/accounts db:migrate
+pnpm dev:accounts                           # http://localhost:5174, in one terminal
+pnpm dev                                    # http://localhost:5173, in another
 ```
 
-`db:stop` stops the database; its data is kept in a volume until `docker compose -f compose.dev.yaml down -v`.
+`db:stop` stops a database; its data is kept in a volume until `docker compose -f compose.dev.yaml down -v`.
 
 ## Signing in while developing
 
-The development server signs in without any real provider. `pnpm dev` serves a stand-in one at `/__dev/provider`, and
+Signing in, profiles, subscriptions and payments are the accounts' (`apps/accounts`): what follows is of their
+development server, and their `.env`. The accounts' development server signs in without any real provider. `pnpm dev` serves a stand-in one at `/__dev/provider`, and
 the sign-in page offers it as **Sign in with Test provider**. It asks who to sign in as, from a few made-up users
 (Ada Lovelace, Grace Hopper, Alan Turing, Katherine Johnson and Linus Torvalds, who has a picture), or someone new each
 time. Each user is a profile of its own in the development database, so signing out and in as another tries the site
@@ -25,7 +35,7 @@ It exists on the development server alone: a Vite plugin in `vite.config.ts` ser
 SvelteKit, and the server offers it only when `import.meta.env.DEV` is set (`accounts/dev-provider.ts`). A build has
 neither. Setting a real provider's id and secret in `.env` (`AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, and so on for
 Google, Discord and Patreon) offers it beside the stand-in, through an app whose callback is
-`http://localhost:5173/auth/callback/<provider>`.
+`http://localhost:5174/auth/callback/<provider>`.
 
 ### Patreon while developing
 
@@ -61,7 +71,7 @@ real, and its test cards pay as real ones would.
 1. In the sandbox's dashboard, make a restricted key that may write Checkout Sessions, Products and Prices, and set it
    as `STRIPE_SECRET_KEY` in `.env`.
 2. Forward the sandbox's events to the development server with the [Stripe CLI](https://docs.stripe.com/stripe-cli):
-   `stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,charge.refunded,charge.dispute.created,charge.dispute.updated,charge.dispute.closed --forward-to localhost:5173/webhooks/stripe`
+   `stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,charge.refunded,charge.dispute.created,charge.dispute.updated,charge.dispute.closed --forward-to localhost:5174/webhooks/stripe`
    (recent versions of the CLI need the events named). It prints a signing secret, `whsec_…`: set it as
    `STRIPE_WEBHOOK_SECRET`, and start the server again.
 3. As an admin, make an offer with a price in pounds, such as `GBP 30.00`: it is made a Product and Price in the
@@ -75,7 +85,8 @@ real, and its test cards pay as real ones would.
    **Subscriptions** page, to make from the sandbox's dashboard (**Refund in Stripe**). A dispute can be tried with Stripe's test card for
    disputes, `4000 0000 0000 0259`.
 
-The end-to-end tests stand in for Stripe's API instead (`tests/e2e/fake-stripe.ts`, by `STRIPE_API_URL`).
+The accounts' end-to-end tests stand in for Stripe's API instead (`apps/accounts/tests/e2e/fake-stripe.ts`, by
+`STRIPE_API_URL`).
 
 ## Commands
 
@@ -89,11 +100,12 @@ From the repository root:
 | `pnpm format:check`       | Formatting (`pnpm format` fixes it)                                   |
 | `pnpm test`               | The repository's tooling tests, then each package's unit tests        |
 | `pnpm test:coverage`      | Unit tests with coverage; fails below the thresholds                  |
-| `pnpm build`              | The contract, then the server and the worker                          |
+| `pnpm build`              | The contract, the catalogue's server and worker, and the accounts     |
 | `pnpm test:e2e`           | Playwright against the build (see {doc}`testing`)                     |
 | `pnpm build:docs`         | This documentation, in Docker; warnings fail                          |
 | `pnpm devserve:docs`      | This documentation with live reload, on <http://localhost:8089>       |
 
-`pnpm build` needs `DATABASE_URL`, `API_KEYS`, `AUTH_SECRET` and `SITE_URL` set, as SvelteKit validates the environment
-while it builds (see
-{ref}`environment`). The `.env` from `.env.example` does.
+`pnpm build` needs each application's environment set, as SvelteKit validates it while it builds (see
+{ref}`environment`): the catalogue's `DATABASE_URL`, `API_KEYS`, `ACCOUNTS_URL`, `ACCOUNTS_SITE_URL` and `ACCOUNTS_KEY`,
+and the accounts' `DATABASE_URL`, `AUTH_SECRET`, `SITE_URL` and `INTERNAL_API_KEYS`. Each `.env` from its
+`.env.example` does, for its own application.
