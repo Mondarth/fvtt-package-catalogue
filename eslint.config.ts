@@ -53,7 +53,7 @@ export default defineConfig(
   },
   // The packages' public surface is documented in TSDoc.
   {
-    files: ['packages/*/src/**/*.ts'],
+    files: ['{apps,packages}/*/src/**/*.ts'],
     plugins: { jsdoc },
     rules: {
       'jsdoc/require-jsdoc': [

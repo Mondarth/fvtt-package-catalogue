@@ -5,7 +5,7 @@ documentation builds in a container.
 
 ```shell
 pnpm install                                # also installs the git hooks
-cp packages/catalogue/.env.example packages/catalogue/.env
+cp apps/catalogue/.env.example apps/catalogue/.env
 pnpm --filter @mondarth/fvtt-package-catalogue db:start     # PostgreSQL on localhost:55432
 pnpm --filter @mondarth/fvtt-package-catalogue db:migrate
 pnpm dev                                    # http://localhost:5173

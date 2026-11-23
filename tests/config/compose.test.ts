@@ -21,8 +21,8 @@ interface Compose {
 
 const files = [
   'deploy/compose.yaml',
-  'packages/catalogue/compose.dev.yaml',
-  'packages/catalogue/tests/e2e/compose.yaml',
+  'apps/catalogue/compose.dev.yaml',
+  'apps/catalogue/tests/e2e/compose.yaml',
   'docs/compose.yaml',
 ];
 const read = (file: string) => parse(readFileSync(file, 'utf8')) as Compose;

@@ -24,12 +24,12 @@ the proxy as the faster source; where it has no answer, the clients fall back to
 
 ## What is here
 
-| Path                 | What                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| `packages/contract`  | [`@mondarth/fvtt-package-catalogue-contract`](packages/contract): the API's zod schemas, on npm     |
-| `packages/catalogue` | The SvelteKit application: the API, the website, and the worker that keeps the database up to date  |
-| `deploy/`            | Docker Compose for production, beside a [SWAG](https://docs.linuxserver.io/general/swag/) container |
-| `docs/`              | The [documentation](https://mondarth.github.io/fvtt-package-catalogue/) (Sphinx, built in Docker)   |
+| Path                          | What                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `packages/catalogue-contract` | [`@mondarth/fvtt-package-catalogue-contract`](packages/catalogue-contract): the API's zod schemas, on npm |
+| `apps/catalogue`              | The SvelteKit application: the API, the website, and the worker that keeps the database up to date        |
+| `deploy/`                     | Docker Compose for production, beside a [SWAG](https://docs.linuxserver.io/general/swag/) container       |
+| `docs/`                       | The [documentation](https://mondarth.github.io/fvtt-package-catalogue/) (Sphinx, built in Docker)         |
 
 ## Using the API
 
