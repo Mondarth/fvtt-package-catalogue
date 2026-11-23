@@ -16,6 +16,14 @@ libraries they share or publish under `packages/`. Each releases from the commit
   `accounts/local.ts` serves it in the catalogue's own process; once the accounts are an application of their own, a
   client of that internal API takes its place. Versioned and tagged, never published.
 
+`packages/ui` (`@mondarth/ui`, private)
+: The Svelte pieces every Mondarth application shares, so that each looks and reads as one with the others: the logo,
+  the theme (`theme.css`, the colours as custom properties, light and dark), the top bar, the language picker, notices
+  and callouts, language names (`/language`), and dates written as each reader writes them (`/dates`). Each piece takes
+  its words from the application, which translates them, so the package holds no messages of its own; the
+  catalogue's `TopBar`, `LanguagePicker` and `MachineTranslationNotice` are its own, giving theirs. Shipped as
+  source, which each application compiles. Versioned and tagged, never published.
+
 `apps/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
 : The SvelteKit 3 application, built with `@sveltejs/adapter-node`: the API, the website, and the worker. Released as
   a container image.

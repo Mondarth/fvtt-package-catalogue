@@ -11,6 +11,12 @@
     "bash -c 'pnpm --filter @mondarth/accounts-contract typecheck'",
     "pnpm --dir packages/accounts-contract exec vitest related --run --passWithNoTests"
   ],
+  "packages/ui/**/*.{ts,svelte}": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'pnpm --filter @mondarth/ui typecheck'",
+    "pnpm --dir packages/ui exec vitest related --run --passWithNoTests"
+  ],
   "apps/catalogue/**/*.{ts,svelte}": [
     "eslint --fix --max-warnings 0",
     "prettier --write",

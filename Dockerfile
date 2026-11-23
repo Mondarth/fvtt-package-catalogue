@@ -9,11 +9,13 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/catalogue-contract/package.json packages/catalogue-contract/
 COPY packages/accounts-contract/package.json packages/accounts-contract/
+COPY packages/ui/package.json packages/ui/
 COPY apps/catalogue/package.json apps/catalogue/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY tsconfig.base.json ./
 COPY packages/catalogue-contract packages/catalogue-contract
 COPY packages/accounts-contract packages/accounts-contract
+COPY packages/ui packages/ui
 COPY apps/catalogue apps/catalogue
 # SvelteKit validates the environment when it analyses the build as well as when the server starts. These placeholders
 # satisfy the build; the server reads, and validates, the real values when it starts.

@@ -1,9 +1,9 @@
 <!--
-  The catalogue's logo, in the visitor's colour scheme: the light one, or the dark one where the browser prefers dark.
+  Mondarth's logo, in the visitor's colour scheme: the light one, or the dark one where the browser prefers dark.
 -->
 <script lang="ts">
-  import dark from '#lib/assets/brand/logo-dark.svg';
-  import light from '#lib/assets/brand/logo-light.svg';
+  import dark from './assets/brand/logo-dark.svg';
+  import light from './assets/brand/logo-light.svg';
 
   interface Props {
     /** Its height, in CSS units; its width follows. */

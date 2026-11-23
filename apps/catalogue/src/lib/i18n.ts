@@ -19,18 +19,5 @@ export function isMachineTranslated(locale: Locale): boolean {
   return MACHINE_TRANSLATED.has(locale);
 }
 
-/**
- * A language's name in that language, such as "Español" for `es`, as a language picker shows it. It comes from the
- * runtime's own data, so it needs no message.
- *
- * @param locale - The locale
- * @returns Its name, capitalised as a heading of its own
- */
-export function languageName(locale: Locale): string {
-  /* v8 ignore start -- `of` gives undefined only for a code the runtime does not know, which no Locale is */
-  const name = new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ?? locale;
-  /* v8 ignore stop */
-  return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
-}
-
+export { languageName } from '@mondarth/ui/language';
 export { baseLocale, locales, type Locale };

@@ -3,9 +3,9 @@
   any of them, what signing in stores, with a link to the page that lays it out.
 -->
 <script lang="ts">
+  import { Logo } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
-  import Logo from '#lib/components/Logo.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { providerName } from '#lib/providers.js';
 
