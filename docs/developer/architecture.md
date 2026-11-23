@@ -9,6 +9,13 @@ libraries they share or publish under `packages/`. Each releases from the commit
   validate what they receive with the schemas the catalogue validates what it sends with. It depends on zod alone, and
   runs in Node and browsers. Its type tests prove its data is what `@mondarth/fvtt-resolver` reads.
 
+`packages/accounts-contract` (`@mondarth/accounts-contract`, private)
+: The contract between the accounts and the applications that use them: who a user's token is for, what their
+  subscription entitles them to, and their use of a service, as an `Accounts` interface with zod schemas for the
+  accounts' internal API (`/internal/v1`). The catalogue's API depends on it alone, never on the accounts' tables: today
+  `accounts/local.ts` serves it in the catalogue's own process; once the accounts are an application of their own, a
+  client of that internal API takes its place. Versioned and tagged, never published.
+
 `apps/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
 : The SvelteKit 3 application, built with `@sveltejs/adapter-node`: the API, the website, and the worker. Released as
   a container image.

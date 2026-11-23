@@ -13,8 +13,9 @@ import { memoryLogger } from '../../support/logger.js';
 import { mockStore } from '../../support/store.js';
 
 import type { RequestEvent } from '@sveltejs/kit';
-import type { AccessRecorder } from '../../../../src/lib/server/accounts/access.js';
-import type { ApiUser, ApiUsers } from '../../../../src/lib/server/http/handle.js';
+import type { Accounts } from '@mondarth/accounts-contract';
+
+import type { ApiUser } from '../../../../src/lib/server/http/handle.js';
 
 const store = mockStore();
 
@@ -30,7 +31,7 @@ const KEYS = [
   { kind: 'module' as const, key: 'modules-key' },
 ];
 
-function setUp(more: { users?: ApiUsers; ratePerMinute?: number; now?: () => number; access?: AccessRecorder } = {}) {
+function setUp(more: { accounts?: Accounts; ratePerMinute?: number; now?: () => number } = {}) {
   const log = memoryLogger();
   let tick = 0;
   const handle = createHandle({
@@ -225,7 +226,7 @@ describe('who may call what', () => {
   const until = new Date('2027-01-01T00:00:00Z');
   const USER: ApiUser = { id: 'u1', handle: 'amber-fox-oak-01', nickname: null, role: 'user', impersonated: false };
 
-  /** Users' tokens: `subscribed`, `lapsed`, `admin` and `viewed` (a session an admin views the site as them in). */
+  /** The accounts, by users' tokens: `subscribed`, `lapsed`, `admin` and `viewed` (a session an admin views the site as them in). */
   function users() {
     const found: Record<string, ApiUser> = {
       subscribed: USER,
@@ -235,9 +236,10 @@ describe('who may call what', () => {
       never: { ...USER, id: 'u4' },
       withSession: { ...USER, id: 'u5', sessionId: 'session-5' },
     };
-    const userOf = vi.fn<ApiUsers['userOf']>(token => Promise.resolve(found[token]));
+    const userOf = vi.fn<Accounts['userOf']>(token => Promise.resolve(found[token]));
     return {
       userOf,
+      used: vi.fn<Accounts['used']>(() => Promise.resolve()),
       entitlement: (user: ApiUser) =>
         Promise.resolve(
           user.id === 'u2'
@@ -272,7 +274,7 @@ describe('who may call what', () => {
   });
 
   it('gives the endpoint who is asking', async () => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     const byKey = run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } });
     await byKey.response;
     expect(byKey.event.locals.caller).toEqual({ kind: 'module' });
@@ -281,10 +283,9 @@ describe('who may call what', () => {
     expect(byToken.event.locals.caller).toMatchObject({ kind: 'user', user: USER, entitlement: { entitled: true } });
   });
 
-  it("records a signed-in user's use of the API for the access recorder, but not a key's, or an admin's viewing", async () => {
-    const record = vi.fn(() => Promise.resolve());
-    const seen = vi.fn(() => Promise.resolve());
-    const { run } = setUp({ users: users(), access: { record, seen } as unknown as AccessRecorder });
+  it("tells the accounts of a signed-in user's use of the API, but not of a key's", async () => {
+    const accounts = users();
+    const { run } = setUp({ accounts });
     await run('/api/v2/lookup', {
       headers: {
         Authorization: 'Bearer subscribed',
@@ -292,28 +293,28 @@ describe('who may call what', () => {
         'User-Agent': 'Firefox/140.0',
       },
     }).response;
-    expect(record).toHaveBeenCalledWith('u1', {
+    expect(accounts.used).toHaveBeenCalledWith(USER, {
       kind: 'api',
       path: '/api/v2/lookup',
       client: 'EMMA-extension/0.13.1',
       ipAddress: null,
       userAgent: 'Firefox/140.0',
     });
-    // A token of a session it knows keeps the user's last session; one without, as here, does not.
-    expect(seen).not.toHaveBeenCalled();
-    await run('/api/v2/lookup', { headers: { Authorization: 'Bearer withSession' } }).response;
-    expect(seen).toHaveBeenCalledWith('u5', 'session-5', expect.objectContaining({ kind: 'api' }));
-    record.mockClear();
+    accounts.used.mockClear();
     await run('/api/v2/me', { headers: { Authorization: 'Bearer lapsed' } }).response;
-    expect(record).toHaveBeenCalledWith('u2', expect.objectContaining({ client: 'api', userAgent: null }));
-    record.mockClear();
+    expect(accounts.used).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u2' }),
+      expect.objectContaining({ client: 'api', userAgent: null }),
+    );
+    accounts.used.mockClear();
+    // A key is no user's; a session an admin views the site in is refused before it.
     await run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } }).response;
     await run('/api/v2/lookup', { headers: { Authorization: 'Bearer viewed' } }).response;
-    expect(record).not.toHaveBeenCalled();
+    expect(accounts.used).not.toHaveBeenCalled();
   });
 
   it("lets a subscribed user's token, or an admin's, call every endpoint", async () => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     for (const token of ['subscribed', 'admin']) {
       expect((await run('/api/v2/recheck', { headers: { Authorization: `Bearer ${token}` } }).response).status).toBe(
         200,
@@ -322,7 +323,7 @@ describe('who may call what', () => {
   });
 
   it("refuses a lapsed user's token all but /me, saying when the subscription ended", async () => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     const response = await run('/api/v2/lookup', { headers: { Authorization: 'Bearer lapsed' } }).response;
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({
@@ -337,13 +338,13 @@ describe('who may call what', () => {
   });
 
   it('says a user who never subscribed has no end to give', async () => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     const response = await run('/api/v2/lookup', { headers: { Authorization: 'Bearer never' } }).response;
     expect(await response.json()).toMatchObject({ error: { code: 'subscription-required', paidUntil: null } });
   });
 
   it('refuses the token of a session an admin is viewing the site in', async () => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     const response = await run('/api/v2/me', { headers: { Authorization: 'Bearer viewed' } }).response;
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ error: { code: 'forbidden' } });
@@ -354,7 +355,7 @@ describe('who may call what', () => {
     ['another scheme', 'Basic dXNlcjpwYXNz'],
     ['no token', 'Bearer '],
   ])('refuses %s, a key besides or not', async (_label, authorization) => {
-    const { run } = setUp({ users: users() });
+    const { run } = setUp({ accounts: users() });
     const response = await run('/api/v2/lookup', {
       headers: { Authorization: authorization, 'X-API-Key': 'secret' },
     }).response;
@@ -371,7 +372,7 @@ describe('who may call what', () => {
 
   it('never reads the session cookie', async () => {
     const known = users();
-    const { run } = setUp({ users: known });
+    const { run } = setUp({ accounts: known });
     const response = await run('/api/v2/lookup', { headers: { Cookie: 'better-auth.session_token=subscribed' } })
       .response;
     expect(response.status).toBe(401);
@@ -380,7 +381,7 @@ describe('who may call what', () => {
 
   it('limits how often each key or user may ask in a minute, answering the rest as rate-limited', async () => {
     let time = 0;
-    const { run } = setUp({ users: users(), ratePerMinute: 2, now: () => time });
+    const { run } = setUp({ accounts: users(), ratePerMinute: 2, now: () => time });
     const ask = (headers: Record<string, string>) => run('/api/v2/lookup', { headers }).response;
     expect((await ask({ 'X-API-Key': 'secret' })).status).toBe(200);
     expect((await ask({ 'X-API-Key': 'secret' })).status).toBe(200);

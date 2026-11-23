@@ -9,7 +9,7 @@ import {
   adminUserIds,
   apiKeys,
   apiRatePerMinute,
-  apiUsers,
+  apiAccounts,
   audit,
   auth,
   banNotices,
@@ -27,7 +27,7 @@ import type { HandleServerError } from '@sveltejs/kit/hooks';
 
 /** Request ids, logging, CORS and keys first; then signing in, and the website's localisation. */
 export const handle = sequence(
-  createHandle({ store, apiKeys, users: apiUsers, ratePerMinute: apiRatePerMinute, log, http, fetchGiven, access }),
+  createHandle({ store, apiKeys, accounts: apiAccounts, ratePerMinute: apiRatePerMinute, log, http, fetchGiven }),
   createAccountsHandle(auth, {
     accounts,
     providers,
