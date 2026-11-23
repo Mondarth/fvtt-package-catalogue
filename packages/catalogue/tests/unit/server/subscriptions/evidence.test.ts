@@ -135,6 +135,38 @@ const INPUT: EvidenceInput = {
       requestId: null,
     },
   ],
+  lastSession: {
+    userId: 'u1',
+    sessionId: 's0',
+    startedAt: T('2026-11-20T09:00:00Z'),
+    lastActiveAt: T('2026-11-21T09:00:00Z'),
+    endedAt: T('2026-11-21T10:00:00Z'),
+    ipAddress: '203.0.113.7',
+    userAgent: 'Firefox/140.0',
+    clientId: 'emma-extension',
+  },
+  access: [
+    {
+      id: 2,
+      userId: 'u1',
+      at: T('2026-11-22T09:00:00Z'),
+      kind: 'api',
+      path: '/api/v2/lookup',
+      client: 'EMMA-extension/0.13.1',
+      ipAddress: '203.0.113.7',
+      userAgent: 'Firefox/140.0',
+    },
+    {
+      id: 1,
+      userId: 'u1',
+      at: T('2026-11-21T09:00:00Z'),
+      kind: 'session',
+      path: null,
+      client: null,
+      ipAddress: null,
+      userAgent: null,
+    },
+  ],
   madeBy: 'admin',
   madeAt: T('2026-11-23T12:00:00Z'),
 };
@@ -165,9 +197,16 @@ describe('dispute evidence', () => {
       'through the website, an admin (admin) viewing the site as them',
       '    From -, with -',
       'through some-app',
-      '  Sessions that have ended are not kept.',
       '  - 2026-11-19 10:00:00 UTC refund.request, by u1: {"credit":"c1"}',
       '  - 2026-11-01 00:00:00 UTC profile.nickname, by admin as u1',
+      '  Signed in: 2026-11-20 09:00:00 UTC',
+      '  Last active: 2026-11-21 09:00:00 UTC',
+      '  Ended: 2026-11-21 10:00:00 UTC',
+      '  Through: the EMMA browser extension',
+      '  From: 203.0.113.7',
+      '  With: Firefox/140.0',
+      '  - 2026-11-22 09:00:00 UTC api /api/v2/lookup, through EMMA-extension/0.13.1, from 203.0.113.7, with Firefox/140.0',
+      '  - 2026-11-21 09:00:00 UTC last session, as the dispute opened, through -, from -, with -',
     ]) {
       expect(text).toContain(said);
     }
@@ -195,6 +234,8 @@ describe('dispute evidence', () => {
       subscription: { paidUntil: null, active: false },
       sessions: [],
       audit: [],
+      lastSession: undefined,
+      access: [],
     });
     for (const said of [
       '  What it bought: 1 month and 2 days',
@@ -209,6 +250,7 @@ describe('dispute evidence', () => {
       '  Subscribed until: -',
       '  No session is signed in now.',
       '  Nothing recorded.',
+      '  None recorded.',
     ]) {
       expect(text).toContain(said);
     }
@@ -229,5 +271,20 @@ describe('dispute evidence', () => {
     expect(text({ provider: 'btcpay' })).not.toContain("In Stripe's dashboard");
     expect(text({ disputedAt: null })).toContain('  Dispute: open, opened -\n');
     expect(evidenceText({ ...INPUT, checkout: { ...CHECKOUT, sessionId: null } })).toContain('  Checkout: - (paid)');
+    const stillIn = { ...INPUT.lastSession, endedAt: null, clientId: null, ipAddress: null, userAgent: null } as const;
+    const signedIn = evidenceText({
+      ...INPUT,
+      lastSession: {
+        ...stillIn,
+        userId: 'u1',
+        sessionId: 's0',
+        startedAt: T('2026-11-20T09:00:00Z'),
+        lastActiveAt: T('2026-11-21T09:00:00Z'),
+      },
+    });
+    expect(signedIn).toContain('  Ended: not yet: still signed in\n  Through: the website\n  From: -\n  With: -');
+    expect(
+      evidenceText({ ...INPUT, access: [{ ...INPUT.access[0], path: null } as (typeof INPUT.access)[number]] }),
+    ).toContain(' api -, through');
   });
 });

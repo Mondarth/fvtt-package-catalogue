@@ -212,7 +212,14 @@ it says so.
     request leaves the list. Each is audited, by `stripe`.
 - **Disputes.** A payment disputed with the buyer's bank is listed under **Outstanding disputes** on the admin pages'
   **Subscriptions** page, the longest open first, with a link to answer it in Stripe's dashboard, and flagged on the
-  user's admin page, while it is decided; it leaves the list, cleared, once won. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
+  user's admin page, while it is decided; it leaves the list, cleared, once won. Its **Evidence** link downloads, as a
+  text file for answering the dispute, everything held of the purchase and its buyer: their consent to the terms,
+  the payment, their sessions, their last session, and their use of the service since the dispute opened.
+- **Fraud prevention.** Each user's latest session is kept after it ends (`last_sessions`, kept by a database trigger
+  and by the catalogue's own sight of each request, from the address `ADDRESS_HEADER` gives). While a payment of
+  theirs is disputed, each request they make, on the website or through the API, is recorded (`access_records`),
+  starting with that last session; every record of them is deleted once none of their disputes is open, whatever its
+  outcome. Both are on the "What we store" page. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
 - The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
   for real.
 

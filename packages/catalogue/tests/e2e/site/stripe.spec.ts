@@ -245,6 +245,8 @@ test('a dispute is listed for admins while open, and once lost charges the purch
   expect((await page.request.get(`${FAKE_STRIPE_URL}/dispute/${paymentIntent}?status=needs_response`)).status()).toBe(
     200,
   );
+  // The buyer uses the site while their payment is disputed: it is recorded, as evidence.
+  await page.goto('/subscription');
   await signOut(page);
 
   // The admin sees it among the outstanding disputes, with where to answer it, until it is decided.
@@ -266,6 +268,10 @@ test('a dispute is listed for admins while open, and once lost charges the purch
   expect(text).toContain('  Paid, tax included: GBP 3.60');
   expect(text).toContain('the buyer ticked "I ask that my time be activated as soon as I pay');
   expect(text).toContain('  Dispute: open, opened ');
+  // Their last session, and their use of the service since the dispute opened.
+  expect(text).toMatch(/Their last session[\s\S]* {2}Signed in: \d{4}-/);
+  expect(text).toMatch(/ site \/subscription, through website, from /);
+  expect(text).toContain('last session, as the dispute opened');
 
   expect((await page.request.get(`${FAKE_STRIPE_URL}/dispute/${paymentIntent}?status=lost`)).status()).toBe(200);
   await page.reload();

@@ -283,6 +283,14 @@ from the catalogue so that it can move to a service of its own, shared by every 
   passes Better Auth's state cookie on with the redirect); providers are linked only as asked
   (`disableImplicitLinking`), Patreon whatever its email (`allowDifferentEmails`, trusted). `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
+- **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
+  session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
+  `AccessRecorder.seen`, which both handles call on each signed-in request, at most every ten minutes per session, with
+  the address `getClientAddress()` gives (Better Auth's is only the first X-Forwarded-For value, or localhost). While a
+  user has a dispute open, `record` writes `access_records`; the users recorded are the disputes open, cached a minute,
+  and changed at once as `applyStripeEvent` opens (`startRecording`, seeded with the last session) or closes
+  (`stopRecording`, which deletes them once none is open) one. `/admin/subscriptions/evidence/<credit>` downloads it
+  all as text, audited as `dispute.evidence`.
 - **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
   subscription gives (an admin always may; anyone else by credits or by Patreon, `subscribedBy`), read once a request
   and only when asked. A feature that needs it calls

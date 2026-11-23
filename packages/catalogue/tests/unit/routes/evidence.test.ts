@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { GET } from '../../../src/routes/admin/subscriptions/evidence/[credit]/+server.js';
 import { invoke } from '../support/event.js';
 
+import type { AccessRecorder } from '../../../src/lib/server/accounts/access.js';
 import type { AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { AccountsStore } from '../../../src/lib/server/accounts/store.js';
 import type { SubscriptionStore } from '../../../src/lib/server/subscriptions/store.js';
@@ -71,6 +72,10 @@ async function download(more: Partial<App.Locals> = {}, credit: unknown = CREDIT
           sessionsOf: () => Promise.resolve([]),
         } as unknown as AccountsStore,
         audit: { record, recent: () => Promise.resolve([]) } as unknown as AuditStore,
+        access: {
+          lastSession: () => Promise.resolve(undefined),
+          records: () => Promise.resolve([]),
+        } as unknown as AccessRecorder,
         ...more,
       },
     });

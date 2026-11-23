@@ -5,11 +5,12 @@
  * activated at once, any refunds and the refund asked for, the buyer's account, the sessions they are signed in with
  * (where from, with what, and when last active), and what the audit log records of them.
  *
- * What the catalogue does not keep is said so too: sessions that have ended, and the API requests the EMMA extension
- * makes as the user, which only the server's request log holds.
+ * Against fraud, it keeps the buyer's last session after it ends, and, from when the dispute opened, a record of each
+ * request they make, on the website and through the API (as the EMMA extension's lookups): both are given here.
  */
 import { stripeDashboardUrl } from './stripe.js';
 
+import type { AccessRecord, LastSession } from '../accounts/access.js';
 import type { AuditRow } from '../accounts/audit.js';
 import type { SessionSummary, UserDetail } from '../accounts/store.js';
 import type { Checkout, Credit, Offer, SubscriptionStatus } from './store.js';
@@ -28,6 +29,10 @@ export interface EvidenceInput {
   readonly sessions: readonly SessionSummary[];
   /** What the audit log records of them, the newest first. */
   readonly audit: readonly AuditRow[];
+  /** Their last session, kept after it ends. */
+  readonly lastSession: LastSession | undefined;
+  /** Their access, recorded since the dispute opened, the newest first. */
+  readonly access: readonly AccessRecord[];
   /** The admin it is made for, and when. */
   readonly madeBy: string;
   readonly madeAt: Date;
@@ -60,7 +65,8 @@ const period = ({ months, days }: { readonly months: number; readonly days: numb
  * @returns The text, lines ending in a newline
  */
 export function evidenceText(input: EvidenceInput): string {
-  const { credit, checkout, offer, buyer, subscription, sessions, audit } = input;
+  const { credit, checkout, offer, buyer, subscription, sessions, audit, lastSession, access } = input;
+  const client = (id: string | null) => (id === null ? 'the website' : (CLIENTS[id] ?? id));
   const lines: string[] = [];
   const line = (label: string, value: string) => lines.push(`  ${label}: ${value}`);
   const heading = (title: string) => lines.push('', title, '-'.repeat(title.length));
@@ -123,16 +129,34 @@ export function evidenceText(input: EvidenceInput): string {
   if (sessions.length === 0) lines.push('  No session is signed in now.');
   for (const session of sessions) {
     lines.push(
-      `  - Signed in ${at(session.createdAt)}, last active ${at(session.updatedAt)}, through ${
-        session.clientId === null ? 'the website' : (CLIENTS[session.clientId] ?? session.clientId)
-      }${session.impersonatedBy === null ? '' : `, an admin (${session.impersonatedBy}) viewing the site as them`}`,
+      `  - Signed in ${at(session.createdAt)}, last active ${at(session.updatedAt)}, through ${client(session.clientId)}${
+        session.impersonatedBy === null ? '' : `, an admin (${session.impersonatedBy}) viewing the site as them`
+      }`,
       `    From ${session.ipAddress ?? '-'}, with ${session.userAgent ?? '-'}`,
     );
   }
-  lines.push(
-    '  Sessions that have ended are not kept. The API requests the EMMA extension makes as the buyer are in the',
-    "  server's request log alone, not kept with the account.",
-  );
+
+  heading('Their last session');
+  if (lastSession === undefined) {
+    lines.push('  None recorded.');
+  } else {
+    line('Signed in', at(lastSession.startedAt));
+    line('Last active', at(lastSession.lastActiveAt));
+    line('Ended', lastSession.endedAt === null ? 'not yet: still signed in' : at(lastSession.endedAt));
+    line('Through', client(lastSession.clientId));
+    line('From', lastSession.ipAddress ?? '-');
+    line('With', lastSession.userAgent ?? '-');
+  }
+
+  heading('Their use of the service since the dispute opened');
+  if (access.length === 0) lines.push('  Nothing recorded.');
+  for (const record of access) {
+    lines.push(
+      `  - ${at(record.at)} ${record.kind === 'session' ? 'last session, as the dispute opened' : `${record.kind} ${record.path ?? '-'}`}, through ${
+        record.client ?? '-'
+      }, from ${record.ipAddress ?? '-'}, with ${record.userAgent ?? '-'}`,
+    );
+  }
 
   heading('The audit log, of the buyer');
   if (audit.length === 0) lines.push('  Nothing recorded.');

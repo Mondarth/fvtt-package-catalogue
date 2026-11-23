@@ -21,12 +21,14 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   // A credit goes with its user.
   /* v8 ignore next */
   if (buyer === undefined) error(404);
-  const [checkout, offer, subscription, sessions, audit] = await Promise.all([
+  const [checkout, offer, subscription, sessions, audit, lastSession, access] = await Promise.all([
     locals.subscriptions.checkoutOfCredit(credit.id),
     credit.offerId === null ? undefined : locals.subscriptions.offer(credit.offerId),
     locals.subscriptions.status(credit.userId),
     locals.accounts.sessionsOf(credit.userId),
     locals.audit.recent({ limit: AUDIT_GIVEN, userId: credit.userId }),
+    locals.access.lastSession(credit.userId),
+    locals.access.records(credit.userId),
   ]);
   const admin = actorOf(locals);
   await locals.audit.record({
@@ -44,6 +46,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     subscription,
     sessions,
     audit,
+    lastSession,
+    access,
     madeBy: admin,
     madeAt: new Date(),
   });

@@ -204,3 +204,34 @@ describe("a Stripe refund or dispute of a payment's credit", () => {
     );
   });
 });
+
+describe("a dispute, and the buyer's access", () => {
+  /** A recorder that remembers what it was told. */
+  const recorder = () => ({
+    startRecording: vi.fn(() => Promise.resolve()),
+    stopRecording: vi.fn(() => Promise.resolve()),
+  });
+
+  it('starts recording as one opens, and stops, clearing it, once it is won or lost', async () => {
+    await apply(paid());
+    const access = recorder();
+    const applyWith = (event: PaymentEvent) =>
+      applyStripeEvent(event, { subscriptions, audit, log: memoryLogger(), access: access as never });
+
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'open' });
+    expect(access.startRecording).toHaveBeenCalledWith('u1');
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'won' });
+    expect(access.stopRecording).toHaveBeenCalledWith('u1');
+
+    access.stopRecording.mockClear();
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'open' });
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'lost' });
+    expect(access.stopRecording).toHaveBeenCalledOnce();
+    // Lost again: nothing more taken, but stopped all the same.
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'lost' });
+    expect(access.stopRecording).toHaveBeenCalledTimes(2);
+    // A refund is no dispute.
+    await applyWith({ kind: 'refunded', paymentIntent: 'pi_1', amount: 360, refunded: 360 });
+    expect(access.stopRecording).toHaveBeenCalledTimes(2);
+  });
+});

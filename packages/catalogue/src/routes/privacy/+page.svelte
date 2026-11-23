@@ -28,6 +28,8 @@
     audit: { what: m.privacy_audit_what, why: m.privacy_audit_why },
     subscription: { what: m.privacy_subscription_what, why: m.privacy_subscription_why },
     checkout: { what: m.privacy_checkout_what, why: m.privacy_checkout_why },
+    last_session: { what: m.privacy_last_session_what, why: m.privacy_last_session_why },
+    access: { what: m.privacy_access_what, why: m.privacy_access_why },
     payment: { what: m.privacy_payment_what, why: m.privacy_payment_why },
     patreon: { what: m.privacy_patreon_what, why: m.privacy_patreon_why },
     pending: { what: m.privacy_pending_what, why: m.privacy_pending_why },

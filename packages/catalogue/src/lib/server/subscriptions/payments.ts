@@ -6,6 +6,7 @@
  * Only purchases the catalogue began are acted on: an event of a checkout it has no record of, such as one made from
  * Stripe's dashboard, is logged and left alone.
  */
+import type { AccessRecorder } from '../accounts/access.js';
 import type { AuditStore } from '../accounts/audit.js';
 import type { Logger } from '../log.js';
 import type { PaymentEvent } from './stripe.js';
@@ -19,6 +20,8 @@ export interface PaymentDeps {
   readonly subscriptions: SubscriptionStore;
   readonly audit: AuditStore;
   readonly log: Logger;
+  /** Records a disputing buyer's access, from a dispute's opening until none of theirs is open. */
+  readonly access?: AccessRecorder | undefined;
 }
 
 /** What an event came to: the time credited, or nothing more to do. */
@@ -94,7 +97,7 @@ export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): 
  */
 async function applyReversal(
   event: Extract<PaymentEvent, { kind: 'refunded' | 'dispute' }>,
-  { subscriptions, audit, log }: PaymentDeps,
+  { subscriptions, audit, log, access }: PaymentDeps,
 ): Promise<Applied> {
   const credit = await subscriptions.creditOf(STRIPE_ACTOR, event.paymentIntent);
   if (credit === undefined) {
@@ -107,6 +110,8 @@ async function applyReversal(
   if (event.kind === 'dispute' && event.state !== 'lost') {
     if (credit.disputed === event.state) return 'duplicate';
     await subscriptions.setDisputed(credit.id, event.state);
+    // Opened, it starts recording the buyer's access, as evidence; decided, it stops, and what was kept is cleared.
+    await (event.state === 'open' ? access?.startRecording(credit.userId) : access?.stopRecording(credit.userId));
     await audit.record({
       actorId: STRIPE_ACTOR,
       action: 'payment.dispute',
@@ -128,6 +133,8 @@ async function applyReversal(
   // The credit was just found, and credits are never deleted but with their user.
   /* v8 ignore next */
   if (taken === undefined) return 'unknown';
+  // A dispute lost is decided: recording the buyer's access stops, and what was kept is cleared.
+  if (event.kind === 'dispute') await access?.stopRecording(credit.userId);
   if (taken === 'duplicate') return 'duplicate';
   await audit.record({
     actorId: STRIPE_ACTOR,
