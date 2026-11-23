@@ -17,18 +17,29 @@ export const INTERNAL_API_VERSION = 1;
 /** Where the accounts' internal API is, under their origin. */
 export const INTERNAL_API_ROOT = `/internal/v${String(INTERNAL_API_VERSION)}`;
 
+/**
+ * The header an application gives its key to the internal API in. The API is reached on the deployment's own network
+ * alone; the key says which application is asking, and that it may.
+ */
+export const INTERNAL_KEY_HEADER = 'X-Internal-Key';
+
 /** The internal API's endpoints, each taking a POST of JSON. */
 export const INTERNAL_PATHS = {
-  /** Who a token is for: {@link tokenUserRequest}, answered by {@link tokenUserResponse}. */
+  /** Who a token is for: {@link tokenUserRequest}, answered by {@link userResponse}. */
   tokenUser: `${INTERNAL_API_ROOT}/token-user`,
+  /** Who is signed in to the website by its cookies: {@link sessionUserRequest}, answered by {@link userResponse}. */
+  sessionUser: `${INTERNAL_API_ROOT}/session-user`,
   /** What a user's subscription entitles them to: {@link entitlementRequest}, answered by {@link entitlementSchema}. */
   entitlement: `${INTERNAL_API_ROOT}/entitlement`,
   /** A user's use of a service: {@link useRequest}, answered with no content. */
   use: `${INTERNAL_API_ROOT}/use`,
 } as const;
 
-/** A time, sent as an ISO 8601 string with its offset, read as a `Date`. */
-const isoDate = z.iso.datetime({ offset: true }).transform(value => new Date(value));
+/** A time, sent as an ISO 8601 string with its offset, read as a `Date`, and written back as one. */
+const isoDate = z.codec(z.iso.datetime({ offset: true }), z.date(), {
+  decode: value => new Date(value),
+  encode: date => date.toISOString(),
+});
 
 /** The user a token is for. */
 export const accountUserSchema = z.object({
@@ -78,8 +89,14 @@ export type ServiceUse = z.output<typeof serviceUseSchema>;
 /** Asks who a token is for. */
 export const tokenUserRequest = z.object({ token: z.string().min(1) });
 
-/** Who a token is for: none if it is no session's, or one that has ended. */
-export const tokenUserResponse = z.object({ user: accountUserSchema.nullable() });
+/**
+ * Asks who is signed in by a request's cookies: its whole `Cookie` header, of which the accounts read their own session
+ * cookie, shared by every Mondarth application's subdomain.
+ */
+export const sessionUserRequest = z.object({ cookie: z.string() });
+
+/** Who a token, or a request's cookies, are for: none if no session's, or one that has ended. */
+export const userResponse = z.object({ user: accountUserSchema.nullable() });
 
 /** Asks what a user's subscription entitles them to. */
 export const entitlementRequest = z.object({ user: accountUserSchema });
@@ -91,6 +108,8 @@ export const useRequest = z.object({ user: accountUserSchema, use: serviceUseSch
 export interface Accounts {
   /** The user a token is for, if it is a session's that has not ended. */
   userOf(token: string): Promise<AccountUser | undefined>;
+  /** Who is signed in to the website by a request's `Cookie` header, if anyone. */
+  userOfSession(cookie: string): Promise<AccountUser | undefined>;
   /** What a user's subscription entitles them to now. */
   entitlement(user: AccountUser): Promise<Entitlement>;
   /**

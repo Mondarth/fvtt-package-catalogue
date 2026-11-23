@@ -11,7 +11,11 @@ function setUp(found: Record<string, FoundSession> = {}) {
   const access = { seen: vi.fn(() => Promise.resolve()), record: vi.fn(() => Promise.resolve()) };
   const entitlement = vi.fn(() => Promise.resolve(ENTITLED));
   const accounts = localAccounts({
-    sessionOf: token => Promise.resolve(found[token] ?? null),
+    sessionOf: headers => {
+      // A bearer token, or the cookies, alone.
+      const given = headers.get('authorization')?.replace(/^Bearer /, '') ?? `cookie:${headers.get('cookie') ?? ''}`;
+      return Promise.resolve(found[given] ?? null);
+    },
     isAdmin: user => user.role === 'admin' || user.id === 'named',
     entitlement,
     access,
@@ -40,6 +44,14 @@ describe('the accounts, served in the catalogue', () => {
     expect(await accounts.userOf('t2')).toMatchObject({ nickname: 'Ulenar', role: 'admin', impersonated: false });
     expect(await accounts.userOf('t3')).toMatchObject({ role: 'admin', impersonated: true });
     expect(await accounts.userOf('none')).toBeUndefined();
+  });
+
+  it('know who is signed in to the website by its cookies, and no one by cookies of no session', async () => {
+    const { accounts } = setUp({
+      'cookie:session=c1': { user: { id: 'u1', handle: 'amber-fox-oak-01' }, session: { id: 's1' } },
+    });
+    expect(await accounts.userOfSession('session=c1')).toMatchObject({ id: 'u1', sessionId: 's1' });
+    expect(await accounts.userOfSession('session=other')).toBeUndefined();
   });
 
   it('tell what a subscription entitles its user to', async () => {

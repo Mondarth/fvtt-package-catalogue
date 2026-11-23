@@ -6,7 +6,7 @@ import {
   entitlementRequest,
   entitlementSchema,
   tokenUserRequest,
-  tokenUserResponse,
+  userResponse,
   useRequest,
 } from '../src/index.js';
 
@@ -28,11 +28,11 @@ describe('the internal API', () => {
   it('asks who a token is for, and is told, or that it is no one', () => {
     expect(tokenUserRequest.parse({ token: 't' })).toEqual({ token: 't' });
     expect(tokenUserRequest.safeParse({ token: '' }).success).toBe(false);
-    expect(tokenUserResponse.parse({ user: USER })).toEqual({ user: USER });
-    expect(tokenUserResponse.parse({ user: null })).toEqual({ user: null });
+    expect(userResponse.parse({ user: USER })).toEqual({ user: USER });
+    expect(userResponse.parse({ user: null })).toEqual({ user: null });
     const sessionless = { ...USER, sessionId: undefined };
-    expect(tokenUserResponse.parse({ user: sessionless }).user).not.toHaveProperty('sessionId', expect.anything());
-    expect(tokenUserResponse.safeParse({ user: { ...USER, role: 'owner' } }).success).toBe(false);
+    expect(userResponse.parse({ user: sessionless }).user).not.toHaveProperty('sessionId', expect.anything());
+    expect(userResponse.safeParse({ user: { ...USER, role: 'owner' } }).success).toBe(false);
   });
 
   it('sends an entitlement as JSON, its time read back as a date', () => {
