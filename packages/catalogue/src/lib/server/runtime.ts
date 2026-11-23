@@ -31,6 +31,7 @@ import {
   STRIPE_WEBHOOK_SECRET,
 } from '$app/env/private';
 
+import { accessRecorder } from './accounts/access.js';
 import { auditStore } from './accounts/audit.js';
 import { createAuth, providerApp, signInProviders } from './accounts/auth.js';
 import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
@@ -73,6 +74,9 @@ const apps = {
 
 /** The stand-in provider: the one the end-to-end tests run, or, on the development server, its own (dev-provider.ts). */
 const testProvider = testProviderUrl(AUTH_TEST_PROVIDER_URL, SITE_URL, import.meta.env.DEV);
+
+/** Users' access, recorded while a payment of theirs is disputed. */
+export const access = accessRecorder(connection.db);
 
 /** What admins have done. */
 export const audit = auditStore(connection.db);
@@ -170,6 +174,7 @@ export const apiUsers: ApiUsers = {
       nickname: user.nickname ?? null,
       role: isAdmin(user, adminUserIds) ? 'admin' : 'user',
       impersonated: typeof session.impersonatedBy === 'string',
+      sessionId: session.id,
     };
   },
   entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),

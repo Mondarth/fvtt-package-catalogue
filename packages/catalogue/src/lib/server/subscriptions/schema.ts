@@ -14,11 +14,14 @@ import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'dr
 
 import { sql } from 'drizzle-orm';
 
+import { REFUND_REASONS } from '../../refund-reasons.js';
 import { users } from '../accounts/schema.js';
 
 const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
 
 /** Where a credit's time came from. */
+export type { RefundReason } from '../../refund-reasons.js';
+
 export const CREDIT_SOURCES = ['grant', 'patreon', 'payment'] as const;
 export type CreditSource = (typeof CREDIT_SOURCES)[number];
 
@@ -51,6 +54,10 @@ export const subscriptionOffers = pgTable('subscription_offers', {
   createdBy: text().notNull(),
   createdAt,
 });
+
+/** How a dispute of a payment stands: being decided, won by the catalogue, or lost (charged back). */
+export const DISPUTE_STATES = ['open', 'won', 'lost'] as const;
+export type DisputeState = (typeof DISPUTE_STATES)[number];
 
 /** What each payment provider knows an offer by. */
 export interface OfferProviderRefs {
@@ -123,6 +130,22 @@ export const subscriptionCredits = pgTable(
      */
     amountPaid: integer(),
     currencyPaid: text(),
+    /**
+     * What has been refunded of its payment in all, in the same unit: the whole of it once charged back. The time it
+     * paid for is taken back in proportion (see `store.ts`).
+     */
+    refundedAmount: integer().notNull().default(0),
+    /** When a refund of it was last taken back. */
+    refundedAt: timestamp({ withTimezone: true }),
+    /** When its buyer asked, on their Subscription page, to cancel it and be refunded. */
+    refundRequestedAt: timestamp({ withTimezone: true }),
+    /** Why, as they chose: one of {@link REFUND_REASONS}; for `other`, in their own words too. */
+    refundReason: text({ enum: REFUND_REASONS }),
+    refundReasonText: text(),
+    /** How a dispute of its payment with the buyer's bank stands, if there is one: `open`, `won` or `lost`. */
+    disputed: text({ enum: DISPUTE_STATES }),
+    /** When that dispute was opened, as Stripe first said so. */
+    disputedAt: timestamp({ withTimezone: true }),
     /** The period bought or granted: so many calendar months and days. */
     months: integer().notNull().default(0),
     days: integer().notNull().default(0),

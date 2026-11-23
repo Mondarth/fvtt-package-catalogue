@@ -10,6 +10,8 @@ import { messagesOf } from '../support/messages.js';
 
 const state = vi.hoisted(() => ({ page: { url: new URL('http://catalogue.test/subscription') } }));
 vi.mock('$app/state', () => state);
+const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()) }));
+vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
 const fill = (message: string, values: Record<string, string | number>) =>
@@ -149,7 +151,11 @@ describe("the subscription page's Patreon", () => {
 
 describe("the offers page's least Patreon pledge", () => {
   const show = (patreonMinimum: unknown, form: unknown = null, done: string | null = null) =>
-    render(Offers, { data: { offers: [], patreonMinimum, done }, form, params: {} } as never);
+    render(Offers, {
+      data: { offers: [], refundRequests: [], disputes: [], patreonMinimum, done },
+      form,
+      params: {},
+    } as never);
 
   it('is not shown where the catalogue does not offer Patreon', () => {
     show(undefined);

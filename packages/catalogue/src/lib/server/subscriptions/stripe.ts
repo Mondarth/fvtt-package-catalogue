@@ -11,6 +11,8 @@
  */
 import Stripe from 'stripe';
 
+import type { DisputeState } from './schema.js';
+
 /** The Stripe API version the catalogue is written for: Managed Payments needs `2025-03-31.basil` or later. */
 export const STRIPE_API_VERSION = '2026-10-28.endive';
 
@@ -45,6 +47,17 @@ export interface CheckoutInput {
   readonly cancelUrl: string;
 }
 
+/** A refund to make. */
+export interface RefundInput {
+  readonly paymentIntent: string;
+  /** In the minor unit of the payment's currency. */
+  readonly amount: number;
+  /** The credit it is of, which Stripe keeps with it. */
+  readonly creditId: string;
+  /** Makes it once: Stripe makes no second refund for the same key. */
+  readonly idempotencyKey: string;
+}
+
 /** Which of Stripe's modes an event came from: a sandbox's (`test`), or real payments (`live`). */
 export type StripeMode = 'test' | 'live';
 
@@ -55,6 +68,10 @@ export type StripeMode = 'test' | 'live';
  * - `processing`: the buyer finished the checkout with a payment method that confirms later, such as a bank debit;
  * - `failed`: such a payment failed, and nothing was charged;
  * - `expired`: the buyer left the checkout, which has closed;
+ * - `refunded`: some or all of a payment was refunded, by an admin or by Stripe itself, which gives what has been
+ *   refunded of it in all so far;
+ * - `dispute`: the buyer disputed a payment with their bank: `open` while it is decided, then `won` (by the catalogue,
+ *   or an inquiry closed without a chargeback) or `lost` (charged back);
  * - `ignored`: anything else, such as a session of another mode.
  */
 export type PaymentEvent =
@@ -75,7 +92,20 @@ export type PaymentEvent =
       readonly checkoutId: string | undefined;
       readonly sessionId: string;
     }
+  | {
+      readonly kind: 'refunded';
+      readonly paymentIntent: string;
+      /** What was paid, in the minor unit of its currency. */
+      readonly amount: number;
+      /** What has been refunded of it in all so far, in the same unit. */
+      readonly refunded: number;
+    }
+  | { readonly kind: 'dispute'; readonly paymentIntent: string; readonly state: DisputeState }
   | { readonly kind: 'ignored'; readonly type: string };
+
+/** The PaymentIntent a charge or dispute names, as an id or the object. */
+const intentOf = (intent: string | { readonly id: string } | null): string | undefined =>
+  typeof intent === 'string' ? intent : intent?.id;
 
 /** Stripe, as the catalogue uses it. */
 export interface StripeGateway {
@@ -87,6 +117,11 @@ export interface StripeGateway {
   retireOfferPrice(refs: StripeRefs): Promise<void>;
   /** Starts a checkout of one offer, for the buyer to pay at the address it gives. */
   checkout(input: CheckoutInput): Promise<{ readonly id: string; readonly url: string }>;
+  /**
+   * Refunds some of a payment, as its buyer asked: once for a key, however often asked with it, so that asking twice
+   * cannot refund twice. Its time is taken back once Stripe's `charge.refunded` event says it is made.
+   */
+  refund(input: RefundInput): Promise<{ readonly id: string }>;
   /**
    * Reads a webhook event from its raw body and its `Stripe-Signature` header.
    *
@@ -198,6 +233,14 @@ export function stripeGateway(options: StripeGatewayOptions): StripeGateway {
       return { id: session.id, url: session.url };
     },
 
+    async refund({ paymentIntent, amount, creditId, idempotencyKey }) {
+      const made = await stripe.refunds.create(
+        { payment_intent: paymentIntent, amount, reason: 'requested_by_customer', metadata: { credit: creditId } },
+        { idempotencyKey },
+      );
+      return { id: made.id };
+    },
+
     event(payload, signature) {
       if (signature === null) return undefined;
       let event: Stripe.Event;
@@ -209,6 +252,29 @@ export function stripeGateway(options: StripeGatewayOptions): StripeGateway {
       if (event.type === 'checkout.session.completed') {
         const { payment_status: status } = event.data.object;
         return ofSession(event, status === 'unpaid' ? 'processing' : 'paid');
+      }
+      if (event.type === 'charge.refunded') {
+        const charge = event.data.object;
+        const paymentIntent = intentOf(charge.payment_intent);
+        if (paymentIntent === undefined) return { kind: 'ignored', type: event.type };
+        return { kind: 'refunded', paymentIntent, amount: charge.amount, refunded: charge.amount_refunded };
+      }
+      if (
+        event.type === 'charge.dispute.created' ||
+        event.type === 'charge.dispute.updated' ||
+        event.type === 'charge.dispute.closed'
+      ) {
+        const dispute = event.data.object;
+        const paymentIntent = intentOf(dispute.payment_intent);
+        if (paymentIntent === undefined) return { kind: 'ignored', type: event.type };
+        // An inquiry closed without a chargeback (`warning_closed`) is as good as a dispute won.
+        const state: DisputeState =
+          dispute.status === 'lost'
+            ? 'lost'
+            : dispute.status === 'won' || dispute.status === 'warning_closed'
+              ? 'won'
+              : 'open';
+        return { kind: 'dispute', paymentIntent, state };
       }
       const says = (CHECKOUT_EVENTS as Partial<Record<string, 'paid' | 'failed' | 'expired'>>)[event.type];
       return says === undefined ? { kind: 'ignored', type: event.type } : ofSession(event, says);

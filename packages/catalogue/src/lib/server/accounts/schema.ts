@@ -169,3 +169,53 @@ export const deviceCodes = pgTable(
   },
   table => [index('device_codes_user_id').on(table.userId)],
 );
+
+/**
+ * Each user's latest session, kept after it ends, against fraud: if a payment of theirs is disputed with their bank, it
+ * shows that they knew of the service and used it. A database trigger on `sessions` keeps it (migration 0023): a new
+ * or refreshed session replaces it, and one ending marks when it ended. An admin's session viewing the site as the user
+ * is not theirs, and not kept.
+ */
+export const lastSessions = pgTable('last_sessions', {
+  userId: text()
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: text().notNull(),
+  startedAt: timestamp({ withTimezone: true }).notNull(),
+  /** When it was last refreshed: Better Auth refreshes a session in use about once a day. */
+  lastActiveAt: timestamp({ withTimezone: true }).notNull(),
+  /** When it ended: signed out, or expired; none while it runs. */
+  endedAt: timestamp({ withTimezone: true }),
+  ipAddress: text(),
+  userAgent: text(),
+  /** The client it was signed in for, such as `emma-extension`; none for the website. */
+  clientId: text(),
+});
+
+/** What an access record is of: the user's last session, seeded as recording starts, or a request they made. */
+export const ACCESS_KINDS = ['session', 'site', 'api'] as const;
+export type AccessKind = (typeof ACCESS_KINDS)[number];
+
+/**
+ * A user's use of the service, recorded against fraud only while a payment of theirs is disputed: when, what they asked
+ * for, through which client, from where and with what. Recording starts with their last session as a dispute opens, and
+ * every record of them is deleted once none is open, whatever its outcome (see `access.ts`).
+ */
+export const accessRecords = pgTable(
+  'access_records',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    kind: text({ enum: ACCESS_KINDS }).notNull(),
+    /** The path asked for; for a session, none. */
+    path: text(),
+    /** The client: `website`, `emma-extension`, or the API client named by its header. */
+    client: text(),
+    ipAddress: text(),
+    userAgent: text(),
+  },
+  table => [index('access_records_user_id').on(table.userId)],
+);

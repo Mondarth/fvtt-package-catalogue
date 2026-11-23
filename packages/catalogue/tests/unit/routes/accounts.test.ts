@@ -177,18 +177,35 @@ describe('POST /profile/delete', () => {
 describe('the pages', () => {
   it('give every page the name the user is shown by, whether they are an admin, and whether one views as them', () => {
     const signedIn = { name: USER.handle, admin: false, impersonated: false };
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: false } }))).toEqual({ signedIn });
+    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: false } }))).toEqual({
+      dateLocale: 'en',
+      signedIn,
+    });
     expect(
       layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: { ...USER, nickname: 'Ulenar' }, isAdmin: false } })),
-    ).toEqual({ signedIn: { ...signedIn, name: 'Ulenar' } });
+    ).toEqual({ dateLocale: 'en', signedIn: { ...signedIn, name: 'Ulenar' } });
     expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: true } }))).toEqual({
+      dateLocale: 'en',
       signedIn: { ...signedIn, admin: true },
     });
     const viewedAs = { ...SESSION, impersonatedBy: 'u-admin' } as never;
     expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, session: viewedAs, isAdmin: false } }))).toEqual({
+      dateLocale: 'en',
       signedIn: { ...signedIn, impersonated: true },
     });
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).toEqual({ signedIn: null });
+    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).toEqual({
+      dateLocale: 'en',
+      signedIn: null,
+    });
+    // Dates as the reader's browser writes them, in the regional form of the page's language it prefers.
+    expect(
+      layoutLoad(
+        fakeEvent<LayoutEvent>({
+          headers: { 'Accept-Language': 'fr-FR, en-GB;q=0.9, en;q=0.8' },
+          locals: { user: null },
+        }),
+      ),
+    ).toMatchObject({ dateLocale: 'en-GB' });
   });
 
   it('give the sign-in page its providers, and say when a sign-in failed', async () => {

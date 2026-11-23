@@ -4,11 +4,15 @@
   import Logo from '#lib/components/Logo.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
+  import { setDateLocale } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
 
   import type { LayoutProps } from './$types';
 
   let { children, data }: LayoutProps = $props();
+
+  // Every date below is written as the reader writes them.
+  setDateLocale(() => data.dateLocale);
 </script>
 
 <svelte:head>

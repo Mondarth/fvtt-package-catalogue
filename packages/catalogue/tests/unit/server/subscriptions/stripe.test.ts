@@ -164,6 +164,20 @@ describe('the Stripe gateway', () => {
     expect(sent[1]?.form.has('customer_email')).toBe(false);
   });
 
+  it('refunds some of a payment as its buyer asked, once for its key', async () => {
+    const { gateway: stripe, sent } = gateway({ 'POST /v1/refunds': { id: 're_1', object: 'refund' } });
+    await expect(
+      stripe.refund({ paymentIntent: 'pi_1', amount: 1800, creditId: 'c1', idempotencyKey: 'refund-c1-at' }),
+    ).resolves.toEqual({ id: 're_1' });
+    expect(Object.fromEntries(sent[0]?.form ?? [])).toEqual({
+      payment_intent: 'pi_1',
+      amount: '1800',
+      reason: 'requested_by_customer',
+      'metadata[credit]': 'c1',
+    });
+    expect(sent[0]?.headers.get('idempotency-key')).toBe('refund-c1-at');
+  });
+
   it("reaches a stand-in's address, where one is given", async () => {
     const answers = { 'POST /v1/prices/p': {}, 'POST /v1/products/q': {} };
     const plain = gateway(answers, 'http://127.0.0.1:4175');
@@ -215,6 +229,48 @@ describe('the Stripe gateway', () => {
       checkoutId: 'metadata' in change ? undefined : 'k1',
       sessionId: 'cs_1',
     });
+  });
+
+  it('reads a refund, made by an admin or by Stripe, as what has been refunded of the payment in all', () => {
+    const { gateway: stripe } = gateway();
+    for (const intent of ['pi_1', { id: 'pi_1', object: 'payment_intent' }]) {
+      const event = signed('charge.refunded', {
+        id: 'ch_1',
+        object: 'charge',
+        payment_intent: intent,
+        amount: 3600,
+        amount_refunded: 1800,
+      });
+      expect(stripe.event(event.payload, event.signature)).toEqual({
+        kind: 'refunded',
+        paymentIntent: 'pi_1',
+        amount: 3600,
+        refunded: 1800,
+      });
+    }
+  });
+
+  it.each([
+    ['charge.dispute.created', 'needs_response', 'open'],
+    ['charge.dispute.updated', 'under_review', 'open'],
+    ['charge.dispute.closed', 'won', 'won'],
+    ['charge.dispute.closed', 'warning_closed', 'won'],
+    ['charge.dispute.closed', 'lost', 'lost'],
+  ])('reads %s, %s, as a dispute %s', (type, status, state) => {
+    const { gateway: stripe } = gateway();
+    const event = signed(type, { id: 'dp_1', object: 'dispute', payment_intent: 'pi_1', status });
+    expect(stripe.event(event.payload, event.signature)).toEqual({ kind: 'dispute', paymentIntent: 'pi_1', state });
+  });
+
+  it('ignores a refund or dispute of no PaymentIntent', () => {
+    const { gateway: stripe } = gateway();
+    for (const [type, object] of [
+      ['charge.refunded', { id: 'ch_1', object: 'charge', payment_intent: null, amount: 1, amount_refunded: 1 }],
+      ['charge.dispute.created', { id: 'dp_1', object: 'dispute', payment_intent: null, status: 'needs_response' }],
+    ] as const) {
+      const event = signed(type, object);
+      expect(stripe.event(event.payload, event.signature)).toEqual({ kind: 'ignored', type });
+    }
   });
 
   it('ignores what buys nothing here: another mode, a session needing no payment, and other events', () => {

@@ -1,5 +1,6 @@
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
 import type { Auth, SignedIn } from '#lib/server/accounts/auth.js';
+import type { AccessRecorder } from '#lib/server/accounts/access.js';
 import type { AuditStore } from '#lib/server/accounts/audit.js';
 import type { ApiCaller } from '#lib/server/http/handle.js';
 import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
@@ -46,6 +47,8 @@ declare global {
       adminUserIds: readonly string[];
       /** Reads the notice a banned user's sign-in comes back with, on the website's requests. */
       banNotices: BanNotices;
+      /** Records the access of users whose payments are disputed, on the website's and webhooks' requests. */
+      access: AccessRecorder;
       /** Subscriptions, on the website's requests. */
       subscriptions: SubscriptionStore;
       /** Patreon, if the catalogue offers it as a way to be subscribed. */

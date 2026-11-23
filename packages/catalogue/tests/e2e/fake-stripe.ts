@@ -7,7 +7,14 @@
  * - `POST /v1/checkout/sessions` makes a Checkout Session, whose address is `GET /pay/<session>` here;
  * - `GET /pay/<session>` is the checkout page, with **Pay** and **Cancel**: paying sends the catalogue's webhook a
  *   `checkout.session.completed` event, cancelling a `checkout.session.expired` one, each signed with the webhook's
- *   secret as Stripe signs them, and then sends the browser back to where the session says.
+ *   secret as Stripe signs them, and then sends the browser back to where the session says;
+ * - `GET /refund/<payment intent>?refunded=<pence>` stands in for an admin refunding a payment in Stripe's dashboard:
+ *   it sends a `charge.refunded` event, saying so much has been refunded of it in all;
+ * - `GET /dispute/<payment intent>?status=<status>` stands in for a buyer disputing a payment with their bank: it sends
+ *   a `charge.dispute.created` event, or `charge.dispute.closed` for a status of `won` or `lost`;
+ * - `POST /v1/refunds` refunds a payment as the catalogue asks, once for each `Idempotency-Key`, and then sends the
+ *   `charge.refunded` event of it, with what has been refunded of it in all; `GET /refunds-fail/<payment intent>` has it
+ *   refuse to refund that payment, as Stripe might.
  *
  * Run by Playwright beside the server (playwright.config.ts). Plain Node, its types stripped as it runs.
  */
@@ -27,40 +34,25 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+/** What has been refunded of each payment in all, by its PaymentIntent. */
+const refunded = new Map<string, number>();
+/** The refunds made, by their idempotency keys, so that one asked for again is not made again. */
+const refunds = new Map<string, string>();
+/** The payments it refuses to refund. */
+const unrefundable = new Set<string>();
 let made = 0;
 /** Ids unique to each run, as Stripe's are, as the end-to-end database keeps what earlier runs made. */
 const run = Date.now().toString(36);
 const next = (prefix: string) => `${prefix}_e2e_${run}_${String(++made)}`;
 
 /**
- * Sends the catalogue's webhook an event of a session, signed as Stripe signs them.
+ * Sends the catalogue's webhook an event, signed as Stripe signs them.
  * @param type - The event's type
- * @param session - The session
- * @param paid - Whether it was paid
+ * @param object - What it is of
  * @returns Once the catalogue has answered, with its status
  */
-async function sendEvent(type: string, session: Session, paid: boolean): Promise<number> {
-  const { form } = session;
-  const payload = JSON.stringify({
-    id: next('evt'),
-    object: 'event',
-    type,
-    livemode: false,
-    data: {
-      object: {
-        id: session.id,
-        object: 'checkout.session',
-        mode: form.get('mode'),
-        payment_status: paid ? 'paid' : 'unpaid',
-        payment_intent: paid ? `pi_for_${session.id}` : null,
-        // What the stand-in charges: the Price, which it does not keep, as 300p, and 20% tax on it.
-        amount_total: paid ? 360 : null,
-        currency: 'gbp',
-        client_reference_id: form.get('client_reference_id'),
-        metadata: { checkout: form.get('metadata[checkout]'), offer: form.get('metadata[offer]') },
-      },
-    },
-  });
+async function send(type: string, object: Record<string, unknown>): Promise<number> {
+  const payload = JSON.stringify({ id: next('evt'), object: 'event', type, livemode: false, data: { object } });
   const time = Math.floor(Date.now() / 1000);
   const signature = createHmac('sha256', secret)
     .update(`${String(time)}.${payload}`)
@@ -71,6 +63,31 @@ async function sendEvent(type: string, session: Session, paid: boolean): Promise
     body: payload,
   });
   return answer.status;
+}
+
+/** What the stand-in charges for anything: the Price, which it does not keep, as 300p, and 20% tax on it. */
+const CHARGED = 360;
+
+/**
+ * Sends the catalogue's webhook an event of a session, signed as Stripe signs them.
+ * @param type - The event's type
+ * @param session - The session
+ * @param paid - Whether it was paid
+ * @returns Once the catalogue has answered, with its status
+ */
+async function sendEvent(type: string, session: Session, paid: boolean): Promise<number> {
+  const { form } = session;
+  return send(type, {
+    id: session.id,
+    object: 'checkout.session',
+    mode: form.get('mode'),
+    payment_status: paid ? 'paid' : 'unpaid',
+    payment_intent: paid ? `pi_for_${session.id}` : null,
+    amount_total: paid ? CHARGED : null,
+    currency: 'gbp',
+    client_reference_id: form.get('client_reference_id'),
+    metadata: { checkout: form.get('metadata[checkout]'), offer: form.get('metadata[offer]') },
+  });
 }
 
 /** Text safe inside an HTML attribute or element. */
@@ -112,6 +129,65 @@ const server = createServer((request, response) => {
       return;
     }
 
+    if (request.method === 'POST' && pathname === '/v1/refunds') {
+      const paymentIntent = form.get('payment_intent') ?? '';
+      const key = request.headers['idempotency-key'];
+      const made = typeof key === 'string' ? refunds.get(key) : undefined;
+      if (made !== undefined) {
+        reply(200, { id: made, object: 'refund' });
+        return;
+      }
+      if (unrefundable.has(paymentIntent)) {
+        reply(402, { error: { type: 'invalid_request_error', message: 'This payment cannot be refunded' } });
+        return;
+      }
+      const id = next('re');
+      if (typeof key === 'string') refunds.set(key, id);
+      const total = (refunded.get(paymentIntent) ?? 0) + Number(form.get('amount') ?? CHARGED);
+      refunded.set(paymentIntent, total);
+      reply(200, { id, object: 'refund', payment_intent: paymentIntent });
+      // As Stripe does, it says so by webhook once it is made.
+      setTimeout(() => {
+        void send('charge.refunded', {
+          id: next('ch'),
+          object: 'charge',
+          payment_intent: paymentIntent,
+          amount: CHARGED,
+          amount_refunded: total,
+        });
+      }, 50);
+      return;
+    }
+    const failing = /^\/refunds-fail\/([^/]+)$/.exec(pathname);
+    if (request.method === 'GET' && failing !== null) {
+      unrefundable.add(decodeURIComponent(failing[1] ?? ''));
+      reply(200, { refusing: true });
+      return;
+    }
+    const reversed = /^\/(refund|dispute)\/([^/]+)$/.exec(pathname);
+    if (request.method === 'GET' && reversed !== null) {
+      const paymentIntent = decodeURIComponent(reversed[2] ?? '');
+      const status = url.searchParams.get('status') ?? 'needs_response';
+      const sent =
+        reversed[1] === 'refund'
+          ? send('charge.refunded', {
+              id: next('ch'),
+              object: 'charge',
+              payment_intent: paymentIntent,
+              amount: CHARGED,
+              amount_refunded: Number(url.searchParams.get('refunded') ?? CHARGED),
+            })
+          : send(status === 'won' || status === 'lost' ? 'charge.dispute.closed' : 'charge.dispute.created', {
+              id: next('dp'),
+              object: 'dispute',
+              payment_intent: paymentIntent,
+              status,
+            });
+      void sent.then(answered => {
+        reply(answered === 200 ? 200 : 502, { webhook: answered });
+      });
+      return;
+    }
     const paying = /^\/pay\/([^/]+)(?:\/(paid|cancel))?$/.exec(pathname);
     const session = paying === null ? undefined : sessions.get(paying[1] ?? '');
     if (paying !== null && session !== undefined) {

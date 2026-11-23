@@ -17,10 +17,12 @@ import { AUTH_PATH } from '../accounts/auth.js';
 import { DEVICE_CODE_PATH, DEVICE_TOKEN_PATH } from '../accounts/device.js';
 import { bearerToken, keyReaches } from './access.js';
 import { keyMatcher } from './auth.js';
+import { addressOf } from './address.js';
 import { isApiPath } from './paths.js';
 import { apiError } from './respond.js';
 
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
+import type { AccessRecorder } from '../accounts/access.js';
 import type { ApiKey, ApiKeyKind } from '../config.js';
 import type { Entitlement } from '../subscriptions/entitlement.js';
 import type { Logger } from '../log.js';
@@ -36,6 +38,8 @@ export interface ApiUser {
   readonly role: 'user' | 'admin';
   /** Whether the token's session is one an admin is viewing the site as them in, which the API refuses. */
   readonly impersonated: boolean;
+  /** The token's session, which the user's last session is kept from. */
+  readonly sessionId?: string | undefined;
 }
 
 /** Who is asking the API: a key's kind, or a user, and whether they may use what a subscription gives. */
@@ -68,6 +72,8 @@ export interface HandleOptions {
   readonly requestId?: () => string;
   /** Milliseconds since some fixed point, for timing requests; `performance.now` by default. */
   readonly clock?: () => number;
+  /** Records the API use of users whose payments are disputed (see `accounts/access.ts`). */
+  readonly access?: AccessRecorder | undefined;
 }
 
 /**
@@ -158,6 +164,7 @@ export function createHandle({
   store,
   apiKeys,
   users,
+  access,
   ratePerMinute = 300,
   now = Date.now,
   log,
@@ -226,6 +233,20 @@ export function createHandle({
       } else {
         if (allowed(asking.who)) {
           event.locals.caller = asking.caller;
+          // A signed-in user's use of the API, as the EMMA extension's lookups, recorded while a payment of theirs is
+          // disputed; not an admin's viewing the site as them.
+          const { caller } = asking;
+          if (access !== undefined && caller.kind === 'user' && !caller.user.impersonated) {
+            const seen = {
+              kind: 'api',
+              path: pathname,
+              client: event.request.headers.get(CLIENT_HEADER) ?? 'api',
+              ipAddress: addressOf(event),
+              userAgent: event.request.headers.get('user-agent'),
+            } as const;
+            if (caller.user.sessionId !== undefined) await access.seen(caller.user.id, caller.user.sessionId, seen);
+            await access.record(caller.user.id, seen);
+          }
           response = withCors(inContract(await resolve(event), id));
         } else {
           response = withCors(apiError('rate-limited', 'Too many requests: try again in a minute', id));

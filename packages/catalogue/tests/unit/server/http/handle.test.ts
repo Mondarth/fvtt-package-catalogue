@@ -13,6 +13,7 @@ import { memoryLogger } from '../../support/logger.js';
 import { mockStore } from '../../support/store.js';
 
 import type { RequestEvent } from '@sveltejs/kit';
+import type { AccessRecorder } from '../../../../src/lib/server/accounts/access.js';
 import type { ApiUser, ApiUsers } from '../../../../src/lib/server/http/handle.js';
 
 const store = mockStore();
@@ -29,7 +30,7 @@ const KEYS = [
   { kind: 'module' as const, key: 'modules-key' },
 ];
 
-function setUp(more: { users?: ApiUsers; ratePerMinute?: number; now?: () => number } = {}) {
+function setUp(more: { users?: ApiUsers; ratePerMinute?: number; now?: () => number; access?: AccessRecorder } = {}) {
   const log = memoryLogger();
   let tick = 0;
   const handle = createHandle({
@@ -232,6 +233,7 @@ describe('who may call what', () => {
       admin: { ...USER, id: 'u3', role: 'admin' },
       viewed: { ...USER, impersonated: true },
       never: { ...USER, id: 'u4' },
+      withSession: { ...USER, id: 'u5', sessionId: 'session-5' },
     };
     const userOf = vi.fn<ApiUsers['userOf']>(token => Promise.resolve(found[token]));
     return {
@@ -277,6 +279,37 @@ describe('who may call what', () => {
     const byToken = run('/api/v2/lookup', { headers: { Authorization: 'Bearer subscribed' } });
     await byToken.response;
     expect(byToken.event.locals.caller).toMatchObject({ kind: 'user', user: USER, entitlement: { entitled: true } });
+  });
+
+  it("records a signed-in user's use of the API for the access recorder, but not a key's, or an admin's viewing", async () => {
+    const record = vi.fn(() => Promise.resolve());
+    const seen = vi.fn(() => Promise.resolve());
+    const { run } = setUp({ users: users(), access: { record, seen } as unknown as AccessRecorder });
+    await run('/api/v2/lookup', {
+      headers: {
+        Authorization: 'Bearer subscribed',
+        'X-Catalogue-Client': 'EMMA-extension/0.13.1',
+        'User-Agent': 'Firefox/140.0',
+      },
+    }).response;
+    expect(record).toHaveBeenCalledWith('u1', {
+      kind: 'api',
+      path: '/api/v2/lookup',
+      client: 'EMMA-extension/0.13.1',
+      ipAddress: null,
+      userAgent: 'Firefox/140.0',
+    });
+    // A token of a session it knows keeps the user's last session; one without, as here, does not.
+    expect(seen).not.toHaveBeenCalled();
+    await run('/api/v2/lookup', { headers: { Authorization: 'Bearer withSession' } }).response;
+    expect(seen).toHaveBeenCalledWith('u5', 'session-5', expect.objectContaining({ kind: 'api' }));
+    record.mockClear();
+    await run('/api/v2/me', { headers: { Authorization: 'Bearer lapsed' } }).response;
+    expect(record).toHaveBeenCalledWith('u2', expect.objectContaining({ client: 'api', userAgent: null }));
+    record.mockClear();
+    await run('/api/v2/lookup', { headers: { 'X-API-Key': 'modules-key' } }).response;
+    await run('/api/v2/lookup', { headers: { Authorization: 'Bearer viewed' } }).response;
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("lets a subscribed user's token, or an admin's, call every endpoint", async () => {

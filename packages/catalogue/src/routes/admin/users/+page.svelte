@@ -3,12 +3,13 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { useDates } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
-  import { getLocale } from '#lib/paraglide/runtime.js';
 
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
+  const { date } = useDates();
 </script>
 
 <svelte:head>
@@ -52,7 +53,7 @@
             {user.admin ? m.admin_role_admin() : m.admin_role_user()}
             {#if user.banned}<strong class="banned">{m.admin_banned()}</strong>{/if}
           </td>
-          <td>{user.createdAt.toLocaleDateString(getLocale())}</td>
+          <td>{date(user.createdAt)}</td>
         </tr>
       {/each}
     </tbody>

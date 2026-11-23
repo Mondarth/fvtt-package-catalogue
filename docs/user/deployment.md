@@ -186,9 +186,10 @@ agree to the Terms and Conditions (each **Buy** waits for it), and records when 
 it says so.
 
 - In Stripe's dashboard, with Managed Payments set up: make a restricted key that may write Checkout Sessions,
-  Products and Prices, and set it as `STRIPE_SECRET_KEY` (a sandbox's, `rk_test_…`, sells nothing for real).
+  Products, Prices and Refunds, and set it as `STRIPE_SECRET_KEY` (a sandbox's, `rk_test_…`, sells nothing for real).
 - Add a webhook endpoint at `https://<SITE_URL>/webhooks/stripe` for the events `checkout.session.completed`,
-  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`,
+  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`,
+  `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed`,
   and set its signing secret as `STRIPE_WEBHOOK_SECRET`. Without it the catalogue does not start with a key set.
 - Set a support email address in Stripe's dashboard: Stripe shows it to buyers.
 - `STRIPE_CURRENCY` is the one currency sold in, `GBP` by default; `STRIPE_TAX_CODE` the tax code on each offer's
@@ -197,6 +198,28 @@ it says so.
   and sold through Stripe; the **Subscription** page shows its price with "+ applicable tax". An offer made before is
   not: make a new one. Retiring an offer archives its Stripe Price and Product.
 - A user's admin page links each payment to Stripe's dashboard, which keeps its invoice; a sandbox's are marked.
+- **Refunds.** A buyer can cancel a purchase and ask for a refund on their **Subscription** page at any time. A dialog
+  shows them the refund first: what was paid for the days not yet used, counted from when that purchase's time starts
+  (time bought on to the end of a running subscription has used none of itself yet), and whether it would leave them
+  unsubscribed. They confirm it there, or cancel.
+  - **Within 14 days of buying it**, through Stripe, it is refunded at once: no admin makes it. If Stripe will not
+    refund it then, it is left to an admin, as below.
+  - **Later**, they choose a reason (No longer required, Too expensive, or Other, in their own words), and the request
+    is confirmed on the page. The admin pages' **Subscriptions** page lists the refunds asked for, oldest first, each with
+    its reason, the refund owed now, and a link to make it in Stripe's dashboard.
+  - Once Stripe says a refund is made, by the catalogue, an admin, or Stripe itself (as merchant of record it may refund
+    within 60 days), its share of the purchase's days, rounded down, comes off the end of the subscription, and the
+    request leaves the list. Each is audited, by `stripe`.
+- **Disputes.** A payment disputed with the buyer's bank is listed under **Outstanding disputes** on the admin pages'
+  **Subscriptions** page, the longest open first, with a link to answer it in Stripe's dashboard, and flagged on the
+  user's admin page, while it is decided; it leaves the list, cleared, once won. Its **Evidence** link downloads, as a
+  text file for answering the dispute, everything held of the purchase and its buyer: their consent to the terms,
+  the payment, their sessions, their last session, and their use of the service since the dispute opened.
+- **Fraud prevention.** Each user's latest session is kept after it ends (`last_sessions`, kept by a database trigger
+  and by the catalogue's own sight of each request, from the address `ADDRESS_HEADER` gives). While a payment of
+  theirs is disputed, each request they make, on the website or through the API, is recorded (`access_records`),
+  starting with that last session; every record of them is deleted once none of their disputes is open, whatever its
+  outcome. Both are on the "What we store" page. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
 - The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
   for real.
 

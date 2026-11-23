@@ -154,6 +154,7 @@ describe('sessions', () => {
       createdAt: new Date('2026-11-02T00:00:00Z'),
       updatedAt: expect.any(Date) as Date,
       userAgent: 'Firefox/140.0',
+      ipAddress: null,
       clientId: 'emma-extension',
       impersonatedBy: null,
     });

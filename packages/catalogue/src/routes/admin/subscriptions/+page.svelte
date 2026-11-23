@@ -3,11 +3,15 @@
   one on sale, and the form for a new one.
 -->
 <script lang="ts">
+  import { resolve } from '$app/paths';
+
+  import { useDates } from '#lib/dates.js';
   import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { periodLabel } from '#lib/period-label.js';
   import { formatPrice } from '#lib/prices.js';
+  import { REFUND_REASON_LABELS } from '#lib/refund-reason-labels.js';
   import { MAX_DAYS, MAX_MONTHS } from '#lib/subscription-limits.js';
 
   import type { PageProps } from './$types';
@@ -20,7 +24,7 @@
     patreon: m.admin_done_patreon,
   };
 
-  const date = (when: Date) => when.toLocaleDateString(getLocale());
+  const { date } = useDates();
   const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
   const minimum = $derived(
     data.patreonMinimum === undefined || data.patreonMinimum === null
@@ -95,6 +99,118 @@
     </tbody>
   </table>
 {/if}
+
+<section aria-labelledby="refund-requests">
+  <h2 id="refund-requests">{m.admin_refunds_heading()}</h2>
+  {#if data.refundRequests.length === 0}
+    <p>{m.admin_refunds_none()}</p>
+  {:else}
+    <p>{m.admin_refunds_lede()}</p>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{m.admin_refunds_column_user()}</th>
+          <th scope="col">{m.admin_refunds_column_asked()}</th>
+          <th scope="col">{m.admin_refunds_column_purchase()}</th>
+          <th scope="col">{m.admin_refunds_column_paid()}</th>
+          <th scope="col">{m.admin_refunds_column_suggested()}</th>
+          <th scope="col">{m.admin_refunds_column_reason()}</th>
+          <th scope="col"><span class="visually-hidden">{m.admin_refunds_make()}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.refundRequests as asked (asked.creditId)}
+          <tr>
+            <th scope="row"><a href={resolve('/admin/users/[id]', { id: asked.userId })}>{asked.handle}</a></th>
+            <td>{asked.requestedAt === null ? '–' : date(asked.requestedAt)}</td>
+            <td>
+              {m.admin_refunds_purchase({
+                purchased: date(asked.purchasedAt),
+                from: date(asked.startsAt),
+                until: date(asked.endsAt),
+              })}
+            </td>
+            <td>{asked.paid === null ? '–' : formatPrice(asked.paid.currency, asked.paid.amount, getLocale())}</td>
+            <td>
+              {#if asked.suggested !== null && asked.paid !== null}
+                {m.admin_refunds_suggested({
+                  amount: formatPrice(asked.paid.currency, asked.suggested.amount, getLocale()),
+                  days: asked.suggested.days,
+                  of: asked.suggested.of,
+                })}
+              {:else}
+                –
+              {/if}
+            </td>
+            <td>
+              {#if asked.reason}
+                {REFUND_REASON_LABELS[asked.reason]()}
+                {#if asked.reasonText}<span class="hint">{asked.reasonText}</span>{/if}
+              {:else}
+                –
+              {/if}
+            </td>
+            <td>
+              {#if asked.dashboard !== null}<a href={asked.dashboard} rel="external noopener"
+                  >{m.admin_refunds_make()}</a
+                >{/if}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</section>
+
+<section aria-labelledby="disputes">
+  <h2 id="disputes">{m.admin_disputes_heading()}</h2>
+  {#if data.disputes.length === 0}
+    <p>{m.admin_disputes_none()}</p>
+  {:else}
+    <p>{m.admin_disputes_lede()}</p>
+    <p class="hint">{m.admin_disputes_evidence_hint()}</p>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{m.admin_refunds_column_user()}</th>
+          <th scope="col">{m.admin_disputes_column_opened()}</th>
+          <th scope="col">{m.admin_refunds_column_purchase()}</th>
+          <th scope="col">{m.admin_refunds_column_paid()}</th>
+          <th scope="col"><span class="visually-hidden">{m.admin_disputes_evidence()}</span></th>
+          <th scope="col"><span class="visually-hidden">{m.admin_disputes_answer()}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.disputes as disputed (disputed.creditId)}
+          <tr>
+            <th scope="row"><a href={resolve('/admin/users/[id]', { id: disputed.userId })}>{disputed.handle}</a></th>
+            <td>{disputed.openedAt ? date(disputed.openedAt) : '–'}</td>
+            <td>
+              {m.admin_refunds_purchase({
+                purchased: date(disputed.purchasedAt),
+                from: date(disputed.startsAt),
+                until: date(disputed.endsAt),
+              })}
+            </td>
+            <td>{disputed.paid ? formatPrice(disputed.paid.currency, disputed.paid.amount, getLocale()) : '–'}</td>
+            <td>
+              <a
+                href={resolve('/admin/subscriptions/evidence/[credit]', { credit: disputed.creditId })}
+                download
+                aria-label={m.admin_disputes_evidence_named({ handle: disputed.handle })}
+                >{m.admin_disputes_evidence()}</a>
+            </td>
+            <td>
+              {#if disputed.dashboard}<a href={disputed.dashboard} rel="external noopener"
+                  >{m.admin_disputes_answer()}</a
+                >{/if}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</section>
 
 {#if data.patreonMinimum !== undefined}
   <section aria-labelledby="patreon-minimum">

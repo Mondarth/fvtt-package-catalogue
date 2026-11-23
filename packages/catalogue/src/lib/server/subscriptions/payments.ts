@@ -6,6 +6,7 @@
  * Only purchases the catalogue began are acted on: an event of a checkout it has no record of, such as one made from
  * Stripe's dashboard, is logged and left alone.
  */
+import type { AccessRecorder } from '../accounts/access.js';
 import type { AuditStore } from '../accounts/audit.js';
 import type { Logger } from '../log.js';
 import type { PaymentEvent } from './stripe.js';
@@ -19,10 +20,12 @@ export interface PaymentDeps {
   readonly subscriptions: SubscriptionStore;
   readonly audit: AuditStore;
   readonly log: Logger;
+  /** Records a disputing buyer's access, from a dispute's opening until none of theirs is open. */
+  readonly access?: AccessRecorder | undefined;
 }
 
 /** What an event came to: the time credited, or nothing more to do. */
-export type Applied = 'credited' | 'duplicate' | 'settled' | 'unknown' | 'ignored';
+export type Applied = 'credited' | 'taken-back' | 'flagged' | 'duplicate' | 'settled' | 'unknown' | 'ignored';
 
 /**
  * Applies a Stripe event to the purchase it is of.
@@ -33,6 +36,7 @@ export type Applied = 'credited' | 'duplicate' | 'settled' | 'unknown' | 'ignore
  */
 export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): Promise<Applied> {
   if (event.kind === 'ignored') return 'ignored';
+  if (event.kind === 'refunded' || event.kind === 'dispute') return applyReversal(event, deps);
   const { subscriptions, audit, log } = deps;
   const checkout = await subscriptions.checkoutOf(STRIPE_ACTOR, event.checkoutId, event.sessionId);
   if (checkout === undefined) {
@@ -79,4 +83,70 @@ export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): 
     },
   });
   return 'credited';
+}
+
+/**
+ * Applies a refund, or a dispute, to the credit its payment made. A refund takes back its share of the credit's time,
+ * however it was made: by an admin in Stripe's dashboard, or by Stripe itself as the merchant of record. A dispute is
+ * flagged while open and cleared once won; one lost counts as a full refund, and stays recorded on the credit as a
+ * chargeback.
+ *
+ * @param event - What the event says
+ * @param deps - The stores, and where to log
+ * @returns What it came to
+ */
+async function applyReversal(
+  event: Extract<PaymentEvent, { kind: 'refunded' | 'dispute' }>,
+  { subscriptions, audit, log, access }: PaymentDeps,
+): Promise<Applied> {
+  const credit = await subscriptions.creditOf(STRIPE_ACTOR, event.paymentIntent);
+  if (credit === undefined) {
+    log.warn('Stripe event of a payment the catalogue did not credit', {
+      kind: event.kind,
+      payment: event.paymentIntent,
+    });
+    return 'unknown';
+  }
+  if (event.kind === 'dispute' && event.state !== 'lost') {
+    if (credit.disputed === event.state) return 'duplicate';
+    await subscriptions.setDisputed(credit.id, event.state);
+    // Opened, it starts recording the buyer's access, as evidence; decided, it stops, and what was kept is cleared.
+    await (event.state === 'open' ? access?.startRecording(credit.userId) : access?.stopRecording(credit.userId));
+    await audit.record({
+      actorId: STRIPE_ACTOR,
+      action: 'payment.dispute',
+      subjectId: credit.userId,
+      before: { disputed: credit.disputed },
+      after: { paymentIntent: event.paymentIntent, disputed: event.state },
+    });
+    return 'flagged';
+  }
+
+  // What was paid: as the refund says, or, for a dispute lost, as was kept when it was credited.
+  const amount = event.kind === 'refunded' ? event.amount : (credit.amountPaid ?? 1);
+  const taken = await subscriptions.takeBack({
+    creditId: credit.id,
+    refunded: event.kind === 'refunded' ? event.refunded : amount,
+    amount,
+    ...(event.kind === 'dispute' && { disputed: event.state }),
+  });
+  // The credit was just found, and credits are never deleted but with their user.
+  /* v8 ignore next */
+  if (taken === undefined) return 'unknown';
+  // A dispute lost is decided: recording the buyer's access stops, and what was kept is cleared.
+  if (event.kind === 'dispute') await access?.stopRecording(credit.userId);
+  if (taken === 'duplicate') return 'duplicate';
+  await audit.record({
+    actorId: STRIPE_ACTOR,
+    action: event.kind === 'refunded' ? 'payment.refund' : 'payment.dispute',
+    subjectId: credit.userId,
+    before: { paidUntil: taken.before.toISOString(), refunded: credit.refundedAmount },
+    after: {
+      paymentIntent: event.paymentIntent,
+      paidUntil: taken.after.toISOString(),
+      days: taken.days,
+      ...(event.kind === 'refunded' ? { refunded: event.refunded, amount } : { disputed: 'lost' }),
+    },
+  });
+  return 'taken-back';
 }

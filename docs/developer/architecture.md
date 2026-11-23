@@ -260,6 +260,17 @@ from the catalogue so that it can move to a service of its own, shared by every 
   its PaymentIntent (`provider_account` = `test` or `live`), audited as `payment.credit` by `stripe`; the others mark
   the checkout processing, failed or expired. A checkout paid, failed or expired is settled for good. Routes and tests
   use the `StripeGateway` interface; `STRIPE_API_URL` points it at the end-to-end tests' stand-in.
+- **Refunds and disputes** (`charge.refunded`, `charge.dispute.*`): a refund event gives what has been refunded of the
+  payment in all, and `takeBack` (`store.ts`, in one transaction holding the user and the credit) takes off the end of
+  the subscription the credit's share of days for what is newly refunded, rounded down (`creditDays`, cumulative, so a
+  repeated event takes nothing), recording `refunded_amount` and `refunded_at`. A dispute is `disputed` = `open`, then
+  `won`, or `lost`, which takes back what remains. A buyer's request (`?/refund`, sent only from the dialog of `RefundDialog.svelte`, which
+  shows the page load's `preview`) sets `refund_requested_at`, and `refund_reason` (`lib/refund-reasons.ts`) with
+  `refund_reason_text` for Other. Within 14 days of buying (`withinCancellation`) the action refunds it at once through
+  the gateway's `refund`, with an idempotency key of the credit and when it was asked, so it is made once; the admin
+  Subscriptions page lists the rest since the credit was last refunded, with `suggestedRefund` (`refunds.ts`): the share
+  of what was paid for the days not yet used, counted from the credit's own start. Refunds are made in Stripe's
+  dashboard; audited `payment.refund`, `payment.dispute` and `refund.request`.
 - **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of
   `PATREON_CAMPAIGN_ID` pledging at least the least pledge (`catalogue_settings`, `patreon_minimum`, set on the admin
   Subscriptions page). The checker asks Patreon's identity endpoint, with memberships, using the user's token, which
@@ -272,6 +283,14 @@ from the catalogue so that it can move to a service of its own, shared by every 
   passes Better Auth's state cookie on with the redirect); providers are linked only as asked
   (`disableImplicitLinking`), Patreon whatever its email (`allowDifferentEmails`, trusted). `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
+- **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
+  session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
+  `AccessRecorder.seen`, which both handles call on each signed-in request, at most every ten minutes per session, with
+  the address `getClientAddress()` gives (Better Auth's is only the first X-Forwarded-For value, or localhost). While a
+  user has a dispute open, `record` writes `access_records`; the users recorded are the disputes open, cached a minute,
+  and changed at once as `applyStripeEvent` opens (`startRecording`, seeded with the last session) or closes
+  (`stopRecording`, which deletes them once none is open) one. `/admin/subscriptions/evidence/<credit>` downloads it
+  all as text, audited as `dispute.evidence`.
 - **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
   subscription gives (an admin always may; anyone else by credits or by Patreon, `subscribedBy`), read once a request
   and only when asked. A feature that needs it calls

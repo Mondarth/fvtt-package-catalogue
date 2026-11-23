@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import Offers from '../../../src/routes/admin/subscriptions/+page.svelte';
 import User from '../../../src/routes/admin/users/[id]/+page.svelte';
@@ -9,6 +9,8 @@ import { messagesOf } from '../support/messages.js';
 
 const state = vi.hoisted(() => ({ page: { url: new URL('http://catalogue.test/admin/subscriptions') } }));
 vi.mock('$app/state', () => state);
+const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()) }));
+vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
 const fill = (message: string, values: Record<string, string | number>) =>
@@ -122,7 +124,7 @@ describe('the subscription page', () => {
 describe('the offers page', () => {
   const show = (offers: (typeof OFFER)[], more: { done?: string | null; form?: unknown; stripe?: string } = {}) =>
     render(Offers, {
-      data: { offers, done: more.done ?? null, stripeCurrency: more.stripe ?? null },
+      data: { offers, refundRequests: [], disputes: [], done: more.done ?? null, stripeCurrency: more.stripe ?? null },
       form: more.form ?? null,
       params: {},
     } as never);
@@ -394,7 +396,11 @@ describe('buying through Stripe, on the subscription page', () => {
 
 describe('the offers page, where the catalogue sells through Stripe', () => {
   const show = (offers: (typeof OFFER)[], form: unknown = null) =>
-    render(Offers, { data: { offers, done: null, stripeCurrency: 'GBP' }, form, params: {} } as never);
+    render(Offers, {
+      data: { offers, refundRequests: [], disputes: [], done: null, stripeCurrency: 'GBP' },
+      form,
+      params: {},
+    } as never);
 
   it('says which offers are sold through Stripe, and that a price in its currency puts one there', () => {
     show([{ ...OFFER, providers: ['stripe'] }]);
@@ -498,5 +504,515 @@ describe('the subscription page, to someone with no subscription', () => {
     show({});
     const said = screen.getByText(en.subscription_gives, { exact: false }).textContent;
     expect(said.trim()).toBe(en.subscription_gives);
+  });
+});
+
+describe("a purchase's refund, on the subscription page", () => {
+  const ROW = {
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 360, currency: 'GBP' },
+  };
+  const show = (history: unknown[], more: Record<string, unknown> = {}) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history,
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+        ...more,
+      },
+      form: more.form ?? null,
+      params: {},
+    } as never);
+
+  it('offers to cancel and ask for one where it may be asked, and says where it stands otherwise', () => {
+    show([
+      { ...ROW, id: 'a', refund: 'refundable' },
+      { ...ROW, id: 'b', refund: 'partly' },
+      { ...ROW, id: 'c', refund: 'requested' },
+      { ...ROW, id: 'd', refund: 'refunded' },
+      { ...ROW, id: 'e', refund: null, paid: null, source: 'grant' },
+    ]);
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    const ask = within(rowOf(rows, 1)).getByRole('button', {
+      name: fill(en.subscription_refund_ask_named, { date: day(UNTIL), period: '1 month' }),
+    });
+    expect(ask).toHaveTextContent(en.subscription_refund_ask);
+    expect(rowOf(rows, 2)).toHaveTextContent(en.subscription_refund_partly);
+    expect(within(rowOf(rows, 2)).getByRole('button')).toBeInTheDocument();
+    expect(rowOf(rows, 3)).toHaveTextContent(en.subscription_refund_requested);
+    expect(rowOf(rows, 4)).toHaveTextContent(en.subscription_refund_refunded);
+    for (const index of [3, 4, 5]) expect(within(rowOf(rows, index)).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['requested', en.subscription_refund_done],
+    ['refunded', en.subscription_refund_done_at_once],
+  ])('confirms a refund asked for at once: %s', (refundDone, message) => {
+    show([], { refundDone });
+    expect(screen.getByRole('status')).toHaveTextContent(message);
+  });
+
+  it.each([
+    ['credit', en.subscription_refund_problem_credit],
+    ['impersonating', en.subscription_buy_problem_impersonating],
+    ['unknown', en.subscription_refund_problem_credit],
+  ])('says why a refund was refused: %s', (refund, message) => {
+    show([], { form: { refund }, refundDone: 'requested' });
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(en.subscription_refund_done)).not.toBeInTheDocument();
+  });
+});
+
+describe("the offers page's refunds asked for", () => {
+  const show = (refundRequests: unknown[]) =>
+    render(Offers, {
+      data: { offers: [], refundRequests, disputes: [], done: null, stripeCurrency: 'GBP' },
+      form: null,
+      params: {},
+    } as never);
+
+  it('says when none is waiting', () => {
+    show([]);
+    expect(screen.getByText(en.admin_refunds_none)).toBeInTheDocument();
+  });
+
+  it('lists each, with its buyer, the refund owed now, and a link to make it in Stripe', () => {
+    show([
+      {
+        creditId: 'c1',
+        userId: 'u1',
+        handle: 'amber-fox-oak-01',
+        requestedAt: UNTIL,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: { amount: 3600, currency: 'GBP' },
+        refunded: 0,
+        suggested: { amount: 1800, days: 15, of: 30 },
+        dashboard: 'https://dashboard.stripe.com/test/payments/pi_1',
+      },
+      {
+        creditId: 'c2',
+        userId: 'u2',
+        handle: 'bold-owl-elm-02',
+        requestedAt: null,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: null,
+        refunded: 0,
+        suggested: null,
+        dashboard: null,
+      },
+    ]);
+    const section = screen.getByRole('region', { name: en.admin_refunds_heading });
+    expect(section).toHaveTextContent(en.admin_refunds_lede);
+    const rows = within(section).getAllByRole('row');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: 'amber-fox-oak-01' })).toHaveAttribute(
+      'href',
+      '/admin/users/u1',
+    );
+    expect(rowOf(rows, 1)).toHaveTextContent(fill(en.admin_refunds_suggested, { amount: '£18.00', days: 15, of: 30 }));
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: en.admin_refunds_make })).toHaveAttribute(
+      'href',
+      'https://dashboard.stripe.com/test/payments/pi_1',
+    );
+    expect(within(rowOf(rows, 2)).queryByRole('link', { name: en.admin_refunds_make })).not.toBeInTheDocument();
+    expect(rowOf(rows, 2)).toHaveTextContent('–');
+  });
+});
+
+describe("a user's admin page's refunds and disputes", () => {
+  it('says how each payment stands: disputed, refunded, or a refund asked for', () => {
+    const credit = (id: string, more: Record<string, unknown>) => ({
+      id,
+      source: 'payment',
+      provider: 'stripe',
+      externalRef: `pi_${id}`,
+      providerAccount: 'live',
+      dashboard: `https://dashboard.stripe.com/payments/pi_${id}`,
+      months: 1,
+      days: 0,
+      startsAt: UNTIL,
+      endsAt: UNTIL,
+      grantedBy: null,
+      note: null,
+      currencyPaid: 'GBP',
+      refundedAmount: 0,
+      refundRequestedAt: null,
+      disputed: null,
+      ...more,
+    });
+    render(User, {
+      data: {
+        user: {
+          id: 'u1',
+          handle: 'amber-fox-oak-01',
+          nickname: null,
+          name: 'One',
+          email: 'one@example.test',
+          role: null,
+          banned: false,
+          createdAt: UNTIL,
+          image: null,
+          banReason: null,
+          banExpires: null,
+          providers: [],
+          sessions: 0,
+          admin: false,
+          configured: false,
+          self: false,
+        },
+        audit: [],
+        done: null,
+        refused: null,
+        subscription: { paidUntil: UNTIL, active: true },
+        credits: [
+          credit('a', { disputed: 'open' }),
+          credit('b', { disputed: 'won' }),
+          credit('c', { disputed: 'lost' }),
+          credit('d', { refundedAmount: 1800 }),
+          credit('e', { refundRequestedAt: UNTIL }),
+          credit('f', { disputed: 'odd' }),
+        ],
+        patreon: null,
+      },
+      form: null,
+      params: { id: 'u1' },
+    } as never);
+    const section = screen.getByRole('region', { name: en.admin_subscription_heading });
+    for (const text of [
+      en.admin_credit_disputed_open,
+      en.admin_credit_disputed_won,
+      en.admin_credit_disputed_lost,
+      fill(en.admin_credit_refunded, { amount: '£18.00' }),
+      en.subscription_refund_requested,
+    ]) {
+      expect(section).toHaveTextContent(text);
+    }
+  });
+});
+
+describe("a purchase's refund dialog, on the subscription page", () => {
+  const PREVIEW = {
+    amount: 1800,
+    days: 15,
+    of: 30,
+    paid: 3600,
+    currency: 'GBP',
+    countedFrom: UNTIL,
+    atOnce: false,
+    endsSubscription: true,
+  };
+  const ROW = {
+    id: 'c1',
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 3600, currency: 'GBP' },
+    refund: 'refundable',
+  };
+  const show = (preview: unknown) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [{ ...ROW, preview }],
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: null,
+      params: {},
+    } as never);
+  const opened = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Cancel the purchase of/ }));
+    return screen.getByRole('dialog');
+  };
+
+  it("shows the pro rata refund, what it ends, and asks why, before an admin's refund is asked for", async () => {
+    show(PREVIEW);
+    const dialog = await opened();
+    expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_request_heading);
+    expect(dialog).toHaveTextContent(
+      fill(en.subscription_refund_dialog_amount, {
+        paid: '£36.00',
+        of: 30,
+        days: 15,
+        date: day(UNTIL),
+        amount: '£18.00',
+      }),
+    );
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_later);
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_ends);
+    const reason = within(dialog).getByRole('combobox', { name: en.subscription_refund_reason });
+    expect(reason).toBeRequired();
+    expect(within(dialog).queryByRole('textbox', { name: en.subscription_refund_reason_text })).not.toBeInTheDocument();
+    await userEvent.selectOptions(reason, 'other');
+    expect(await within(dialog).findByRole('textbox', { name: en.subscription_refund_reason_text })).toBeRequired();
+    expect(within(dialog).getByRole('button', { name: en.subscription_refund_confirm })).toHaveAttribute(
+      'type',
+      'submit',
+    );
+
+    await userEvent.click(within(dialog).getByRole('button', { name: en.subscription_refund_dismiss }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('cancels a purchase within 14 days at once, asking no reason, and warns of nothing it keeps', async () => {
+    show({ ...PREVIEW, atOnce: true, endsSubscription: false });
+    const dialog = await opened();
+    expect(dialog).toHaveAccessibleName(en.subscription_refund_dialog_cancel_heading);
+    expect(dialog).toHaveTextContent(en.subscription_refund_dialog_at_once);
+    expect(dialog).not.toHaveTextContent(en.subscription_refund_dialog_ends);
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('says what was paid as unknown where it was not kept', async () => {
+    show({ ...PREVIEW, paid: null });
+    expect(await opened()).toHaveTextContent('You paid – for 30 days');
+  });
+
+  it('opens nothing where there is nothing to preview', async () => {
+    show(null);
+    await userEvent.click(screen.getByRole('button', { name: /Cancel the purchase of/ }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['reason', en.subscription_refund_problem_reason],
+    ['unconfirmed', en.subscription_refund_problem_unconfirmed],
+  ])('says why a refund was refused: %s', (refund, message) => {
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
+        admin: false,
+        history: [],
+        offers: [],
+        canBuy: false,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: { refund },
+      params: {},
+    } as never);
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+});
+
+describe("the offers page's refund reasons", () => {
+  it("shows why each refund was asked for, with the buyer's own words for Other", () => {
+    const asked = (creditId: string, reason: string | null, reasonText: string | null) => ({
+      creditId,
+      userId: 'u1',
+      handle: 'amber-fox-oak-01',
+      requestedAt: UNTIL,
+      purchasedAt: UNTIL,
+      startsAt: UNTIL,
+      endsAt: UNTIL,
+      paid: null,
+      refunded: 0,
+      suggested: null,
+      dashboard: null,
+      reason,
+      reasonText,
+    });
+    render(Offers, {
+      data: {
+        offers: [],
+        disputes: [],
+        refundRequests: [
+          asked('c1', 'too-expensive', null),
+          asked('c2', 'other', 'Moving on'),
+          asked('c3', null, null),
+        ],
+        done: null,
+        stripeCurrency: 'GBP',
+      },
+      form: null,
+      params: {},
+    } as never);
+    const rows = within(screen.getByRole('region', { name: en.admin_refunds_heading })).getAllByRole('row');
+    expect(rowOf(rows, 1)).toHaveTextContent(en.subscription_refund_reason_too_expensive);
+    expect(rowOf(rows, 2)).toHaveTextContent(`${en.subscription_refund_reason_other} Moving on`);
+    expect(rowOf(rows, 3)).toHaveTextContent('–');
+  });
+});
+
+describe('a refund made at once, on the subscription page', () => {
+  const ROW = {
+    id: 'c1',
+    source: 'payment',
+    startsAt: UNTIL,
+    endsAt: UNTIL,
+    months: 1,
+    days: 0,
+    purchasedAt: UNTIL,
+    paid: { amount: 3600, currency: 'GBP' },
+    preview: null,
+  };
+  const show = (refundDone: string | null, refund: string) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [{ ...ROW, refund }],
+        offers: [],
+        canBuy: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone,
+      },
+      form: null,
+      params: {},
+    } as never);
+
+  afterEach(() => {
+    vi.useRealTimers();
+    navigation.refreshAll.mockClear();
+  });
+
+  it("asks again every two seconds until Stripe's word of it arrives, for a minute at most", () => {
+    vi.useFakeTimers();
+    show('refunded', 'requested');
+    expect(navigation.refreshAll).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000);
+    expect(navigation.refreshAll).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(60_000);
+    const asked = navigation.refreshAll.mock.calls.length;
+    vi.advanceTimersByTime(10_000);
+    expect(navigation.refreshAll).toHaveBeenCalledTimes(asked);
+  });
+
+  it.each([
+    ['once it reads as refunded', 'refunded', 'refunded'],
+    ['for a refund an admin is to make', 'requested', 'requested'],
+  ])('asks nothing again %s', (_why, refundDone, refund) => {
+    vi.useFakeTimers();
+    show(refundDone, refund);
+    vi.advanceTimersByTime(10_000);
+    expect(navigation.refreshAll).not.toHaveBeenCalled();
+  });
+});
+
+describe("the offers page's outstanding disputes", () => {
+  const show = (disputes: unknown[]) =>
+    render(Offers, {
+      data: { offers: [], refundRequests: [], disputes, done: null, stripeCurrency: 'GBP' },
+      form: null,
+      params: {},
+    } as never);
+
+  it('says when none is waiting', () => {
+    show([]);
+    expect(screen.getByText(en.admin_disputes_none)).toBeInTheDocument();
+  });
+
+  it('lists each below the refunds asked for, with its buyer, when it opened, and where to answer it', () => {
+    show([
+      {
+        creditId: 'c1',
+        userId: 'u1',
+        handle: 'amber-fox-oak-01',
+        openedAt: UNTIL,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: { amount: 3600, currency: 'GBP' },
+        dashboard: 'https://dashboard.stripe.com/payments/pi_1',
+      },
+      {
+        creditId: 'c2',
+        userId: 'u2',
+        handle: 'bold-owl-elm-02',
+        openedAt: null,
+        purchasedAt: UNTIL,
+        startsAt: UNTIL,
+        endsAt: UNTIL,
+        paid: null,
+        dashboard: null,
+      },
+    ]);
+    const section = screen.getByRole('region', { name: en.admin_disputes_heading });
+    // Just below the refunds asked for.
+    expect(section.previousElementSibling).toBe(screen.getByRole('region', { name: en.admin_refunds_heading }));
+    expect(section).toHaveTextContent(en.admin_disputes_lede);
+    const rows = within(section).getAllByRole('row');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: 'amber-fox-oak-01' })).toHaveAttribute(
+      'href',
+      '/admin/users/u1',
+    );
+    expect(rowOf(rows, 1)).toHaveTextContent(day(UNTIL));
+    expect(rowOf(rows, 1)).toHaveTextContent('£36.00');
+    expect(within(rowOf(rows, 1)).getByRole('link', { name: en.admin_disputes_answer })).toHaveAttribute(
+      'href',
+      'https://dashboard.stripe.com/payments/pi_1',
+    );
+    expect(within(rowOf(rows, 2)).queryByRole('link', { name: en.admin_disputes_answer })).not.toBeInTheDocument();
+    // Its evidence, to download, for every one of them.
+    expect(
+      within(rowOf(rows, 1)).getByRole('link', {
+        name: en.admin_disputes_evidence_named.replace('{handle}', 'amber-fox-oak-01'),
+      }),
+    ).toHaveAttribute('href', '/admin/subscriptions/evidence/c1');
+    expect(within(rowOf(rows, 2)).getByRole('link', { name: /dispute evidence/ })).toHaveAttribute('download');
+    expect(section).toHaveTextContent(en.admin_disputes_evidence_hint);
+    expect(rowOf(rows, 2)).toHaveTextContent('–');
+  });
+});
+
+describe('the subscription page, while a payment is disputed', () => {
+  it('offers no time to buy, saying why instead', () => {
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: UNTIL, active: true, patreon: false, entitled: true },
+        admin: false,
+        history: [],
+        offers: [{ ...OFFER, stripePrice: { currency: 'GBP', amount: 3000 } }],
+        canBuy: true,
+        disputing: true,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        refundDone: null,
+      },
+      form: null,
+      params: {},
+    } as never);
+    const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
+    expect(offers).toHaveTextContent(en.subscription_buy_disputed);
+    expect(within(offers).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(offers).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(offers).not.toHaveTextContent('12 months');
   });
 });

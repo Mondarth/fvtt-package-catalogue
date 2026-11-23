@@ -17,6 +17,8 @@ const TABLES = [
   'subscription_checkouts',
   'device_codes',
   'patreon_memberships',
+  'last_sessions',
+  'access_records',
 ];
 
 describe('what the "What we store" page lists', () => {

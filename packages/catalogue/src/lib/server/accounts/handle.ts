@@ -5,11 +5,13 @@
  */
 import type { Handle } from '@sveltejs/kit/hooks';
 
+import { addressOf } from '../http/address.js';
 import { isSitePath, isWebhookPath } from '../http/paths.js';
 import { AUTH_PATH } from './auth.js';
 import { entitlementOf, subscribedBy } from '../subscriptions/entitlement.js';
 import { isAdmin } from './permissions.js';
 
+import type { AccessRecorder } from './access.js';
 import type { AuditStore } from './audit.js';
 import type { BanNotices } from './ban-notice.js';
 import type { PatreonChecker } from '../subscriptions/patreon.js';
@@ -33,6 +35,8 @@ export interface AccountsHandleOptions {
   readonly patreon?: PatreonChecker | undefined;
   /** Stripe, if the catalogue sells subscription time through it (see `subscriptions/stripe.ts`). */
   readonly stripe?: StripeGateway | undefined;
+  /** Records the access of users whose payments are disputed (see `access.ts`). */
+  readonly access: AccessRecorder;
 }
 
 /**
@@ -53,7 +57,7 @@ export function isAuthPath(pathname: string): boolean {
  * @returns The hook
  */
 export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions): Handle {
-  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe } = options;
+  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe, access } = options;
   const subscribed = subscribedBy(subscriptions, patreon);
   return async ({ event, resolve }) => {
     // No one, until the session says otherwise: an API request's error page, such as its 404, renders the website's
@@ -68,6 +72,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
       event.locals.subscriptions = subscriptions;
       event.locals.audit = audit;
       event.locals.stripe = stripe;
+      event.locals.access = access;
       return resolve(event);
     }
     if (!isSitePath(pathname)) return resolve(event);
@@ -81,6 +86,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.subscriptions = subscriptions;
     event.locals.patreon = patreon;
     event.locals.stripe = stripe;
+    event.locals.access = access;
     // Reading the session may renew it, which sets its cookie again.
     const { headers, response: found } = await auth.api.getSession({
       headers: event.request.headers,
@@ -90,6 +96,18 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.session = found?.session ?? null;
     event.locals.isAdmin = found !== null && isAdmin(found.user, adminUserIds);
     event.locals.entitlement = entitlementOf(subscribed, found?.user.id, event.locals.isAdmin);
+    // Their own use of the site, recorded while a payment of theirs is disputed; not an admin's viewing it as them.
+    if (found !== null && typeof found.session.impersonatedBy !== 'string') {
+      const seen = {
+        kind: 'site',
+        path: pathname,
+        client: 'website',
+        ipAddress: addressOf(event),
+        userAgent: event.request.headers.get('user-agent'),
+      } as const;
+      await access.seen(found.user.id, found.session.id, seen);
+      await access.record(found.user.id, seen);
+    }
     const response = await resolve(event);
     for (const cookie of headers.getSetCookie()) response.headers.append('Set-Cookie', cookie);
     return response;

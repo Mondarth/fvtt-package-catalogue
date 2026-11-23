@@ -4,9 +4,9 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { useDates } from '#lib/dates.js';
   import Logo from '#lib/components/Logo.svelte';
   import { m } from '#lib/paraglide/messages.js';
-  import { getLocale } from '#lib/paraglide/runtime.js';
   import { providerName } from '#lib/providers.js';
 
   interface Props {
@@ -24,6 +24,7 @@
   }
 
   let { providers, failed = false, banned = null, next }: Props = $props();
+  const { dateTime } = useDates();
 </script>
 
 <div class="logo"><Logo height="6rem" /></div>
@@ -36,9 +37,7 @@
       <p>{m.sign_in_banned()}</p>
     {:else}
       <p>
-        {banned.until === null
-          ? m.sign_in_banned_forever()
-          : m.sign_in_banned_until({ date: banned.until.toLocaleString(getLocale()) })}
+        {banned.until === null ? m.sign_in_banned_forever() : m.sign_in_banned_until({ date: dateTime(banned.until) })}
       </p>
       {#if banned.reason !== null}<p>{m.sign_in_banned_reason({ reason: banned.reason })}</p>{/if}
     {/if}

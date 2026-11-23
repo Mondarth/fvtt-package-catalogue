@@ -4,6 +4,7 @@ import { createAccountsHandle } from '#lib/server/accounts/handle.js';
 import { createHandle } from '#lib/server/http/handle.js';
 import { handleI18n } from '#lib/server/http/i18n.js';
 import {
+  access,
   accounts,
   adminUserIds,
   apiKeys,
@@ -26,8 +27,18 @@ import type { HandleServerError } from '@sveltejs/kit/hooks';
 
 /** Request ids, logging, CORS and keys first; then signing in, and the website's localisation. */
 export const handle = sequence(
-  createHandle({ store, apiKeys, users: apiUsers, ratePerMinute: apiRatePerMinute, log, http, fetchGiven }),
-  createAccountsHandle(auth, { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe }),
+  createHandle({ store, apiKeys, users: apiUsers, ratePerMinute: apiRatePerMinute, log, http, fetchGiven, access }),
+  createAccountsHandle(auth, {
+    accounts,
+    providers,
+    audit,
+    adminUserIds,
+    banNotices,
+    subscriptions,
+    patreon,
+    stripe,
+    access,
+  }),
   handleI18n,
 );
 

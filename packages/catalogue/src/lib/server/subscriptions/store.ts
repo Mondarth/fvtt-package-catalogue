@@ -11,7 +11,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, desc, eq, gt, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, max, or, sql } from 'drizzle-orm';
 
 import { users } from '../accounts/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
@@ -20,7 +20,7 @@ import { subscriptionCheckouts, subscriptionCredits, subscriptionOffers } from '
 
 import type { Database } from '../db/database.js';
 import type { Period } from './period.js';
-import type { CheckoutStatus, CreditSource, OfferProviderRefs } from './schema.js';
+import type { CheckoutStatus, CreditSource, DisputeState, OfferProviderRefs, RefundReason } from './schema.js';
 
 /** Whether a user is subscribed, and until when. */
 export interface SubscriptionStatus {
@@ -76,6 +76,36 @@ export interface OfferInput extends Period {
   readonly providerRefs?: OfferProviderRefs | undefined;
 }
 
+/** A refund, or a dispute lost, to take back the time it paid for. */
+export interface TakeBack {
+  readonly creditId: string;
+  /** What has been refunded of its payment in all, now; the whole of it for a dispute lost. */
+  readonly refunded: number;
+  /** What was paid, in the same unit. */
+  readonly amount: number;
+  /** How a dispute of it now stands, for one lost. */
+  readonly disputed?: DisputeState | undefined;
+}
+
+/** What taking time back did: how many days, and the subscription's end before and after. */
+export interface TakenBack {
+  readonly days: number;
+  readonly before: Date;
+  readonly after: Date;
+}
+
+/** Why a buyer asked for a refund, where they said: a reason they chose, and, for `other`, their own words. */
+export interface GivenReason {
+  readonly reason: RefundReason;
+  readonly text?: string | undefined;
+}
+
+/** A credit an admin is to act on, such as a refund asked for or a dispute open, with its buyer. */
+export interface RefundRequest {
+  readonly credit: Credit;
+  readonly handle: string;
+}
+
 /** What changing a subscription's end did. */
 export interface Changed {
   readonly before: Date | null;
@@ -122,7 +152,53 @@ export interface SubscriptionStore {
   settleCheckout(id: string, status: CheckoutStatus, creditId?: string, now?: Date): Promise<void>;
   /** A user's purchases still being paid for: finished at the checkout with a payment that confirms later. */
   processingCheckouts(userId: string): Promise<Checkout[]>;
+  /**
+   * Takes back the time a refund, or a dispute lost, paid for: its share of the credit's days, as much as has been
+   * refunded of its payment in all, rounded down to whole days, and all of them once all of it has; less what earlier
+   * refunds took. The days come off the end of the subscription, wherever the credit falls in it, used or not.
+   *
+   * @returns What it took, `duplicate` for nothing more refunded than already taken back, or `undefined` for no such
+   *   credit
+   */
+  takeBack(input: TakeBack, now?: Date): Promise<TakenBack | 'duplicate' | undefined>;
+  /** Records how a dispute of a credit's payment stands, and, as it is opened, when. */
+  setDisputed(creditId: string, state: DisputeState, now?: Date): Promise<void>;
+  /**
+   * Records that a credit's buyer asked to cancel it and be refunded, once: asking again changes nothing.
+   *
+   * @returns The credit, or `undefined` for none of theirs that was paid for and is not refunded in full
+   */
+  requestRefund(userId: string, creditId: string, reason?: GivenReason, now?: Date): Promise<Credit | undefined>;
+  /** The refunds asked for since each credit was last refunded, oldest first, with their buyers. */
+  refundRequests(): Promise<RefundRequest[]>;
+  /** The payments disputed whose disputes are still being decided, the longest open first, with their buyers. */
+  openDisputes(): Promise<RefundRequest[]>;
+  /** A credit, by its id. */
+  creditById(id: string): Promise<Credit | undefined>;
+  /** The checkout that made a credit, if one did. */
+  checkoutOfCredit(creditId: string): Promise<Checkout | undefined>;
 }
+
+/** A day, in milliseconds. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How many days a credit's period runs from its start: its share of them, rounded down, is what a partial refund takes
+ * back.
+ *
+ * @param credit - The credit
+ * @returns Its days
+ */
+export function creditDays(credit: Pick<Credit, 'startsAt' | 'months' | 'days'>): number {
+  return Math.round((addPeriod(credit.startsAt, credit).getTime() - credit.startsAt.getTime()) / DAY_MS);
+}
+
+/**
+ * The days of a credit that so much refunded of its payment pays for: its share, rounded down, or all of them once
+ * all of it is refunded.
+ */
+const shareOf = (days: number, refunded: number, amount: number) =>
+  refunded >= amount ? days : Math.floor((days * Math.max(0, refunded)) / amount);
 
 /** How a purchase may stand before it changes: one paid, failed or expired is settled for good. */
 const UNSETTLED: readonly CheckoutStatus[] = ['open', 'processing'];
@@ -218,7 +294,10 @@ export function subscriptionStore(db: Database): SubscriptionStore {
           // Who granted or paid for it is kept; the audit log records who changed its end.
           await tx
             .update(subscriptionCredits)
-            .set({ startsAt: sql`least(${subscriptionCredits.startsAt}, ${end})`, endsAt: end })
+            .set({
+              startsAt: sql`least(${subscriptionCredits.startsAt}, ${end.toISOString()}::timestamptz)`,
+              endsAt: end,
+            })
             .where(and(eq(subscriptionCredits.userId, userId), gt(subscriptionCredits.endsAt, end)));
         }
         return { before, after: await paidUntil(tx, userId) };
@@ -275,6 +354,132 @@ export function subscriptionStore(db: Database): SubscriptionStore {
         .update(subscriptionCheckouts)
         .set({ status, updatedAt: now, ...(creditId !== undefined && { creditId }) })
         .where(and(eq(subscriptionCheckouts.id, id), inArray(subscriptionCheckouts.status, [...UNSETTLED])));
+    },
+
+    async takeBack(input, now = new Date()) {
+      return db.transaction(async tx => {
+        const [credit] = await tx
+          .select()
+          .from(subscriptionCredits)
+          .where(eq(subscriptionCredits.id, input.creditId))
+          .for('update');
+        if (credit === undefined) return undefined;
+        await hold(tx, credit.userId);
+        if (input.refunded <= credit.refundedAmount) {
+          if (input.disputed !== undefined && input.disputed !== credit.disputed) {
+            await tx
+              .update(subscriptionCredits)
+              .set({ disputed: input.disputed })
+              .where(eq(subscriptionCredits.id, credit.id));
+          }
+          return 'duplicate';
+        }
+        const all = creditDays(credit);
+        const days = shareOf(all, input.refunded, input.amount) - shareOf(all, credit.refundedAmount, input.amount);
+        const before = await paidUntil(tx, credit.userId);
+        // The credit is the user's, so their subscription ends when the latest of theirs does.
+        /* v8 ignore next */
+        if (before === null) throw new Error(`The credit ${credit.id} makes no subscription`);
+        if (days > 0) {
+          // Off the end, wherever the credit falls: each credit that runs past the new end now ends there.
+          const end = new Date(before.getTime() - days * DAY_MS);
+          await tx
+            .update(subscriptionCredits)
+            .set({
+              startsAt: sql`least(${subscriptionCredits.startsAt}, ${end.toISOString()}::timestamptz)`,
+              endsAt: end,
+            })
+            .where(and(eq(subscriptionCredits.userId, credit.userId), gt(subscriptionCredits.endsAt, end)));
+        }
+        await tx
+          .update(subscriptionCredits)
+          .set({
+            refundedAmount: Math.min(input.refunded, input.amount),
+            refundedAt: now,
+            ...(input.disputed !== undefined && { disputed: input.disputed }),
+          })
+          .where(eq(subscriptionCredits.id, credit.id));
+        const after = await paidUntil(tx, credit.userId);
+        // As before: taking days back leaves every credit in place, ending earlier.
+        /* v8 ignore next */
+        if (after === null) throw new Error(`The credit ${credit.id} makes no subscription`);
+        return { days, before, after };
+      });
+    },
+
+    async setDisputed(creditId, state, now = new Date()) {
+      await db
+        .update(subscriptionCredits)
+        .set({
+          disputed: state,
+          // When it was opened: kept as it is decided, and set afresh only for a dispute opened after another closed.
+          ...(state === 'open' && {
+            disputedAt: sql`case when ${subscriptionCredits.disputed} = 'open' then ${subscriptionCredits.disputedAt} else ${now.toISOString()}::timestamptz end`,
+          }),
+        })
+        .where(eq(subscriptionCredits.id, creditId));
+    },
+
+    async creditById(id) {
+      const [found] = await db.select().from(subscriptionCredits).where(eq(subscriptionCredits.id, id));
+      return found;
+    },
+
+    async checkoutOfCredit(creditId) {
+      const [found] = await db.select().from(subscriptionCheckouts).where(eq(subscriptionCheckouts.creditId, creditId));
+      return found;
+    },
+
+    openDisputes: () =>
+      db
+        .select({ credit: subscriptionCredits, handle: users.handle })
+        .from(subscriptionCredits)
+        .innerJoin(users, eq(users.id, subscriptionCredits.userId))
+        .where(eq(subscriptionCredits.disputed, 'open'))
+        .orderBy(asc(subscriptionCredits.disputedAt)),
+
+    async requestRefund(userId, creditId, reason, now = new Date()) {
+      const [credit] = await db
+        .select()
+        .from(subscriptionCredits)
+        .where(and(eq(subscriptionCredits.id, creditId), eq(subscriptionCredits.userId, userId)));
+      if (credit?.source !== 'payment' || credit.amountPaid === null || credit.refundedAmount >= credit.amountPaid) {
+        return undefined;
+      }
+      if (
+        credit.refundRequestedAt !== null &&
+        (credit.refundedAt === null || credit.refundedAt < credit.refundRequestedAt)
+      ) {
+        return credit;
+      }
+      const [asked] = await db
+        .update(subscriptionCredits)
+        .set({
+          refundRequestedAt: now,
+          refundReason: reason?.reason ?? null,
+          refundReasonText: reason?.reason === 'other' ? (reason.text ?? null) : null,
+        })
+        .where(eq(subscriptionCredits.id, creditId))
+        .returning();
+      return asked;
+    },
+
+    async refundRequests() {
+      const found = await db
+        .select({ credit: subscriptionCredits, handle: users.handle })
+        .from(subscriptionCredits)
+        .innerJoin(users, eq(users.id, subscriptionCredits.userId))
+        .where(
+          and(
+            isNotNull(subscriptionCredits.refundRequestedAt),
+            or(
+              isNull(subscriptionCredits.refundedAt),
+              lt(subscriptionCredits.refundedAt, subscriptionCredits.refundRequestedAt),
+            ),
+          ),
+        )
+        .orderBy(asc(subscriptionCredits.refundRequestedAt));
+      return found;
     },
 
     processingCheckouts: userId =>

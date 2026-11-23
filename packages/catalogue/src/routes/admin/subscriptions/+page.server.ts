@@ -6,6 +6,8 @@ import { parsePrices } from '#lib/prices.js';
 import { actorOf } from '#lib/server/accounts/actor.js';
 import { dayOf, field, periodOf } from '#lib/server/form.js';
 import { isPeriod } from '#lib/server/subscriptions/period.js';
+import { suggestedRefund } from '#lib/server/subscriptions/refunds.js';
+import { stripeDashboardUrl } from '#lib/server/subscriptions/stripe.js';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -18,6 +20,46 @@ const NAME_MAX = 80;
  */
 export const load: PageServerLoad = async ({ locals, url }) => ({
   offers: await locals.subscriptions.offers(),
+  // The refunds asked for, oldest first, each with what to refund now and where to make it.
+  refundRequests: (await locals.subscriptions.refundRequests()).map(({ credit, handle }) => ({
+    creditId: credit.id,
+    userId: credit.userId,
+    handle,
+    requestedAt: credit.refundRequestedAt,
+    purchasedAt: credit.createdAt,
+    startsAt: credit.startsAt,
+    endsAt: credit.endsAt,
+    paid:
+      credit.amountPaid === null || credit.currencyPaid === null
+        ? null
+        : { amount: credit.amountPaid, currency: credit.currencyPaid },
+    refunded: credit.refundedAmount,
+    reason: credit.refundReason,
+    reasonText: credit.refundReasonText,
+    suggested: suggestedRefund(credit) ?? null,
+    dashboard:
+      credit.provider === 'stripe' && credit.externalRef !== null
+        ? stripeDashboardUrl(credit.providerAccount, credit.externalRef)
+        : null,
+  })),
+  // The disputes still being decided, the longest open first, each with where to answer it.
+  disputes: (await locals.subscriptions.openDisputes()).map(({ credit, handle }) => ({
+    creditId: credit.id,
+    userId: credit.userId,
+    handle,
+    openedAt: credit.disputedAt,
+    purchasedAt: credit.createdAt,
+    startsAt: credit.startsAt,
+    endsAt: credit.endsAt,
+    paid:
+      credit.amountPaid === null || credit.currencyPaid === null
+        ? null
+        : { amount: credit.amountPaid, currency: credit.currencyPaid },
+    dashboard:
+      credit.provider === 'stripe' && credit.externalRef !== null
+        ? stripeDashboardUrl(credit.providerAccount, credit.externalRef)
+        : null,
+  })),
   stripeCurrency: locals.stripe?.currency ?? null,
   patreonMinimum: locals.patreon === undefined ? undefined : await locals.patreon.minimum(),
   done: url.searchParams.get('done'),

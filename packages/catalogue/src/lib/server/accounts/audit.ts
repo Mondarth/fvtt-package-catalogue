@@ -25,6 +25,10 @@ export const AUDIT_ACTIONS = [
   'offer.retire',
   'patreon.minimum',
   'payment.credit',
+  'payment.refund',
+  'payment.dispute',
+  'refund.request',
+  'dispute.evidence',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
