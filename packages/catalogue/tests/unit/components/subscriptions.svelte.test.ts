@@ -977,6 +977,14 @@ describe("the offers page's outstanding disputes", () => {
       'https://dashboard.stripe.com/payments/pi_1',
     );
     expect(within(rowOf(rows, 2)).queryByRole('link', { name: en.admin_disputes_answer })).not.toBeInTheDocument();
+    // Its evidence, to download, for every one of them.
+    expect(
+      within(rowOf(rows, 1)).getByRole('link', {
+        name: en.admin_disputes_evidence_named.replace('{handle}', 'amber-fox-oak-01'),
+      }),
+    ).toHaveAttribute('href', '/admin/subscriptions/evidence/c1');
+    expect(within(rowOf(rows, 2)).getByRole('link', { name: /dispute evidence/ })).toHaveAttribute('download');
+    expect(section).toHaveTextContent(en.admin_disputes_evidence_hint);
     expect(rowOf(rows, 2)).toHaveTextContent('–');
   });
 });

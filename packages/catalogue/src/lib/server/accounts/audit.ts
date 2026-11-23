@@ -28,6 +28,7 @@ export const AUDIT_ACTIONS = [
   'payment.refund',
   'payment.dispute',
   'refund.request',
+  'dispute.evidence',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

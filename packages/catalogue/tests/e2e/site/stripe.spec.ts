@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { eq } from 'drizzle-orm';
 
 import { connect } from '../../../src/lib/server/db/connect.js';
@@ -6,7 +8,7 @@ import { E2E_ADMIN, E2E_ENV, FAKE_PROVIDER_URL, FAKE_STRIPE_URL } from '../envir
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
 
-import type { Page, TestInfo } from '@playwright/test';
+import type { Locator, Page, TestInfo } from '@playwright/test';
 
 const en = messagesOf('en');
 const fill = (message: string, values: Record<string, string>) =>
@@ -114,6 +116,17 @@ async function bought(page: Page, info: TestInfo) {
   await page.getByRole('button', { name: 'Pay' }).click();
   await expect(page.getByRole('status').filter({ hasText: en.subscription_checkout_done })).toBeVisible();
   return { buyer, paymentIntent: `pi_for_${session}` };
+}
+
+/**
+ * The handle of the buyer a row of an admin table names.
+ *
+ * @param page - The page
+ * @param row - The row
+ * @returns The handle
+ */
+async function handleOf(page: Page, row: Locator) {
+  return ((await row.getByRole('rowheader').textContent()) ?? '').trim();
 }
 
 /**
@@ -242,6 +255,18 @@ test('a dispute is listed for admins while open, and once lost charges the purch
     .getByRole('row')
     .filter({ has: page.locator(`a[href$="/payments/${paymentIntent}"]`) });
   await expect(disputed).toHaveCount(1);
+
+  // Its evidence, downloaded: the purchase, the buyer's consent, and how they sign in.
+  const downloading = page.waitForEvent('download');
+  await disputed.getByRole('link', { name: /dispute evidence/ }).click();
+  const evidence = await downloading;
+  expect(evidence.suggestedFilename()).toBe(`dispute-evidence-${await handleOf(page, disputed)}-${paymentIntent}.txt`);
+  const text = readFileSync(await evidence.path(), 'utf8');
+  expect(text).toContain(`  Payment: ${paymentIntent} (a sandbox payment)`);
+  expect(text).toContain('  Paid, tax included: GBP 3.60');
+  expect(text).toContain('the buyer ticked "I ask that my time be activated as soon as I pay');
+  expect(text).toContain('  Dispute: open, opened ');
+
   expect((await page.request.get(`${FAKE_STRIPE_URL}/dispute/${paymentIntent}?status=lost`)).status()).toBe(200);
   await page.reload();
   await expect(disputed).toHaveCount(0);

@@ -435,3 +435,26 @@ describe('disputes still being decided', () => {
     expect((await store.creditOf('stripe', 'pi_b'))?.disputedAt?.getTime()).toBeGreaterThan(NOW.getTime());
   });
 });
+
+describe('a credit and its checkout', () => {
+  it('are found by the credit', async () => {
+    const offer = await store.createOffer({
+      name: '1 month',
+      months: 1,
+      days: 0,
+      prices: { GBP: 300 },
+      createdBy: 'admin',
+    });
+    const begun = await store.openCheckout({ userId: 'u1', offerId: offer.id, provider: 'stripe', consentedAt: NOW });
+    const made = await store.credit(
+      { userId: 'u1', source: 'payment', provider: 'stripe', externalRef: 'pi_9', months: 1, days: 0 },
+      NOW,
+    );
+    if (made === 'duplicate') throw new Error('Credited already');
+    await store.settleCheckout(begun.id, 'paid', made.id);
+    expect(await store.creditById(made.id)).toMatchObject({ id: made.id, externalRef: 'pi_9' });
+    expect(await store.creditById('none')).toBeUndefined();
+    expect(await store.checkoutOfCredit(made.id)).toMatchObject({ id: begun.id, consentedAt: NOW });
+    expect(await store.checkoutOfCredit('none')).toBeUndefined();
+  });
+});

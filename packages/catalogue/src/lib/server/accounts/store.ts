@@ -53,6 +53,8 @@ export interface SessionSummary {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly userAgent: string | null;
+  /** Where it was signed in from. */
+  readonly ipAddress: string | null;
   /** The client a device signed in for, if it was one. */
   readonly clientId: string | null;
   /** The admin viewing the site as the user, for such a session. */
@@ -158,6 +160,7 @@ export function accountsStore(db: Database): AccountsStore {
           createdAt: sessions.createdAt,
           updatedAt: sessions.updatedAt,
           userAgent: sessions.userAgent,
+          ipAddress: sessions.ipAddress,
           clientId: sessions.clientId,
           impersonatedBy: sessions.impersonatedBy,
         })

@@ -167,6 +167,7 @@
     <p>{m.admin_disputes_none()}</p>
   {:else}
     <p>{m.admin_disputes_lede()}</p>
+    <p class="hint">{m.admin_disputes_evidence_hint()}</p>
     <table>
       <thead>
         <tr>
@@ -174,6 +175,7 @@
           <th scope="col">{m.admin_disputes_column_opened()}</th>
           <th scope="col">{m.admin_refunds_column_purchase()}</th>
           <th scope="col">{m.admin_refunds_column_paid()}</th>
+          <th scope="col"><span class="visually-hidden">{m.admin_disputes_evidence()}</span></th>
           <th scope="col"><span class="visually-hidden">{m.admin_disputes_answer()}</span></th>
         </tr>
       </thead>
@@ -190,6 +192,13 @@
               })}
             </td>
             <td>{disputed.paid ? formatPrice(disputed.paid.currency, disputed.paid.amount, getLocale()) : '–'}</td>
+            <td>
+              <a
+                href={resolve('/admin/subscriptions/evidence/[credit]', { credit: disputed.creditId })}
+                download
+                aria-label={m.admin_disputes_evidence_named({ handle: disputed.handle })}
+                >{m.admin_disputes_evidence()}</a>
+            </td>
             <td>
               {#if disputed.dashboard}<a href={disputed.dashboard} rel="external noopener"
                   >{m.admin_disputes_answer()}</a

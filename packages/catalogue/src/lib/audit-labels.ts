@@ -21,6 +21,7 @@ const ACTIONS: Readonly<Record<string, () => string>> = {
   'payment.refund': m.audit_action_payment_refund,
   'payment.dispute': m.audit_action_payment_dispute,
   'refund.request': m.audit_action_refund_request,
+  'dispute.evidence': m.audit_action_dispute_evidence,
 };
 
 /**

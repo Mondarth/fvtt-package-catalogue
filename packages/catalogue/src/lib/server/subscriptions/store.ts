@@ -173,6 +173,10 @@ export interface SubscriptionStore {
   refundRequests(): Promise<RefundRequest[]>;
   /** The payments disputed whose disputes are still being decided, the longest open first, with their buyers. */
   openDisputes(): Promise<RefundRequest[]>;
+  /** A credit, by its id. */
+  creditById(id: string): Promise<Credit | undefined>;
+  /** The checkout that made a credit, if one did. */
+  checkoutOfCredit(creditId: string): Promise<Checkout | undefined>;
 }
 
 /** A day, in milliseconds. */
@@ -414,6 +418,16 @@ export function subscriptionStore(db: Database): SubscriptionStore {
           }),
         })
         .where(eq(subscriptionCredits.id, creditId));
+    },
+
+    async creditById(id) {
+      const [found] = await db.select().from(subscriptionCredits).where(eq(subscriptionCredits.id, id));
+      return found;
+    },
+
+    async checkoutOfCredit(creditId) {
+      const [found] = await db.select().from(subscriptionCheckouts).where(eq(subscriptionCheckouts.creditId, creditId));
+      return found;
     },
 
     openDisputes: () =>
