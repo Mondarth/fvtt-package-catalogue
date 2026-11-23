@@ -205,7 +205,7 @@
   "subscription_buy_needs_consent": "The Terms and Conditions must be accepted to buy: tick the box above.",
   "subscription_buy": "Buy",
   "subscription_buy_named": "Buy {name}",
-  "subscription_buy_how": "You pay on Stripe's checkout page. Stripe, through Onelink, is the merchant of record: it works out and charges any tax where you live, and emails your receipt and invoice. The final amount, in your own currency, is shown there before you pay.",
+  "subscription_buy_how": "You pay on Stripe's checkout page. Stripe, through Onelink, is the merchant of record (appearing on your statement as 'ONELINK* MONDARTH'): it works out and charges any tax where you live, and emails your receipt and invoice. The final amount, in your own currency, is shown there before you pay.",
   "subscription_buy_cancel": "You may cancel a purchase within 14 days and be refunded for the time not yet used, and ask for a refund of your remaining time at any time after.",
   "subscription_buy_terms": "Terms and Conditions",
   "subscription_buy_problem_consent": "Tick the box to ask that your time be activated as soon as you pay, and to agree to the Terms and Conditions, before you buy.",
