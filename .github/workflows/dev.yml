@@ -74,7 +74,7 @@ jobs:
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: |
-          for package in packages/catalogue-contract apps/catalogue; do
+          for package in packages/catalogue-contract packages/accounts-contract apps/catalogue; do
             node scripts/coverage-summary.ts "${package}/coverage/coverage-summary.json" "Unit coverage: ${package#*/}" >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Upload the contract's coverage to Codecov
@@ -83,6 +83,14 @@ jobs:
         with:
           files: packages/catalogue-contract/coverage/lcov.info
           flags: contract
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload the accounts contract's coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: packages/accounts-contract/coverage/lcov.info
+          flags: accounts-contract
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: Upload the catalogue's coverage to Codecov

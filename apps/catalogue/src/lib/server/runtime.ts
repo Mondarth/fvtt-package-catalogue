@@ -38,13 +38,14 @@ import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { devPatreon } from './accounts/dev-patreon.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { accountsStore } from './accounts/store.js';
+import { localAccounts } from './accounts/local.js';
 import { isAdmin } from './accounts/permissions.js';
 import { cachedEntitlements, subscribedBy } from './subscriptions/entitlement.js';
 import { patreonChecker } from './subscriptions/patreon.js';
 import { stripeGateway } from './subscriptions/stripe.js';
 import { subscriptionStore } from './subscriptions/store.js';
 
-import type { ApiUsers } from './http/handle.js';
+import type { Accounts } from '@mondarth/accounts-contract';
 
 import { connect } from './db/connect.js';
 import { createLogger } from './log.js';
@@ -160,22 +161,13 @@ export const http = () =>
 export const apiRatePerMinute: number = API_RATE_PER_MINUTE;
 
 /**
- * Users' tokens, for the API: a token is given to Better Auth as the only header, a bearer's, so that no cookie can
- * stand in for it; the session found is its user's, the admin viewing the site as them marked.
+ * The accounts, as the API uses them, served in this process: a token is given to Better Auth as the only header, a
+ * bearer's, so that no cookie can stand in for it; the session found is its user's, the admin viewing the site as them
+ * marked.
  */
-export const apiUsers: ApiUsers = {
-  async userOf(token) {
-    const found = await auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) });
-    if (found === null) return undefined;
-    const { user, session } = found;
-    return {
-      id: user.id,
-      handle: user.handle,
-      nickname: user.nickname ?? null,
-      role: isAdmin(user, adminUserIds) ? 'admin' : 'user',
-      impersonated: typeof session.impersonatedBy === 'string',
-      sessionId: session.id,
-    };
-  },
+export const apiAccounts: Accounts = localAccounts({
+  sessionOf: token => auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) }),
+  isAdmin: user => isAdmin(user, adminUserIds),
   entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),
-};
+  access,
+});

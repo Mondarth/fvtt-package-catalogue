@@ -58,6 +58,7 @@ jobs:
       id-token: write
     outputs:
       contract-tag: ${{ steps.release.outputs.contract-tag }}
+      accounts-contract-tag: ${{ steps.release.outputs.accounts-contract-tag }}
       catalogue-tag: ${{ steps.release.outputs.catalogue-tag }}
     steps:
       # The release App is on the rulesets' bypass list, so its token may push to the
@@ -154,7 +155,9 @@ jobs:
   sync-dev:
     name: Bring dev up to date
     needs: release
-    if: needs.release.outputs.contract-tag != '' || needs.release.outputs.catalogue-tag != ''
+    if: >-
+      needs.release.outputs.contract-tag != '' || needs.release.outputs.accounts-contract-tag != '' ||
+      needs.release.outputs.catalogue-tag != ''
     runs-on: ubuntu-latest
     steps:
       # The release App is on the rulesets' bypass list, so its token may push to the

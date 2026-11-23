@@ -5,6 +5,12 @@
     "bash -c 'pnpm --filter @mondarth/fvtt-package-catalogue-contract typecheck'",
     "pnpm --dir packages/catalogue-contract exec vitest related --run --passWithNoTests"
   ],
+  "packages/accounts-contract/**/*.ts": [
+    "eslint --fix --max-warnings 0",
+    "prettier --write",
+    "bash -c 'pnpm --filter @mondarth/accounts-contract typecheck'",
+    "pnpm --dir packages/accounts-contract exec vitest related --run --passWithNoTests"
+  ],
   "apps/catalogue/**/*.{ts,svelte}": [
     "eslint --fix --max-warnings 0",
     "prettier --write",

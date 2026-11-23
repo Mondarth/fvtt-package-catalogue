@@ -11,6 +11,7 @@ import {
 } from '@mondarth/fvtt-package-catalogue-contract';
 import type { Handle } from '@sveltejs/kit/hooks';
 
+import type { Accounts, AccountUser, Entitlement } from '@mondarth/accounts-contract';
 import type { ErrorCode } from '@mondarth/fvtt-package-catalogue-contract';
 
 import { AUTH_PATH } from '../accounts/auth.js';
@@ -22,43 +23,27 @@ import { isApiPath } from './paths.js';
 import { apiError } from './respond.js';
 
 import type { HttpClient } from '@mondarth/fvtt-resolver/sources';
-import type { AccessRecorder } from '../accounts/access.js';
 import type { ApiKey, ApiKeyKind } from '../config.js';
-import type { Entitlement } from '../subscriptions/entitlement.js';
 import type { Logger } from '../log.js';
 import type { SafeFetched } from '../safe-fetch.js';
 import type { CatalogueStore } from '../store/types.js';
 
-/** The user a token is for, as the API sees them. */
-export interface ApiUser {
-  readonly id: string;
-  readonly handle: string;
-  readonly nickname: string | null;
-  /** Their role, an admin as `ADMIN_USER_IDS` names them among the admins. */
-  readonly role: 'user' | 'admin';
-  /** Whether the token's session is one an admin is viewing the site as them in, which the API refuses. */
-  readonly impersonated: boolean;
-  /** The token's session, which the user's last session is kept from. */
-  readonly sessionId?: string | undefined;
-}
+/** The user a token is for, as the API sees them: as the accounts tell it. */
+export type ApiUser = AccountUser;
 
 /** Who is asking the API: a key's kind, or a user, and whether they may use what a subscription gives. */
 export type ApiCaller =
   { readonly kind: ApiKeyKind } | { readonly kind: 'user'; readonly user: ApiUser; readonly entitlement: Entitlement };
 
-/** How the API knows a user's token, kept apart from signing in, which the runtime gives. */
-export interface ApiUsers {
-  /** The user a token is for, if it is a session's that has not ended. */
-  userOf(token: string): Promise<ApiUser | undefined>;
-  entitlement(user: ApiUser): Promise<Entitlement>;
-}
-
 /** What the `handle` hook works with. */
 export interface HandleOptions {
   readonly store: CatalogueStore;
   readonly apiKeys: readonly ApiKey[];
-  /** How users' tokens are known; without, the API takes keys alone. */
-  readonly users?: ApiUsers | undefined;
+  /**
+   * The accounts: who a user's token is for, what they are entitled to, and their use of the API, which is recorded
+   * against fraud while a payment of theirs is disputed. Without, the API takes keys alone.
+   */
+  readonly accounts?: Accounts | undefined;
   /** The most requests one key or user may make in a minute. */
   readonly ratePerMinute?: number | undefined;
   /** Milliseconds since the epoch, for the limit's minutes; `Date.now` by default. */
@@ -72,8 +57,6 @@ export interface HandleOptions {
   readonly requestId?: () => string;
   /** Milliseconds since some fixed point, for timing requests; `performance.now` by default. */
   readonly clock?: () => number;
-  /** Records the API use of users whose payments are disputed (see `accounts/access.ts`). */
-  readonly access?: AccessRecorder | undefined;
 }
 
 /**
@@ -163,8 +146,7 @@ export function rateLimiter(perMinute: number, now: () => number): (who: string)
 export function createHandle({
   store,
   apiKeys,
-  users,
-  access,
+  accounts,
   ratePerMinute = 300,
   now = Date.now,
   log,
@@ -188,11 +170,11 @@ export function createHandle({
     const authorization = request.headers.get(AUTHORIZATION_HEADER);
     if (authorization !== null) {
       const token = bearerToken(authorization);
-      const user = token === undefined || users === undefined ? undefined : await users.userOf(token);
-      if (user === undefined || users === undefined)
+      const user = token === undefined || accounts === undefined ? undefined : await accounts.userOf(token);
+      if (user === undefined || accounts === undefined)
         return apiError('unauthorised', 'A valid bearer token is needed', id);
       if (user.impersonated) return apiError('forbidden', 'Not with a session an admin is viewing the site in', id);
-      const entitlement = await users.entitlement(user);
+      const entitlement = await accounts.entitlement(user);
       if (!entitlement.entitled && pathname !== ME_PATH) {
         return apiError('subscription-required', 'A subscription is needed', id, { paidUntil: entitlement.paidUntil });
       }
@@ -233,19 +215,17 @@ export function createHandle({
       } else {
         if (allowed(asking.who)) {
           event.locals.caller = asking.caller;
-          // A signed-in user's use of the API, as the EMMA extension's lookups, recorded while a payment of theirs is
-          // disputed; not an admin's viewing the site as them.
+          // A signed-in user's use of the API, as the EMMA extension's lookups, told to the accounts. An admin's viewing
+          // the site as them never gets this far.
           const { caller } = asking;
-          if (access !== undefined && caller.kind === 'user' && !caller.user.impersonated) {
-            const seen = {
+          if (accounts !== undefined && caller.kind === 'user') {
+            await accounts.used(caller.user, {
               kind: 'api',
               path: pathname,
               client: event.request.headers.get(CLIENT_HEADER) ?? 'api',
               ipAddress: addressOf(event),
               userAgent: event.request.headers.get('user-agent'),
-            } as const;
-            if (caller.user.sessionId !== undefined) await access.seen(caller.user.id, caller.user.sessionId, seen);
-            await access.record(caller.user.id, seen);
+            });
           }
           response = withCors(inContract(await resolve(event), id));
         } else {

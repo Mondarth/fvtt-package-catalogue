@@ -13,6 +13,9 @@ flags:
   contract:
     paths: [packages/catalogue-contract/src/]
     carryforward: true
+  accounts-contract:
+    paths: [packages/accounts-contract/src/]
+    carryforward: true
   catalogue:
     paths: [apps/catalogue/src/]
     carryforward: true
