@@ -276,7 +276,7 @@ The worker has no health check: the image's asks the server, which only `app` ru
 
 Some packages' sources mislead the catalogue: a listing may give every version the manifest URL of the newest, so the
 older versions cannot be loaded, or a source may list a test build as a release. What the catalogue is told of such
-packages is kept in `packages/catalogue/overrides.json`, which the image ships and changes, like code, by a pull
+packages is kept in `apps/catalogue/overrides.json`, which the image ships and changes, like code, by a pull
 request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and must say why it is needed:
 
 ```json

@@ -1,7 +1,7 @@
 # The database
 
 PostgreSQL 18, through [Drizzle ORM](https://orm.drizzle.team). The schema is in
-`packages/catalogue/src/lib/server/db/schema.ts`; tables and columns are snake_case in the database.
+`apps/catalogue/src/lib/server/db/schema.ts`; tables and columns are snake_case in the database.
 
 | Table                 | Holds                                                                                  |
 | --------------------- | -------------------------------------------------------------------------------------- |

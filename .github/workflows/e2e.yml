@@ -32,7 +32,7 @@ jobs:
         project: [api, worker, chromium, firefox, webkit]
     defaults:
       run:
-        working-directory: packages/catalogue
+        working-directory: apps/catalogue
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -96,8 +96,8 @@ jobs:
         with:
           name: playwright-report-${{ matrix.project }}
           path: |
-            packages/catalogue/tests/e2e/playwright-report/
-            packages/catalogue/tests/e2e/test-results/
+            apps/catalogue/tests/e2e/playwright-report/
+            apps/catalogue/tests/e2e/test-results/
           if-no-files-found: ignore
 
   # A single check for the rulesets to require.

@@ -14,6 +14,6 @@ services:
     volumes:
       - .:/docs
       # Read by conf.py for the version the documentation describes.
-      - ../packages/catalogue/package.json:/catalogue/package.json:ro
+      - ../apps/catalogue/package.json:/catalogue/package.json:ro
     ports:
       - '${DOCS_PORT:-8089}:8000'

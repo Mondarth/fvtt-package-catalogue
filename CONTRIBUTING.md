@@ -13,7 +13,7 @@ You need Node.js 24 or later, [pnpm](https://pnpm.io) 12 and Docker.
 git clone <URL of your fork>
 cd fvtt-package-catalogue
 pnpm install
-cp packages/catalogue/.env.example packages/catalogue/.env
+cp apps/catalogue/.env.example apps/catalogue/.env
 pnpm --filter @mondarth/fvtt-package-catalogue db:start
 pnpm --filter @mondarth/fvtt-package-catalogue db:migrate
 pnpm dev
@@ -56,11 +56,11 @@ CI runs all of these on every pull request, and also checks the commit messages.
 
 - All source is TypeScript in strict mode. Do not add JavaScript source files (configuration a tool requires in
   JavaScript excepted) or use `any`.
-- The API's shape is the contract's (`packages/contract`). Change the contract first; every response is validated
+- The API's shape is the contract's (`packages/catalogue-contract`). Change the contract first; every response is validated
   against it before it is sent.
 - Routes read and write through the store (`CatalogueStore`), never Drizzle directly. A schema change comes with its
   migration (`db:generate`).
-- Text the website shows goes in `packages/catalogue/messages/en.json`, and in every other locale's file in the same
+- Text the website shows goes in `apps/catalogue/messages/en.json`, and in every other locale's file in the same
   change, never into a component (see [Languages](docs/developer/i18n.md)).
 - A translation made by machine is listed in `MACHINE_TRANSLATED` (`src/lib/i18n.ts`), so that its pages say so, until
   a speaker of the language has reviewed it. Spanish is machine translated: corrections from Spanish speakers are
@@ -68,7 +68,7 @@ CI runs all of these on every pull request, and also checks the commit messages.
 - Log through `#lib/server/log.js`, not `console`.
 - The catalogue's libraries go in `devDependencies`, so that they are bundled into the build (see the architecture
   guide).
-- Unit tests live in `packages/*/tests/`, mirroring `src/`. Tests of the repository's tooling are in `tests/` at the
+- Unit tests live in `apps/*/tests/` and `packages/*/tests/`, mirroring `src/`. Tests of the repository's tooling are in `tests/` at the
   root.
 
 ## Commit messages

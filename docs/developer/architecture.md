@@ -1,13 +1,15 @@
 # Architecture
 
-The repository is a pnpm workspace of two packages:
+The repository is a pnpm workspace: applications, each released and deployed on its own, under `apps/`, and the
+libraries they share or publish under `packages/`. Each releases from the commits that change it alone, tagged
+`<package name>-v<version>`. Today it holds:
 
-`packages/contract` (`@mondarth/fvtt-package-catalogue-contract`)
+`packages/catalogue-contract` (`@mondarth/fvtt-package-catalogue-contract`)
 : The API's contract: a zod schema, and its type, for every request and response. Published to npm, so that clients
   validate what they receive with the schemas the catalogue validates what it sends with. It depends on zod alone, and
   runs in Node and browsers. Its type tests prove its data is what `@mondarth/fvtt-resolver` reads.
 
-`packages/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
+`apps/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
 : The SvelteKit 3 application, built with `@sveltejs/adapter-node`: the API, the website, and the worker. Released as
   a container image.
 

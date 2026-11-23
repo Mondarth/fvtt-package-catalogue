@@ -91,7 +91,7 @@ describe('docs workflow', () => {
 
 describe('e2e workflow', () => {
   const e2e = read('e2e.yml');
-  const config = readFileSync('packages/catalogue/tests/e2e/playwright.config.ts', 'utf8');
+  const config = readFileSync('apps/catalogue/tests/e2e/playwright.config.ts', 'utf8');
 
   it('runs on pull requests to dev as well as main, and on pushes to dev', () => {
     expect(e2e.on).toMatchObject({ pull_request: { branches: ['dev', 'main'] }, push: { branches: ['dev'] } });
@@ -162,7 +162,7 @@ describe('e2e workflow', () => {
 });
 
 describe.each(['api', 'worker'])("the %s project's end-to-end tests", project => {
-  const dir = `packages/catalogue/tests/e2e/${project}`;
+  const dir = `apps/catalogue/tests/e2e/${project}`;
 
   // Regression: they used the website's fixtures, whose console guard launches a browser, and failed in CI, where the
   // api project installs none; nor does the worker's.
