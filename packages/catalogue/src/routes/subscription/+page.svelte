@@ -5,6 +5,7 @@
 <script lang="ts">
   import { refreshAll } from '$app/navigation';
 
+  import { useDates } from '#lib/dates.js';
   import Callout from '#lib/components/Callout.svelte';
   import RefundDialog from '#lib/components/RefundDialog.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -42,7 +43,7 @@
     payment: m.subscription_source_payment,
   };
 
-  const date = (when: Date) => when.toLocaleDateString(getLocale());
+  const { date } = useDates();
   const { paidUntil, active, patreon: byPatreon } = $derived(data.entitlement);
 
   /** What a refused Patreon action, or link, came to. */

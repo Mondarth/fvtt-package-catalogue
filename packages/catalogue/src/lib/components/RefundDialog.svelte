@@ -5,6 +5,7 @@
   one an admin is to make, the buyer says why: a reason chosen, and, for Other, their own words.
 -->
 <script lang="ts">
+  import { useDates } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import { formatPrice } from '#lib/prices.js';
@@ -44,7 +45,7 @@
   /** The reason chosen. */
   let reason = $state('');
 
-  const date = (when: Date) => when.toLocaleDateString(getLocale());
+  const { date } = useDates();
 </script>
 
 <button type="button" aria-haspopup="dialog" aria-label={label} onclick={() => dialog?.showModal()}

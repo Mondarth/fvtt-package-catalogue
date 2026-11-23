@@ -3,15 +3,16 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { useDates } from '#lib/dates.js';
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
   import { m } from '#lib/paraglide/messages.js';
-  import { getLocale } from '#lib/paraglide/runtime.js';
 
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
   const userLink = (id: string) => resolve('/admin/users/[id]', { id });
+  const { dateTime } = useDates();
 </script>
 
 <svelte:head>
@@ -38,7 +39,7 @@
     <tbody>
       {#each data.entries as entry (entry.id)}
         <tr>
-          <td><time datetime={entry.at.toISOString()}>{entry.at.toLocaleString(getLocale())}</time></td>
+          <td><time datetime={entry.at.toISOString()}>{dateTime(entry.at)}</time></td>
           <td><a href={userLink(entry.actorId)}><code>{entry.actorId}</code></a></td>
           <td>
             {#if entry.asUserId !== null}<a href={userLink(entry.asUserId)}><code>{entry.asUserId}</code></a>{/if}

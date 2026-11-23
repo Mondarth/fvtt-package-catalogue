@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { useDates } from '#lib/dates.js';
   import { BAN_DAYS_MAX, BAN_REASON_MAX } from '#lib/admin.js';
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
   import Callout from '#lib/components/Callout.svelte';
@@ -72,8 +73,7 @@
   };
 
   const user = $derived(data.user);
-  const date = (when: Date) => when.toLocaleDateString(getLocale());
-  const time = (when: Date) => when.toLocaleString(getLocale());
+  const { date, dateTime: time } = useDates();
   // What went wrong, and in which section: a form's problem or refusal, beside its form; or the refusal viewing the
   // site as them came back with, at the top, as its section is not shown for everyone.
   const result = $derived(form as { action?: string; refusal?: string | null; problem?: string } | null);

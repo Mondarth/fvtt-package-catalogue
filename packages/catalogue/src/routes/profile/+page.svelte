@@ -3,10 +3,10 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { useDates } from '#lib/dates.js';
   import Callout from '#lib/components/Callout.svelte';
   import { clientName } from '#lib/device-clients.js';
   import { m } from '#lib/paraglide/messages.js';
-  import { getLocale } from '#lib/paraglide/runtime.js';
   import { providerName } from '#lib/providers.js';
 
   import type { PageProps } from './$types';
@@ -27,7 +27,7 @@
   };
 
   const profile = $derived(data.profile);
-  const date = (when: Date) => when.toLocaleString(getLocale());
+  const { dateTime: date } = useDates();
 
   /** What signed in, by its kind. */
   const kindOf = (kind: string) =>

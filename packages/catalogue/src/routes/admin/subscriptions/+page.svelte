@@ -5,6 +5,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
+  import { useDates } from '#lib/dates.js';
   import Callout from '#lib/components/Callout.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -23,7 +24,7 @@
     patreon: m.admin_done_patreon,
   };
 
-  const date = (when: Date) => when.toLocaleDateString(getLocale());
+  const { date } = useDates();
   const problem = $derived(form !== null && 'problem' in form ? form.problem : undefined);
   const minimum = $derived(
     data.patreonMinimum === undefined || data.patreonMinimum === null
