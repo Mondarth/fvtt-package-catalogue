@@ -161,12 +161,12 @@ export const http = () =>
 export const apiRatePerMinute: number = API_RATE_PER_MINUTE;
 
 /**
- * The accounts, as the API uses them, served in this process: a token is given to Better Auth as the only header, a
- * bearer's, so that no cookie can stand in for it; the session found is its user's, the admin viewing the site as them
- * marked.
+ * The accounts, as the API uses them, served in this process: a token, or the cookies, are given to Better Auth as the
+ * only header, so that neither can stand in for the other; the session found is its user's, the admin viewing the site
+ * as them marked.
  */
 export const apiAccounts: Accounts = localAccounts({
-  sessionOf: token => auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) }),
+  sessionOf: headers => auth.api.getSession({ headers }),
   isAdmin: user => isAdmin(user, adminUserIds),
   entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),
   access,

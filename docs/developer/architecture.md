@@ -14,7 +14,10 @@ libraries they share or publish under `packages/`. Each releases from the commit
   subscription entitles them to, and their use of a service, as an `Accounts` interface with zod schemas for the
   accounts' internal API (`/internal/v1`). The catalogue's API depends on it alone, never on the accounts' tables: today
   `accounts/local.ts` serves it in the catalogue's own process; once the accounts are an application of their own, a
-  client of that internal API takes its place. Versioned and tagged, never published.
+  client of that internal API takes its place. `/server` serves the internal API from an `Accounts`, as a handler of
+  web `Request`s, every endpoint a POST of JSON with the caller's key in `X-Internal-Key`; `/client` is
+  `httpAccounts`, an `Accounts` asking it, who and what kept a minute, failures thrown as `AccountsUnavailable`.
+  Versioned and tagged, never published.
 
 `packages/ui` (`@mondarth/ui`, private)
 : The Svelte pieces every Mondarth application shares, so that each looks and reads as one with the others: the logo,

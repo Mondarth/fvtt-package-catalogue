@@ -239,6 +239,7 @@ describe('who may call what', () => {
     const userOf = vi.fn<Accounts['userOf']>(token => Promise.resolve(found[token]));
     return {
       userOf,
+      userOfSession: vi.fn<Accounts['userOfSession']>(() => Promise.resolve(undefined)),
       used: vi.fn<Accounts['used']>(() => Promise.resolve()),
       entitlement: (user: ApiUser) =>
         Promise.resolve(
