@@ -98,14 +98,13 @@ describe("Better Auth's accounts, with Patreon", () => {
     db.insert(patreonMemberships).values({ userId: 'ada', askedAt: new Date(), checkedAt: new Date() });
   const kept = async () => (await db.select().from(patreonMemberships)).length;
 
-  it('links accounts only as a user asks, whatever their email, Patreon trusted to say whose', async () => {
-    const { options } = await auth.$context;
-    expect(options.account.accountLinking).toEqual({
-      enabled: true,
-      disableImplicitLinking: true,
-      allowDifferentEmails: true,
-      trustedProviders: ['patreon'],
-    });
+  // Regression: implicit linking was off, so signing in with Google or Discord by the email of a profile made with
+  // GitHub was refused as account_not_linked.
+  it('links a provider by an email address both have verified, or as a user asks, whatever its address', async () => {
+    const { options, trustedProviders } = await auth.$context;
+    expect(options.account.accountLinking).toEqual({ enabled: true, allowDifferentEmails: true });
+    // None is trusted without its word that the address is verified.
+    expect(trustedProviders).toEqual([]);
   });
 
   it('forgets what Patreon said as a Patreon account is linked, and unlinked', async () => {

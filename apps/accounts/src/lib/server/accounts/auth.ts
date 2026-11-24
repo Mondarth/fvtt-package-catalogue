@@ -15,7 +15,7 @@ import { bearer } from 'better-auth/plugins/bearer';
 import { deviceAuthorization } from 'better-auth/plugins/device-authorization';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
-import { forgetPatreonOf, PATREON, PATREON_SCOPES, PATREON_URL, patreonUrl } from '../subscriptions/patreon.js';
+import { forgetPatreonOf, PATREON_SCOPES, PATREON_URL, patreonUrl } from '../subscriptions/patreon.js';
 
 import { eq } from 'drizzle-orm';
 
@@ -254,13 +254,14 @@ export function createAuth(options: AuthOptions) {
     },
     account: {
       encryptOAuthTokens: true,
-      // A user's providers are linked only as they ask, from their profile or subscription, never because two share an
-      // email address: a Patreon account may be linked whatever its address, and Patreon is trusted to say whose it is.
+      // Signing in with another provider, by an email address a profile has, signs in to that profile and links the
+      // provider to it, where both have verified the address: Better Auth asks the provider's word on it (Google's,
+      // Discord's, GitHub's for a verified address, Patreon's `is_email_verified`), and the profile's. No provider is
+      // trusted without it, so that no one can take a profile by an address they never proved. A provider is linked
+      // as asked, too, from the Subscription page, as Patreon is, whatever its address, but verified.
       accountLinking: {
         enabled: true,
-        disableImplicitLinking: true,
         allowDifferentEmails: true,
-        trustedProviders: [PATREON],
       },
     },
     databaseHooks: {
