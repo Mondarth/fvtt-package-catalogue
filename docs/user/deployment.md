@@ -389,13 +389,15 @@ release that moved them, they are the accounts', in theirs. Moving a deployment 
 3. Bring `deploy/compose.yaml` and `deploy/copy-accounts.sh` up to the release's tag, and set the new variables in
    `.env`: `ACCOUNTS_POSTGRES_PASSWORD`, `ACCOUNTS_SITE_URL`, `COOKIE_DOMAIN` and `CATALOGUE_ACCOUNTS_KEY`. Keep
    `AUTH_SECRET` and the providers' ids and secrets as they were: they are the accounts' now.
-4. Stop the catalogue's server, so that no one signs in while the copy is made, and make the accounts' database:
+4. Stop the catalogue's server, so that no one signs in while the copy is made. Bring the catalogue's database up to
+   the release, so that it has every table the copy reads, then make the accounts':
 
    ```shell
    docker compose stop app
    docker compose pull
    docker compose up -d db accounts-db
-   docker compose run --rm accounts-migrate
+   docker compose run --rm migrate            # the catalogue's: its last account and payment tables
+   docker compose run --rm accounts-migrate   # the accounts' schema, empty
    ```
 
 5. Copy the accounts' data across, which it checks table by table:

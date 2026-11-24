@@ -6,6 +6,7 @@
 #
 #   cd deploy
 #   docker compose up -d db accounts-db
+#   docker compose run --rm migrate              # the catalogue's, up to the release: every table copied is there
 #   docker compose run --rm accounts-migrate     # the accounts' schema, empty
 #   ./copy-accounts.sh
 #   docker compose up -d
