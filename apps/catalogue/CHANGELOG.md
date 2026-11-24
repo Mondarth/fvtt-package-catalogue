@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-v0.12.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.11.0...@mondarth/fvtt-package-catalogue-v0.12.0) (2026-11-24)
+
+### Features
+
+* **accounts:** move signing in, profiles and payments to the accounts ([4052244](https://github.com/Mondarth/fvtt-package-catalogue/commit/405224409398b6d5a2e6b242f27031748b6e3a39))
+* **accounts:** serve the accounts' internal API, and a client of it ([8d30e37](https://github.com/Mondarth/fvtt-package-catalogue/commit/8d30e37a1211f95537abeb399ff20f4276e50f55))
+
 ## [@mondarth/fvtt-package-catalogue-v0.11.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.10.1...@mondarth/fvtt-package-catalogue-v0.11.0) (2026-11-21)
 
 ### Features
