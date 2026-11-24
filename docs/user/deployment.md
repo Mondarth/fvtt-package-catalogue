@@ -374,10 +374,22 @@ Up to catalogue 0.11, signing in, profiles, subscriptions and payments were the 
 release that moved them, they are the accounts', in theirs. Moving a deployment over is done once:
 
 1. Register the accounts' subdomain with SWAG, and copy its configuration (see [Setting up](#setting-up), step 3).
-2. Bring `deploy/compose.yaml` and `deploy/copy-accounts.sh` up to the release's tag, and set the new variables in
+2. Before the accounts start, give each sign-in provider the accounts' callback URL,
+   `ACCOUNTS_SITE_URL/auth/callback/<provider>` (see [Signing in](#signing-in)). The accounts begin every sign-in, and
+   ask the provider to send the visitor back to their own address; a provider refuses an address its app does not
+   list, before anything reaches the catalogue, so the catalogue's redirects cannot stand in for it:
+
+   - Google, Discord and Patreon take several redirect URLs: add the accounts' beside the catalogue's now, and remove
+     the catalogue's once the move is done.
+   - A GitHub OAuth App takes one callback URL. Change it to the accounts' as you start them (step 6), which breaks
+     signing in with GitHub until they are up; or, to have no gap, register a second OAuth App for the accounts
+     beforehand, and put its client id and secret in `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`. Someone who signed in
+     with GitHub keeps their profile either way: it is found by their GitHub account, which is the same.
+
+3. Bring `deploy/compose.yaml` and `deploy/copy-accounts.sh` up to the release's tag, and set the new variables in
    `.env`: `ACCOUNTS_POSTGRES_PASSWORD`, `ACCOUNTS_SITE_URL`, `COOKIE_DOMAIN` and `CATALOGUE_ACCOUNTS_KEY`. Keep
    `AUTH_SECRET` and the providers' ids and secrets as they were: they are the accounts' now.
-3. Stop the catalogue's server, so that no one signs in while the copy is made, and make the accounts' database:
+4. Stop the catalogue's server, so that no one signs in while the copy is made, and make the accounts' database:
 
    ```shell
    docker compose stop app
@@ -386,7 +398,7 @@ release that moved them, they are the accounts', in theirs. Moving a deployment 
    docker compose run --rm accounts-migrate
    ```
 
-4. Copy the accounts' data across, which it checks table by table:
+5. Copy the accounts' data across, which it checks table by table:
 
    ```shell
    ./copy-accounts.sh       # "The copy matches."
@@ -394,14 +406,15 @@ release that moved them, they are the accounts', in theirs. Moving a deployment 
 
    User ids, sessions and tokens are kept: no one signs up again, and devices such as EMMA's browser extension stay
    signed in.
-5. Start everything: `docker compose up -d`.
-6. At each provider, change the app's callback URL to `ACCOUNTS_SITE_URL/auth/callback/<provider>` (see
-   [Signing in](#signing-in)), and at Stripe, the webhook endpoint's URL to `ACCOUNTS_SITE_URL/webhooks/stripe`.
+6. Start everything: `docker compose up -d`.
+7. At Stripe, change the webhook endpoint's URL to `ACCOUNTS_SITE_URL/webhooks/stripe`, whenever is convenient: the
+   catalogue passes Stripe's events on until then.
 
-Until then, and while clients catch up, the catalogue sends what moved on: a page, such as `/profile`, and a provider's
-callback still registered at the catalogue, are redirected to the accounts; Stripe's webhook, and the two endpoints EMMA's
-browser extension signs in with, are passed on to them. The catalogue's own copies of the accounts' tables stay, unread,
-until a later release drops them.
+While clients catch up, the catalogue sends what moved on. A page, such as `/profile`, and any of Better Auth's
+endpoints under `/auth`, are redirected to the accounts, which serves bookmarks, links and a sign-in begun at the
+catalogue before the move. Stripe's webhook, and the two endpoints EMMA's browser extension signs in with, which follow
+no redirect, are passed on to them. A later release retires all of it, once Stripe and the extension call the accounts
+themselves, and drops the catalogue's own copies of the accounts' tables, which stay, unread, until then.
 
 ## Rotating an API key
 

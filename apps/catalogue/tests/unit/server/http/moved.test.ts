@@ -52,7 +52,7 @@ describe('what moved to the accounts', () => {
     const form = await run('/sign-in/github', { method: 'POST', body: 'next=%2F' }).response;
     expect(form.status).toBe(307);
     expect(form.headers.get('location')).toBe(`${SITE}/sign-in/github`);
-    // A provider's callback still registered at the catalogue, with its state.
+    // The callback of a sign-in begun at the catalogue before the move, with its state.
     const callback = await run('/auth/callback/github?code=c&state=s').response;
     expect(callback.headers.get('location')).toBe(`${SITE}/auth/callback/github?code=c&state=s`);
     expect(resolve).not.toHaveBeenCalled();

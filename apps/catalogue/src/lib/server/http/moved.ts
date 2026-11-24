@@ -4,8 +4,9 @@
  *
  * Their old addresses go on working while what calls them catches up:
  *
- * - a page, and any of Better Auth's endpoints (`/auth/*`), such as a provider's callback still registered at the
- *   catalogue, is redirected to the same path at the accounts, keeping its method and body (307 or 308);
+ * - a page, and any of Better Auth's endpoints (`/auth/*`), such as the callback of a sign-in begun at the catalogue
+ *   before the move, is redirected to the same path at the accounts, keeping its method and body (307 or 308). A
+ *   sign-in begun at the accounts names their own callback to the provider, which must list it;
  * - what follows no redirect is passed on to the accounts, on the deployment's own network, and their answer given
  *   back: Stripe's webhook, which Stripe posts once, and the two endpoints a device signing in calls, which EMMA's
  *   browser extension posts from its own origin, with the CORS that lets it, until it signs in at the accounts.
