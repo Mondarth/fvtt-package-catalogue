@@ -254,13 +254,16 @@ export function createAuth(options: AuthOptions) {
     },
     account: {
       encryptOAuthTokens: true,
-      // Signing in with another provider, by an email address a profile has, signs in to that profile and links the
-      // provider to it, where both have verified the address: Better Auth asks the provider's word on it (Google's,
-      // Discord's, GitHub's for a verified address, Patreon's `is_email_verified`), and the profile's. No provider is
-      // trusted without it, so that no one can take a profile by an address they never proved. A provider is linked
-      // as asked, too, from the Subscription page, as Patreon is, whatever its address, but verified.
       accountLinking: {
+        // Signing in: a provider not yet linked is linked to the profile with the very address it gives, where the
+        // provider has verified it (Google's word, Discord's and GitHub's for a verified address, Patreon's
+        // `is_email_verified`) and the profile has too; otherwise it is refused (`account_not_linked`). A different
+        // address finds no profile, and makes one of its own. No provider is trusted without its word, so that no one
+        // can take a profile by an address they never proved.
         enabled: true,
+        // Linking while signed in alone, as from the Subscription page for Patreon (`/auth/link-social` and its
+        // callback): the provider may give another address than the profile's, so long as it has verified it. It
+        // needs the profile's own session, so it links nothing to anyone else's, and plays no part in signing in.
         allowDifferentEmails: true,
       },
     },
