@@ -13,7 +13,9 @@
  * - `GET /oauth2/authorize` and `POST /api/oauth2/token`, as above, its token `ptoken-<name>`;
  * - `GET /api/oauth2/v2/identity` says who the token is for, `<name>`, and, asked for memberships, their membership
  *   of Mondarth's campaign (`e2e-campaign`), as `GET /patreon/<name>?status=…&cents=…` set it; none until then;
- * - `GET /patreon-down/<name>` has the identity endpoint answer 503 for `<name>`, until their pledge is set again.
+ * - `GET /patreon-down/<name>` has the identity endpoint answer 503 for `<name>`, until their pledge is set again;
+ * - `GET /patreon-email/<name>?email=…&verified=…` sets the email address it gives for `<name>`, and whether Patreon
+ *   has verified it: `<name>@patreon.test`, verified, until then.
  *
  * Run by Playwright beside the server (playwright.config.ts). Plain Node, its types stripped as it runs.
  */
@@ -24,6 +26,9 @@ const port = Number(process.env.FAKE_PROVIDER_PORT ?? 4174);
 
 /** Who each code given out signs in as, until it is traded. */
 const codes = new Map<string, string>();
+
+/** The email address each patron's identity gives, and whether it is verified, as `/patreon-email/<name>` set it. */
+const patreonEmails = new Map<string, { readonly email: string; readonly verified: boolean }>();
 
 /** Mondarth's Patreon campaign, as the server is told of it (`PATREON_CAMPAIGN_ID`). */
 const CAMPAIGN = 'e2e-campaign';
@@ -66,6 +71,15 @@ const server = createServer((request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname.startsWith('/patreon-email/')) {
+    patreonEmails.set(decodeURIComponent(url.pathname.slice('/patreon-email/'.length)), {
+      email: url.searchParams.get('email') ?? '',
+      verified: url.searchParams.get('verified') !== 'false',
+    });
+    reply(200, { ok: true });
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname.startsWith('/patreon-down/')) {
     pledges.set(decodeURIComponent(url.pathname.slice('/patreon-down/'.length)), 'down');
     reply(200, { ok: true });
@@ -89,7 +103,11 @@ const server = createServer((request, response) => {
       data: {
         id: user,
         type: 'user',
-        attributes: { email: `${user}@patreon.test`, full_name: `Patron ${user}`, is_email_verified: true },
+        attributes: {
+          email: patreonEmails.get(user)?.email ?? `${user}@patreon.test`,
+          full_name: `Patron ${user}`,
+          is_email_verified: patreonEmails.get(user)?.verified ?? true,
+        },
       },
       included:
         memberships && pledge !== undefined
