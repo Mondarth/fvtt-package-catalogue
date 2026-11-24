@@ -1,4 +1,5 @@
-# A throwaway PostgreSQL for the end-to-end tests (`pnpm e2e:db`). Its data lives in memory and goes with it.
+# Throwaway PostgreSQL for the end-to-end tests (`pnpm e2e:db`): the catalogue's, and the accounts', which the tests
+# serve beside the catalogue. Their data lives in memory and goes with them.
 name: fvtt-package-catalogue-e2e
 
 services:
@@ -14,6 +15,21 @@ services:
       - /var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U catalogue -d catalogue_e2e']
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  accounts-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: accounts
+      POSTGRES_PASSWORD: accounts
+      POSTGRES_DB: accounts_e2e
+    ports:
+      - '127.0.0.1:${E2E_ACCOUNTS_DB_PORT:-55436}:5432'
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U accounts -d accounts_e2e']
       interval: 1s
       timeout: 3s
       retries: 60

@@ -1,21 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  AdminUserIds,
+  AccountsKey,
+  AccountsSiteUrl,
+  AccountsUrl,
   ApiKeys,
   ApiRatePerMinute,
-  AuthSecret,
   DatabaseUrl,
   LogLevel,
-  ProviderCredential,
   readConfig,
-  SiteUrl,
-  StripeApiUrl,
-  StripeCurrency,
-  StripeSecretKey,
-  StripeTaxCode,
-  StripeWebhookSecret,
-  TestProviderUrl,
 } from '../../../src/lib/server/config.js';
 
 const DATABASE_URL = 'postgres://catalogue:secret@db:5432/catalogue';
@@ -27,14 +20,6 @@ describe('DatabaseUrl', () => {
 
   it.each(['mysql://localhost/catalogue', 'catalogue'])('rejects %s', url => {
     expect(DatabaseUrl.safeParse(url).success).toBe(false);
-  });
-});
-
-describe('AdminUserIds', () => {
-  it('reads the ids separated by commas, and none when unset or empty', () => {
-    expect(AdminUserIds.parse(' u1, u2 ,,u3 ')).toEqual(['u1', 'u2', 'u3']);
-    expect(AdminUserIds.parse('')).toEqual([]);
-    expect(AdminUserIds.parse(undefined)).toEqual([]);
   });
 });
 
@@ -71,52 +56,17 @@ describe('ApiRatePerMinute', () => {
   });
 });
 
-describe('AuthSecret', () => {
-  it('takes a secret of 32 characters or more, and nothing shorter', () => {
-    expect(AuthSecret.parse('x'.repeat(32))).toBe('x'.repeat(32));
-    expect(AuthSecret.safeParse('x'.repeat(31)).success).toBe(false);
-  });
-});
-
-describe('SiteUrl', () => {
-  it('takes an http or https address, without a trailing slash', () => {
-    expect(SiteUrl.parse('https://catalogue.example.org/')).toBe('https://catalogue.example.org');
-    expect(SiteUrl.parse('http://127.0.0.1:4173')).toBe('http://127.0.0.1:4173');
-    expect(SiteUrl.safeParse('ftp://catalogue.example.org').success).toBe(false);
-  });
-});
-
-describe('the sign-in providers', () => {
-  it('take an empty value, or none, as a provider not set up', () => {
-    expect(ProviderCredential.parse('')).toBeUndefined();
-    expect(ProviderCredential.parse(undefined)).toBeUndefined();
-    expect(ProviderCredential.parse('id')).toBe('id');
-    expect(TestProviderUrl.parse('')).toBeUndefined();
-    expect(TestProviderUrl.parse('http://127.0.0.1:4174')).toBe('http://127.0.0.1:4174');
-    expect(TestProviderUrl.safeParse('not a url').success).toBe(false);
-  });
-});
-
-describe('Stripe', () => {
-  it("is set up by a secret or restricted key, a sandbox's or a live one, with its webhook secret", () => {
-    expect(StripeSecretKey.parse('')).toBeUndefined();
-    expect(StripeSecretKey.parse('rk_test_abc123')).toBe('rk_test_abc123');
-    expect(StripeSecretKey.parse('sk_live_abc123')).toBe('sk_live_abc123');
-    expect(StripeSecretKey.safeParse('pk_live_abc123').success).toBe(false);
-    expect(StripeWebhookSecret.parse(undefined)).toBeUndefined();
-    expect(StripeWebhookSecret.parse('whsec_abc')).toBe('whsec_abc');
-    expect(StripeWebhookSecret.safeParse('abc').success).toBe(false);
+describe('the accounts', () => {
+  it("are reached at an address, on the deployment's network and as visitors reach them, without a trailing slash", () => {
+    expect(AccountsUrl.parse('http://accounts:3000/')).toBe('http://accounts:3000');
+    expect(AccountsSiteUrl.parse('https://accounts.example.org/')).toBe('https://accounts.example.org');
+    expect(AccountsUrl.safeParse('accounts:3000').success).toBe(false);
+    expect(AccountsSiteUrl.safeParse('ftp://accounts.example.org').success).toBe(false);
   });
 
-  it('puts the tax code for software as a service on its Products, and sells in pounds, unless told otherwise', () => {
-    expect(StripeTaxCode.parse('')).toBe('txcd_10103000');
-    expect(StripeTaxCode.parse('txcd_10000000')).toBe('txcd_10000000');
-    expect(StripeTaxCode.safeParse('10103000').success).toBe(false);
-    expect(StripeCurrency.parse(undefined)).toBe('GBP');
-    expect(StripeCurrency.parse('eur')).toBe('EUR');
-    expect(StripeCurrency.safeParse('pounds').success).toBe(false);
-    expect(StripeApiUrl.parse('')).toBeUndefined();
-    expect(StripeApiUrl.parse('http://127.0.0.1:4175')).toBe('http://127.0.0.1:4175');
+  it('are asked with a key of 32 characters or more', () => {
+    expect(AccountsKey.parse('k'.repeat(32))).toBe('k'.repeat(32));
+    expect(AccountsKey.safeParse('k'.repeat(31)).success).toBe(false);
   });
 });
 

@@ -242,8 +242,11 @@ export const syncRuns = pgTable('sync_runs', {
   error: text(),
 });
 
-/** The accounts' tables, kept in a module of their own (see accounts/schema.ts). */
-export * from '../accounts/schema.js';
-
-/** Subscriptions' tables, kept in a module of their own (see subscriptions/schema.ts). */
-export * from '../subscriptions/schema.js';
+/**
+ * The accounts' and subscriptions' tables, as they were before they moved to the accounts' own database
+ * (apps/accounts). Nothing in the catalogue reads them now. They stay declared, frozen, so that drizzle-kit writes no
+ * migration dropping them before the deployment has copied them to the accounts and checked the copy: a later
+ * release drops them, with these files.
+ */
+export * from './legacy/accounts-schema.js';
+export * from './legacy/subscriptions-schema.js';

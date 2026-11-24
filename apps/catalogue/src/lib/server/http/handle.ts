@@ -1,7 +1,6 @@
 /**
  * The server's request handling, before any route: request ids, logging, CORS, and who is asking the API, by its key or
- * its user's token, what they may reach (see `access.ts`), and how often. A device signing in, such as EMMA's browser
- * extension, is let call the two endpoints it needs from any origin too (see {@link DEVICE_CORS_PATHS}).
+ * its user's token, what they may reach (see `access.ts`), and how often.
  */
 import {
   API_KEY_HEADER,
@@ -14,8 +13,6 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import type { Accounts, AccountUser, Entitlement } from '@mondarth/accounts-contract';
 import type { ErrorCode } from '@mondarth/fvtt-package-catalogue-contract';
 
-import { AUTH_PATH } from '../accounts/auth.js';
-import { DEVICE_CODE_PATH, DEVICE_TOKEN_PATH } from '../accounts/device.js';
 import { bearerToken, keyReaches } from './access.js';
 import { keyMatcher } from './auth.js';
 import { addressOf } from './address.js';
@@ -69,24 +66,6 @@ export const CORS_HEADERS: Readonly<Record<string, string>> = {
   // A client may revalidate what it keeps, such as the listing, by its ETag.
   'Access-Control-Allow-Headers': `${API_KEY_HEADER}, ${AUTHORIZATION_HEADER}, ${CLIENT_HEADER}, Content-Type, If-None-Match`,
   'Access-Control-Expose-Headers': 'ETag',
-  'Access-Control-Max-Age': '86400',
-};
-
-/**
- * The endpoints a device signing in calls, which any origin may call: a browser extension's background script asks from
- * its own origin. Neither takes the website's cookie: a device asks for its codes, then polls for its token, with the
- * device code alone. Better Auth checks the origin of any request that does send a cookie.
- */
-export const DEVICE_CORS_PATHS: ReadonlySet<string> = new Set([
-  `${AUTH_PATH}${DEVICE_CODE_PATH}`,
-  `${AUTH_PATH}${DEVICE_TOKEN_PATH}`,
-]);
-
-/** The CORS headers of a device's endpoints: posts of JSON, and no credentials, as `*` allows none. */
-export const DEVICE_CORS_HEADERS: Readonly<Record<string, string>> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -195,15 +174,11 @@ export function createHandle({
     event.locals.log = log.child({ requestId: id });
     event.locals.http = http;
     event.locals.fetchGiven = fetchGiven;
+    if (accounts !== undefined) event.locals.accounts = accounts;
 
     const { pathname } = event.url;
     let response: Response;
-    if (DEVICE_CORS_PATHS.has(pathname)) {
-      response =
-        event.request.method === 'OPTIONS'
-          ? withCors(new Response(null, { status: 204 }), DEVICE_CORS_HEADERS)
-          : withCors(await resolve(event), DEVICE_CORS_HEADERS);
-    } else if (!isApiPath(pathname)) {
+    if (!isApiPath(pathname)) {
       response = await resolve(event);
     } else if (event.request.method === 'OPTIONS') {
       // The CORS preflight carries no key.

@@ -5,7 +5,8 @@
   import { resolve } from '$app/paths';
   import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
-  import { setDateLocale } from '@mondarth/ui/dates';
+  import TopBar from '#lib/components/TopBar.svelte';
+  import { setDateLocale } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
 
   import type { LayoutProps } from './$types';
@@ -23,8 +24,22 @@
 
 <header>
   <a class="home" href={resolve('/')}><Logo height="2rem" alt={m.home_link()} /></a>
-  <LanguagePicker />
+  {#if data.signedIn === null}
+    <LanguagePicker />
+  {:else}
+    <TopBar name={data.signedIn.name} admin={data.signedIn.admin} />
+  {/if}
 </header>
+
+{#if data.signedIn?.impersonated === true}
+  <!-- On every page while an admin views the site as someone, so that it is never forgotten. -->
+  <div class="impersonating" role="status">
+    <span>{m.impersonation_banner({ name: data.signedIn.name })}</span>
+    <form method="POST" action="/impersonation/stop">
+      <button type="submit">{m.impersonation_stop()}</button>
+    </form>
+  </div>
+{/if}
 
 <main>
   <MachineTranslationNotice />
@@ -47,7 +62,36 @@
     padding-block: 1rem 0;
   }
 
+  .home {
+    flex: none;
+  }
+
+  header > :global(nav) {
+    flex: 1;
+  }
+
   main {
     padding-block: 1rem 2rem;
+  }
+
+  .impersonating {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .impersonating form {
+    margin: 0;
+  }
+
+  .impersonating button {
+    padding: 0.2rem 0.8rem;
+    font: inherit;
+    cursor: pointer;
   }
 </style>

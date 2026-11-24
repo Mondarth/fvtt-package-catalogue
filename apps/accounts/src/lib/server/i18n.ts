@@ -7,16 +7,7 @@ import type { Handle } from '@sveltejs/kit/hooks';
 
 import { getTextDirection } from '../paraglide/runtime.js';
 import { paraglideMiddleware } from '../paraglide/server.js';
-
-/**
- * Whether a path is one of the website's pages, rather than the internal API's or the health check.
- *
- * @param pathname - The request's path
- * @returns Whether it is
- */
-export function isSitePath(pathname: string): boolean {
-  return pathname !== '/healthz' && pathname !== '/internal' && !pathname.startsWith('/internal/');
-}
+import { isSitePath } from './http/paths.js';
 
 /** The `handle` hook that localises the website. */
 export const handleI18n: Handle = ({ event, resolve }) => {

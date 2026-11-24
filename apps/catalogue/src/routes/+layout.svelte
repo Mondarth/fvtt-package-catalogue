@@ -6,15 +6,11 @@
   import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
-  import { setDateLocale } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
 
   import type { LayoutProps } from './$types';
 
   let { children, data }: LayoutProps = $props();
-
-  // Every date below is written as the reader writes them.
-  setDateLocale(() => data.dateLocale);
 </script>
 
 <svelte:head>
@@ -27,17 +23,15 @@
   {#if data.signedIn === null}
     <LanguagePicker />
   {:else}
-    <TopBar name={data.signedIn.name} admin={data.signedIn.admin} />
+    <TopBar name={data.signedIn.name} admin={data.signedIn.admin} accounts={data.accountsSite} />
   {/if}
 </header>
 
 {#if data.signedIn?.impersonated === true}
-  <!-- On every page while an admin views the site as someone, so that it is never forgotten. -->
+  <!-- On every page while an admin views the site as someone, so that it is never forgotten: stopped at the accounts. -->
   <div class="impersonating" role="status">
     <span>{m.impersonation_banner({ name: data.signedIn.name })}</span>
-    <form method="POST" action="/impersonation/stop">
-      <button type="submit">{m.impersonation_stop()}</button>
-    </form>
+    <a href={data.accountsSite} rel="external">{m.impersonation_stop_at_accounts()}</a>
   </div>
 {/if}
 
@@ -85,13 +79,7 @@
     color: var(--bg);
   }
 
-  .impersonating form {
-    margin: 0;
-  }
-
-  .impersonating button {
-    padding: 0.2rem 0.8rem;
-    font: inherit;
-    cursor: pointer;
+  .impersonating a {
+    color: inherit;
   }
 </style>

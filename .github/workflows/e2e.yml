@@ -38,14 +38,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
 
-      # SvelteKit validates the environment when it analyses the build; the tests run the server with their own.
+      # SvelteKit validates the environment when it analyses the build; the tests run the servers with their own. The
+      # accounts are built too: the tests serve them beside the catalogue.
       - name: Build
-        run: pnpm build
+        run: pnpm build && pnpm --filter @mondarth/accounts build
         env:
           DATABASE_URL: postgres://build:build@localhost:5432/build
           API_KEYS: build-only
           AUTH_SECRET: build-only-placeholder-not-a-secret-0000
           SITE_URL: http://build.invalid
+          INTERNAL_API_KEYS: build-only-placeholder-not-a-key-000000
+          ACCOUNTS_URL: http://build.invalid
+          ACCOUNTS_SITE_URL: http://build.invalid
+          ACCOUNTS_KEY: build-only-placeholder-not-a-key-000000
 
       - name: Cache Playwright browsers
         if: matrix.project != 'api' && matrix.project != 'worker'
@@ -108,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [chromium, firefox, webkit]
+        project: [internal, chromium, firefox, webkit]
     defaults:
       run:
         working-directory: apps/accounts
@@ -118,8 +123,14 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          AUTH_SECRET: build-only-placeholder-not-a-secret-0000
+          SITE_URL: http://build.invalid
+          INTERNAL_API_KEYS: build-only-placeholder-not-a-key-000000
 
       - name: Cache Playwright browsers
+        if: matrix.project != 'internal'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
@@ -127,6 +138,7 @@ jobs:
 
       # As the catalogue's: a stalled install is stopped after five minutes and tried once more.
       - name: Install the browser
+        if: matrix.project != 'internal'
         timeout-minutes: 12
         run: |
           for attempt in 1 2; do
@@ -141,8 +153,19 @@ jobs:
           done
           exit 1
 
+      - name: Start PostgreSQL
+        run: pnpm e2e:db
+
       - name: Run Playwright
         run: pnpm test:e2e --project=${{ matrix.project }}
+
+      - name: PostgreSQL logs
+        if: ${{ failure() }}
+        run: docker compose -f tests/e2e/compose.yaml logs --no-color --tail 200
+
+      - name: Stop PostgreSQL
+        if: ${{ always() }}
+        run: pnpm e2e:db:stop
 
       - name: Upload the Playwright report
         if: ${{ !cancelled() }}
