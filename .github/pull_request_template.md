@@ -12,6 +12,6 @@
 - [ ] Tests added or updated (a bug fix starts with a failing test)
 - [ ] Documentation updated
 - [ ] Website text is in `messages/en.json` and every other locale; a machine translation is marked as such
-- [ ] A change to the API changes the contract (`packages/contract`) first; a breaking one is marked `!`
+- [ ] A change to the API changes the contract (`packages/catalogue-contract`) first; a breaking one is marked `!`
 - [ ] A change to the schema comes with its migration (`pnpm --filter @mondarth/fvtt-package-catalogue db:generate`)
 - [ ] Commit messages follow Conventional Commits, with a scope

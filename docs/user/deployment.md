@@ -1,36 +1,59 @@
 # Deploying it
 
-The catalogue runs as containers: its server, the worker that fills its database, a PostgreSQL database, and a one-shot
-migration that brings the database's schema up to date before the server and the worker start. `deploy/compose.yaml`
-runs all four beside an existing
-[SWAG](https://docs.linuxserver.io/general/swag/) container, which serves the catalogue over HTTPS.
+The catalogue runs as containers beside Mondarth's accounts, each on its own subdomain: the catalogue's server, the
+worker that fills its database, its PostgreSQL database, and a one-shot migration that brings the database's schema up
+to date before the server and the worker start; and the accounts' server (signing in, profiles, subscriptions and
+payments), their own database, and their own one-shot migration. `deploy/compose.yaml` runs them all beside an existing
+[SWAG](https://docs.linuxserver.io/general/swag/) container, which serves both over HTTPS.
 
 ```{mermaid}
 flowchart LR
-    client["EMMA, pdt"] -- HTTPS --> swag["SWAG"]
+    client["EMMA, pdt, browsers"] -- HTTPS --> swag["SWAG"]
     subgraph swagnet ["SWAG's network"]
       swag
       app
+      accounts
     end
-    swag -- "http://fvtt-package-catalogue:3000" --> app["app (server)"]
+    swag -- "http://fvtt-package-catalogue:3000" --> app["app (catalogue)"]
+    swag -- "http://mondarth-accounts:3000" --> accounts["accounts"]
+    subgraph internal ["internal network"]
+      app
+      accounts
+    end
+    app -- "internal API, with its key" --> accounts
     subgraph database ["database network (internal)"]
       app
       migrate["migrate (one-shot)"]
       worker
-      db[(PostgreSQL)]
+      db[(catalogue's PostgreSQL)]
     end
     app --> db
     migrate --> db
     worker --> db
+    subgraph accountsdb ["accounts-database network (internal)"]
+      accounts
+      accountsmigrate["accounts-migrate (one-shot)"]
+      adb[(accounts' PostgreSQL)]
+    end
+    accounts --> adb
+    accountsmigrate --> adb
     subgraph egress ["egress network"]
       worker
+      accounts
     end
     worker -- HTTPS --> web["Foundry VTT, GitHub, GitLab"]
+    accounts -- HTTPS --> providers["sign-in providers, Patreon, Stripe"]
 ```
 
-Only the server joins SWAG's network, and only the worker joins `egress`, the network with a way out, to fetch
-packages. The database is on a network of its own, marked `internal`, so it cannot be reached from SWAG's network and
-has no way out. Nothing is published on the host.
+Only the two servers join SWAG's network. The catalogue asks the accounts who a user's token, or the website's cookie,
+is for, and what they are entitled to, over the accounts' internal API, on a network of the two alone, with its key;
+SWAG never serves the internal API. The worker and the accounts join `egress`, the network with a way out: the worker
+to fetch packages, the accounts to sign visitors in, and to ask Patreon and Stripe. Each database is on a network of its
+own, marked `internal`, so it cannot be reached from SWAG's network and has no way out. Nothing is published on the
+host.
+
+One session cookie, set by the accounts on the domain the two share (`COOKIE_DOMAIN`), signs a visitor in to both: they
+sign in at the accounts, and are sent back to the catalogue.
 
 ## Setting up
 
@@ -41,8 +64,9 @@ has no way out. Nothing is published on the host.
    : The Docker network SWAG is on: see `docker network ls`. With SWAG in its own compose project, it is usually
      `swag_default`.
 
-   `POSTGRES_PASSWORD`
-   : The database's password. It goes into a connection URL, so keep to URL-safe characters: `openssl rand -hex 32`.
+   `POSTGRES_PASSWORD`, `ACCOUNTS_POSTGRES_PASSWORD`
+   : The catalogue's and the accounts' databases' passwords. Each goes into a connection URL, so keep to URL-safe
+     characters: `openssl rand -hex 32`.
 
    `API_KEYS`
    : The keys clients present, separated by commas (`openssl rand -hex 32`). A key listed as `module:<key>` reaches
@@ -54,17 +78,27 @@ has no way out. Nothing is published on the host.
    `API_RATE_PER_MINUTE` (optional)
    : The most API requests one key or user may make in a minute; 300 by default.
 
-   `CATALOGUE_TAG`
-   : The release to run: a version (`0.1.0`), its line (`0.1`, `0`) or `latest`.
-
-   `AUTH_SECRET`
-   : Signs the website's cookies and encrypts what sign-in providers give (`openssl rand -hex 32`). Keep it secret,
-     and keep it the same: changing it signs everyone out, and the providers' tokens already stored can no longer be
-     read.
+   `CATALOGUE_TAG`, `ACCOUNTS_TAG`
+   : The releases to run, each released apart: a version (`0.1.0`), its line (`0.1`, `0`) or `latest`.
 
    `SITE_URL`
-   : The website's address as visitors reach it through SWAG, such as `https://catalogue.example.org`. Sign-in
-     providers send visitors back to it.
+   : The catalogue's address as visitors reach it through SWAG, such as `https://catalogue.example.org`. The accounts
+     send visitors back to it once they have signed in.
+
+   `ACCOUNTS_SITE_URL`
+   : The accounts' address as visitors reach it through SWAG, such as `https://accounts.example.org`. Sign-in providers
+     send visitors back to it, and the catalogue's pages that moved there are sent to it.
+
+   `COOKIE_DOMAIN`
+   : The domain the catalogue and the accounts share, such as `example.org`: the accounts set their session cookie on
+     it, so that signing in to one signs in to both.
+
+   `CATALOGUE_ACCOUNTS_KEY`
+   : The catalogue's key to the accounts' internal API (`openssl rand -hex 32`).
+
+   `AUTH_SECRET`
+   : Signs the accounts' cookies and encrypts what sign-in providers give (`openssl rand -hex 32`). Keep it secret, and
+     keep it the same: changing it signs everyone out, and the providers' tokens already stored can no longer be read.
 
    `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `AUTH_PATREON_ID`, `AUTH_PATREON_SECRET` (optional)
    : Signing in with GitHub, Google, Discord and Patreon (see [Signing in](#signing-in)). Each provider is offered only
@@ -78,7 +112,10 @@ has no way out. Nothing is published on the host.
      packages listed by Foundry VTT still crawl in full, as their manifests are not fetched through the API.
 
 3. Copy `deploy/swag/fvtt-package-catalogue.subdomain.conf.sample` to SWAG's
-   `/config/nginx/proxy-confs/fvtt-package-catalogue.subdomain.conf`, set its `server_name`, and restart SWAG.
+   `/config/nginx/proxy-confs/fvtt-package-catalogue.subdomain.conf`, and
+   `deploy/swag/mondarth-accounts.subdomain.conf.sample` to `mondarth-accounts.subdomain.conf` beside it, set each one's
+   `server_name`, and restart SWAG. The accounts' configuration answers `/internal` with a 404 itself: the internal
+   API is reached on the deployment's own network alone.
 4. Sign in to the GitHub Container Registry, where the image is private, as the user that runs `docker compose` (root,
    with `sudo docker compose`). The token is a **classic** personal access token with the `read:packages` scope alone,
    from an account that can read the package; fine-grained tokens cannot sign in to the registry:
@@ -90,41 +127,43 @@ has no way out. Nothing is published on the host.
    Docker keeps it in that user's `~/.docker/config.json`, only base64-encoded unless a credential helper is set up, so
    keep the file readable by its owner alone (`chmod 600`). When the token expires, the containers running carry on;
    only the next `docker compose pull` is refused (`denied` or `unauthorized`), until you sign in again with a new one.
-5. Start it: `docker compose up -d`. The server starts once `migrate` has exited successfully:
+5. Start it: `docker compose up -d`. The accounts start once `accounts-migrate` has exited successfully, and the
+   catalogue's server once `migrate` has, and the accounts are healthy:
 
    ```shell
-   docker compose ps -a                # migrate: exited (0); app, db: running (healthy); worker: running
+   docker compose ps -a                # migrate, accounts-migrate: exited (0); app, accounts, db, accounts-db: running
    docker compose logs migrate         # "The database is up to date"
    docker compose logs worker          # "The worker started", then each job
    ```
 
 ## Signing in
 
-The website asks visitors to sign in with an account they already have: GitHub, Google, Discord or Patreon. Each
+The accounts ask visitors to sign in with an account they already have: GitHub, Google, Discord or Patreon. Each
 provider is offered only once its app is registered with it and its id and secret are in `.env`. Every app's callback,
-or redirect, URL is `SITE_URL` followed by `/auth/callback/<provider>`; with `SITE_URL=https://catalogue.example.org`,
-GitHub's is `https://catalogue.example.org/auth/callback/github`. After changing `.env`, `docker compose up -d app`.
+or redirect, URL is `ACCOUNTS_SITE_URL` followed by `/auth/callback/<provider>`; with
+`ACCOUNTS_SITE_URL=https://accounts.example.org`, GitHub's is `https://accounts.example.org/auth/callback/github`.
+After changing `.env`, `docker compose up -d accounts`.
 
 GitHub
-: Settings, Developer settings, OAuth Apps, New OAuth App. The homepage URL is `SITE_URL`, and the authorization
-  callback URL is `SITE_URL/auth/callback/github`. Its client id and a client secret go in `AUTH_GITHUB_ID` and
+: Settings, Developer settings, OAuth Apps, New OAuth App. The homepage URL is `ACCOUNTS_SITE_URL`, and the authorization
+  callback URL is `ACCOUNTS_SITE_URL/auth/callback/github`. Its client id and a client secret go in `AUTH_GITHUB_ID` and
   `AUTH_GITHUB_SECRET`.
 
 Google
 : In the Google Cloud console, set up the OAuth consent screen (Google Auth Platform: branding, audience), then, under
   Clients, create an OAuth client ID for a web application. Its authorised redirect URI is
-  `SITE_URL/auth/callback/google`. Its client ID and secret go in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. While the
+  `ACCOUNTS_SITE_URL/auth/callback/google`. Its client ID and secret go in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. While the
   app is in testing, only the test users the consent screen lists can sign in; publish it to let anyone.
 
 Discord
-: In the Developer Portal, create an application, and under OAuth2 add the redirect `SITE_URL/auth/callback/discord`.
+: In the Developer Portal, create an application, and under OAuth2 add the redirect `ACCOUNTS_SITE_URL/auth/callback/discord`.
   Its client ID and client secret go in `AUTH_DISCORD_ID` and `AUTH_DISCORD_SECRET`.
 
 Patreon
 : In Patreon's developer portal (Clients & API Keys), create a client whose redirect URI is
-  `SITE_URL/auth/callback/patreon`. Its client ID and client secret go in `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET`.
-  The catalogue asks a patron for their memberships too (the `identity.memberships` scope), to know whether they
-  pledge to the catalogue's campaign: see [Subscriptions](#subscriptions). Someone signed in with Patreon before it
+  `ACCOUNTS_SITE_URL/auth/callback/patreon`. Its client ID and client secret go in `AUTH_PATREON_ID` and `AUTH_PATREON_SECRET`.
+  The accounts ask a patron for their memberships too (the `identity.memberships` scope), to know whether they
+  pledge to Mondarth's campaign: see [Subscriptions](#subscriptions). Someone signed in with Patreon before it
   asked for them links Patreon again, from their **Subscription** page, when it says so.
 
 A user's providers are linked only as they ask, never because two share an email address: signing in with another
@@ -132,7 +171,7 @@ provider makes a profile of its own. Patreon is linked from the **Subscription**
 Patreon account belongs to one profile alone.
 
 Signing in keeps what the provider gives of the visitor (their name, email address and picture), their sessions, and
-where each session signed in from. The website's "What we store" page (`/privacy`) lays it all out, row by row, and a
+where each session signed in from. The accounts' "What we store" page (`/privacy`) lays it all out, row by row, and a
 visitor can delete their profile, and all of it with it, from their profile page. The sign-in page says what is stored,
 and links to that page, before any provider is chosen.
 
@@ -140,7 +179,7 @@ The API is not signed in to: it keeps its keys.
 
 ## Admins
 
-An admin may, from the website's admin pages (`/admin`, offered in the bar along the top to admins alone, and not
+An admin may, from the accounts' admin pages (`/admin`, offered in the bar along the top to admins alone, and not
 found by anyone else): find users by their user id, nickname, name or email address; set their role, `user` or
 `admin`; ban them, for good or for so many days, with a reason they are shown when they try to sign in; sign them out
 everywhere; view the site as them, for an hour at most, to help with a problem they report; and read the audit log, of
@@ -149,15 +188,15 @@ a banner on every page says so, and nothing an admin does, nor deleting the prof
 
 The first admin is named in `.env`:
 
-1. Sign in to the website once, so that your profile is made.
+1. Sign in to the accounts once, so that your profile is made.
 2. Find its id in the database. It is not the user id the profile page shows (such as `amber-falcon-ridge-42`), which
    is its `handle`:
 
    ```shell
-   docker compose exec db psql -U catalogue -c "select id, handle, email from users"
+   docker compose exec accounts-db psql -U accounts -c "select id, handle, email from users"
    ```
 
-3. Set `ADMIN_USER_IDS` to that id (several, separated by commas), and `docker compose up -d app`.
+3. Set `ADMIN_USER_IDS` to that id (several, separated by commas), and `docker compose up -d accounts`.
 
 An admin so named is an admin whatever their role says, and only `.env` changes it: the admin pages offer no change
 to their role or ban. Any admin can make others admins by role from the admin pages; an admin cannot change their own
@@ -174,9 +213,54 @@ are always entitled to what a subscription gives, subscribed or not.
 Subscriptions are bought by **offers**, made on the admin pages' **Subscriptions** page: a name, a period in months and
 days, a price in each currency (one a line, such as `GBP 30.00`), and, if wanted, the days it is on sale between. An
 offer is never changed once made, so that what was bought by it stays as it was: to change a price or a period, make a
-new offer and retire the old one. The shortest offer on sale is the least that can be bought. Buying is not yet on
-the site: payment providers come later, each through its own hosted checkout, and the catalogue keeps no payment
-details, only the provider's reference for each payment.
+new offer and retire the old one. The shortest offer on sale is the least that can be bought. Payment providers take
+each payment through their own hosted checkout, and the catalogue keeps no payment details, only the provider's
+reference for each payment.
+
+**Stripe.** Offers are sold through Stripe Managed Payments, with Stripe, through Onelink, the merchant of record: it
+works out, charges and pays the tax where each buyer lives, and emails their receipt and invoice. Each purchase is a
+one-off payment for an offer's period; nothing renews. Before a buyer is sent to Stripe's checkout, the
+**Subscription** page asks them, once for every offer, to ask that their time be activated as soon as they pay and to
+agree to the Terms and Conditions (each **Buy** waits for it), and records when they did. Their time is added when Stripe's webhook says the payment succeeded, once however often
+it says so.
+
+- In Stripe's dashboard, with Managed Payments set up: make a restricted key that may write Checkout Sessions,
+  Products, Prices and Refunds, and set it as `STRIPE_SECRET_KEY` (a sandbox's, `rk_test_…`, sells nothing for real).
+- Add a webhook endpoint at `<ACCOUNTS_SITE_URL>/webhooks/stripe` for the events `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`,
+  `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed`,
+  and set its signing secret as `STRIPE_WEBHOOK_SECRET`. Without it the catalogue does not start with a key set.
+- Set a support email address in Stripe's dashboard: Stripe shows it to buyers.
+- `STRIPE_CURRENCY` is the one currency sold in, `GBP` by default; `STRIPE_TAX_CODE` the tax code on each offer's
+  Stripe Product, `txcd_10103000` (software as a service, personal use) by default. Then `docker compose up -d accounts`.
+- An offer made while Stripe is set up, with a price in that currency, is made a Stripe Product and Price, before tax,
+  and sold through Stripe; the **Subscription** page shows its price with "+ applicable tax". An offer made before is
+  not: make a new one. Retiring an offer archives its Stripe Price and Product.
+- A user's admin page links each payment to Stripe's dashboard, which keeps its invoice; a sandbox's are marked.
+- **Refunds.** A buyer can cancel a purchase and ask for a refund on their **Subscription** page at any time. A dialog
+  shows them the refund first: what was paid for the days not yet used, counted from when that purchase's time starts
+  (time bought on to the end of a running subscription has used none of itself yet), and whether it would leave them
+  unsubscribed. They confirm it there, or cancel.
+  - **Within 14 days of buying it**, through Stripe, it is refunded at once: no admin makes it. If Stripe will not
+    refund it then, it is left to an admin, as below.
+  - **Later**, they choose a reason (No longer required, Too expensive, or Other, in their own words), and the request
+    is confirmed on the page. The admin pages' **Subscriptions** page lists the refunds asked for, oldest first, each with
+    its reason, the refund owed now, and a link to make it in Stripe's dashboard.
+  - Once Stripe says a refund is made, by the catalogue, an admin, or Stripe itself (as merchant of record it may refund
+    within 60 days), its share of the purchase's days, rounded down, comes off the end of the subscription, and the
+    request leaves the list. Each is audited, by `stripe`.
+- **Disputes.** A payment disputed with the buyer's bank is listed under **Outstanding disputes** on the admin pages'
+  **Subscriptions** page, the longest open first, with a link to answer it in Stripe's dashboard, and flagged on the
+  user's admin page, while it is decided; it leaves the list, cleared, once won. Its **Evidence** link downloads, as a
+  text file for answering the dispute, everything held of the purchase and its buyer: their consent to the terms,
+  the payment, their sessions, their last session, and their use of the service since the dispute opened.
+- **Fraud prevention.** Each user's latest session is kept after it ends (`last_sessions`, kept by a database trigger
+  and by the catalogue's own sight of each request, from the address `ADDRESS_HEADER` gives). While a payment of
+  theirs is disputed, each request they make, on the website or through the API, is recorded (`access_records`),
+  starting with that last session; every record of them is deleted once none of their disputes is open, whatever its
+  outcome. Both are on the "What we store" page. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
+- The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
+  for real.
 
 **Patreon.** A user who links Patreon, from their **Subscription** page, is subscribed while they are an active
 patron of the catalogue's campaign, pledging at least the least pledge set on the admin pages' **Subscriptions** page.
@@ -184,7 +268,7 @@ It makes no credits: Patreon is asked, with the patron's own token, as they use 
 
 - Set `PATREON_CAMPAIGN_ID` to the campaign's id: Patreon's API gives it
   (`curl -H "Authorization: Bearer <creator's access token>" https://www.patreon.com/api/oauth2/v2/campaigns`, the
-  creator's access token from the client's page in the developer portal), and `docker compose up -d app`.
+  creator's access token from the client's page in the developer portal), and `docker compose up -d accounts`.
 - Set the least pledge, in the campaign's currency, such as `GBP 3.00`. Until it is set, Patreon subscribes no one. It
   counts at once, against what Patreon last said of each patron. The audit log records each change.
 - Patreon's answer is kept a day, then asked again; a patron can ask again at once from their **Subscription** page.
@@ -231,7 +315,7 @@ The worker has no health check: the image's asks the server, which only `app` ru
 
 Some packages' sources mislead the catalogue: a listing may give every version the manifest URL of the newest, so the
 older versions cannot be loaded, or a source may list a test build as a release. What the catalogue is told of such
-packages is kept in `packages/catalogue/overrides.json`, which the image ships and changes, like code, by a pull
+packages is kept in `apps/catalogue/overrides.json`, which the image ships and changes, like code, by a pull
 request. Each entry is keyed by the package (`module:<id>` or `system:<id>`) and must say why it is needed:
 
 ```json
@@ -274,8 +358,8 @@ to its path. Removing an override does not crawl its package again: it takes eff
 
 ## Upgrading
 
-Set `CATALOGUE_TAG`, then `docker compose pull && docker compose up -d`. The migration runs again first; it applies only
-what the database does not have yet. If the pull is refused, the registry's token has expired: sign in again (see
+Set `CATALOGUE_TAG`, or `ACCOUNTS_TAG`, then `docker compose pull && docker compose up -d`. Each migration runs again
+first; it applies only what its database does not have yet. If the pull is refused, the registry's token has expired: sign in again (see
 [Setting up](#setting-up)).
 
 An upgrade does not crawl the packages held again, except those with overrides: each waits for its next refresh. When
@@ -283,6 +367,56 @@ the release notes say a release crawls differently, run `recrawl` (see [the work
 does: with resolver 0.9, premium packages' versions get a manifest URL of their own, such as Epic Rolls 5e 6.1.0's.
 So does the release with resolver 0.9.1, which reads tags such as Pathfinder's `pf2e-8.6.1` as `8.6.1`: a recrawl saves
 those versions afresh, and removes the ones an older resolver misread, such as `2e-8.6.1`, which could never be loaded.
+
+## Moving the accounts out of the catalogue
+
+Up to catalogue 0.11, signing in, profiles, subscriptions and payments were the catalogue's, in its database. From the
+release that moved them, they are the accounts', in theirs. Moving a deployment over is done once:
+
+1. Register the accounts' subdomain with SWAG, and copy its configuration (see [Setting up](#setting-up), step 3).
+2. Before the accounts start, give each sign-in provider the accounts' callback URL,
+   `ACCOUNTS_SITE_URL/auth/callback/<provider>` (see [Signing in](#signing-in)). The accounts begin every sign-in, and
+   ask the provider to send the visitor back to their own address; a provider refuses an address its app does not
+   list, before anything reaches the catalogue, so the catalogue's redirects cannot stand in for it:
+
+   - Google, Discord and Patreon take several redirect URLs: add the accounts' beside the catalogue's now, and remove
+     the catalogue's once the move is done.
+   - A GitHub OAuth App takes one callback URL. Change it to the accounts' as you start them (step 6), which breaks
+     signing in with GitHub until they are up; or, to have no gap, register a second OAuth App for the accounts
+     beforehand, and put its client id and secret in `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`. Someone who signed in
+     with GitHub keeps their profile either way: it is found by their GitHub account, which is the same.
+
+3. Bring `deploy/compose.yaml` and `deploy/copy-accounts.sh` up to the release's tag, and set the new variables in
+   `.env`: `ACCOUNTS_POSTGRES_PASSWORD`, `ACCOUNTS_SITE_URL`, `COOKIE_DOMAIN` and `CATALOGUE_ACCOUNTS_KEY`. Keep
+   `AUTH_SECRET` and the providers' ids and secrets as they were: they are the accounts' now.
+4. Stop the catalogue's server, so that no one signs in while the copy is made. Bring the catalogue's database up to
+   the release, so that it has every table the copy reads, then make the accounts':
+
+   ```shell
+   docker compose stop app
+   docker compose pull
+   docker compose up -d db accounts-db
+   docker compose run --rm migrate            # the catalogue's: its last account and payment tables
+   docker compose run --rm accounts-migrate   # the accounts' schema, empty
+   ```
+
+5. Copy the accounts' data across, which it checks table by table:
+
+   ```shell
+   ./copy-accounts.sh       # "The copy matches."
+   ```
+
+   User ids, sessions and tokens are kept: no one signs up again, and devices such as EMMA's browser extension stay
+   signed in.
+6. Start everything: `docker compose up -d`.
+7. At Stripe, change the webhook endpoint's URL to `ACCOUNTS_SITE_URL/webhooks/stripe`, whenever is convenient: the
+   catalogue passes Stripe's events on until then.
+
+While clients catch up, the catalogue sends what moved on. A page, such as `/profile`, and any of Better Auth's
+endpoints under `/auth`, are redirected to the accounts, which serves bookmarks, links and a sign-in begun at the
+catalogue before the move. Stripe's webhook, and the two endpoints EMMA's browser extension signs in with, which follow
+no redirect, are passed on to them. A later release retires all of it, once Stripe and the extension call the accounts
+themselves, and drops the catalogue's own copies of the accounts' tables, which stay, unread, until then.
 
 ## Rotating an API key
 
@@ -292,6 +426,6 @@ those versions afresh, and removes the ones an older resolver misread, such as `
 
 ## Logs
 
-Every process logs one JSON object per line to standard output: `docker compose logs app`, or `worker`; the worker
+Every process logs one JSON object per line to standard output: `docker compose logs app`, `worker` or `accounts`; the worker
 logs each job it does, with how many requests it made. Each request is logged
 once, with its `requestId`, which error responses carry too.

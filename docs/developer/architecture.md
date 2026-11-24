@@ -1,15 +1,43 @@
 # Architecture
 
-The repository is a pnpm workspace of two packages:
+The repository is a pnpm workspace: applications, each released and deployed on its own, under `apps/`, and the
+libraries they share or publish under `packages/`. Each releases from the commits that change it alone, tagged
+`<package name>-v<version>`. Today it holds:
 
-`packages/contract` (`@mondarth/fvtt-package-catalogue-contract`)
+`packages/catalogue-contract` (`@mondarth/fvtt-package-catalogue-contract`)
 : The API's contract: a zod schema, and its type, for every request and response. Published to npm, so that clients
   validate what they receive with the schemas the catalogue validates what it sends with. It depends on zod alone, and
   runs in Node and browsers. Its type tests prove its data is what `@mondarth/fvtt-resolver` reads.
 
-`packages/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
+`packages/accounts-contract` (`@mondarth/accounts-contract`, private)
+: The contract between the accounts and the applications that use them: who a user's token is for, what their
+  subscription entitles them to, and their use of a service, as an `Accounts` interface with zod schemas for the
+  accounts' internal API (`/internal/v1`). The catalogue's API depends on it alone, never on the accounts' tables: today
+  `accounts/local.ts` serves it in the catalogue's own process; once the accounts are an application of their own, a
+  client of that internal API takes its place. `/server` serves the internal API from an `Accounts`, as a handler of
+  web `Request`s, every endpoint a POST of JSON with the caller's key in `X-Internal-Key`; `/client` is
+  `httpAccounts`, an `Accounts` asking it, who and what kept a minute, failures thrown as `AccountsUnavailable`.
+  Versioned and tagged, never published.
+
+`packages/ui` (`@mondarth/ui`, private)
+: The Svelte pieces every Mondarth application shares, so that each looks and reads as one with the others: the logo,
+  the theme (`theme.css`, the colours as custom properties, light and dark), the top bar, the language picker, notices
+  and callouts, language names (`/language`), and dates written as each reader writes them (`/dates`). Each piece takes
+  its words from the application, which translates them, so the package holds no messages of its own; the
+  catalogue's `TopBar`, `LanguagePicker` and `MachineTranslationNotice` are its own, giving theirs. Shipped as
+  source, which each application compiles. Versioned and tagged, never published.
+
+`apps/catalogue` (`@mondarth/fvtt-package-catalogue`, private)
 : The SvelteKit 3 application, built with `@sveltejs/adapter-node`: the API, the website, and the worker. Released as
   a container image.
+
+`apps/accounts` (`@mondarth/accounts`, private)
+: Mondarth's accounts, on a subdomain of their own (`accounts.`): one sign-in to every Mondarth application, the
+  profile, and the subscription each application's subscriber features need. The other applications reach them
+  through `@mondarth/accounts-contract` alone. A SvelteKit 3 application, in the same languages as the catalogue,
+  with the shared theme and pieces from `@mondarth/ui`, released as an image of its own (`ghcr.io/mondarth/accounts`).
+  Signing in, the profile, subscriptions and payments move here from the catalogue; for now it serves its home page,
+  saying so, and its health check. Its development server runs on port 5174, beside the catalogue's on 5173.
 
 ## The catalogue
 
@@ -183,8 +211,22 @@ Some of what SvelteKit 3 changed shapes the code:
 
 ### Signing in
 
-The website signs visitors in with [Better Auth](https://www.better-auth.com), in `lib/server/accounts/`, kept apart
-from the catalogue so that it can move to a service of its own, shared by every Mondarth site:
+The accounts (`apps/accounts`) sign visitors in with [Better Auth](https://www.better-auth.com), in
+`lib/server/accounts/`, for every Mondarth application: they were the catalogue's, and moved to an application of
+their own, in a database of their own, so that AIDE can share them. Their session cookie is set on the domain the
+applications share (`COOKIE_DOMAIN`, Better Auth's cross-subdomain cookies), and the other applications' origins
+(`APP_ORIGINS`) are trusted to send visitors to sign in, with `?next=` naming their page to come back to
+(`accounts/next.ts`).
+
+The catalogue signs no one in. It asks the accounts' internal API (`@mondarth/accounts-contract`'s `httpAccounts`),
+on the deployment's own network with its key, who a user's bearer token is for (the API) and who the website's cookies
+are for (`lib/server/signed-in.ts`, the bar along the top), with what they are entitled to. What moved is sent on
+(`lib/server/http/moved.ts`): pages, and Better Auth's endpoints, are redirected to the accounts, keeping their method
+(308, or 307 for a form); Stripe's webhook and the two endpoints a device signs in with, which follow no redirect, are
+passed on to the accounts and their answer given back. The catalogue's database keeps its old copies of the accounts'
+tables, declared frozen in `lib/server/db/legacy/`, so that no migration drops them until a later release does.
+
+In the accounts:
 
 - Better Auth answers under `/auth` (its callbacks from the providers at `/auth/callback/<provider>`), not its default
   `/api/auth`, which is the API's and needs a key. The accounts' `handle` hook (`accounts/handle.ts`) gives it those
@@ -248,7 +290,29 @@ from the catalogue so that it can move to a service of its own, shared by every 
   last day of February). Each change is made in a transaction that holds the user's profile (`FOR UPDATE`), so that
   two cannot start from the same end. Setting an earlier end cuts every credit back to it.
 - **Offers** (`subscription_offers`): a period, a price in each currency in its minor unit (`lib/prices.ts`), the dates
-  it is on sale between, and when it was retired. Never edited: a change is a new offer.
+  it is on sale between, when it was retired, and the payment providers it is sold through, with what each knows it by
+  (`provider_refs`, such as its Stripe Product and Price). Never edited: a change is a new offer.
+- **Stripe** (`stripe.ts`, the one place the Stripe SDK is used, at `STRIPE_API_VERSION`): an offer made with a price
+  in `STRIPE_CURRENCY` becomes a Product, with `STRIPE_TAX_CODE`, and a Price before tax (`tax_behavior: exclusive`),
+  archived as it is retired. Buying (`routes/subscription`, `?/buy`) records the buyer's consent in a checkout
+  (`subscription_checkouts`: who, which offer, the session, how it stands) and sends them to a Checkout Session in
+  `payment` mode with Managed Payments, Stripe the merchant of record. The webhook (`routes/webhooks/stripe`, under
+  `/webhooks`, which is neither the API nor the website: no key, no session, not localised) reads each event from its
+  raw body and signature into a `PaymentEvent`, and `payments.ts` applies it: a paid one credits the offer's period by
+  its PaymentIntent (`provider_account` = `test` or `live`), audited as `payment.credit` by `stripe`; the others mark
+  the checkout processing, failed or expired. A checkout paid, failed or expired is settled for good. Routes and tests
+  use the `StripeGateway` interface; `STRIPE_API_URL` points it at the end-to-end tests' stand-in.
+- **Refunds and disputes** (`charge.refunded`, `charge.dispute.*`): a refund event gives what has been refunded of the
+  payment in all, and `takeBack` (`store.ts`, in one transaction holding the user and the credit) takes off the end of
+  the subscription the credit's share of days for what is newly refunded, rounded down (`creditDays`, cumulative, so a
+  repeated event takes nothing), recording `refunded_amount` and `refunded_at`. A dispute is `disputed` = `open`, then
+  `won`, or `lost`, which takes back what remains. A buyer's request (`?/refund`, sent only from the dialog of `RefundDialog.svelte`, which
+  shows the page load's `preview`) sets `refund_requested_at`, and `refund_reason` (`lib/refund-reasons.ts`) with
+  `refund_reason_text` for Other. Within 14 days of buying (`withinCancellation`) the action refunds it at once through
+  the gateway's `refund`, with an idempotency key of the credit and when it was asked, so it is made once; the admin
+  Subscriptions page lists the rest since the credit was last refunded, with `suggestedRefund` (`refunds.ts`): the share
+  of what was paid for the days not yet used, counted from the credit's own start. Refunds are made in Stripe's
+  dashboard; audited `payment.refund`, `payment.dispute` and `refund.request`.
 - **Patreon** (`patreon.ts`): a user with Patreon linked is subscribed while they are an active patron of
   `PATREON_CAMPAIGN_ID` pledging at least the least pledge (`catalogue_settings`, `patreon_minimum`, set on the admin
   Subscriptions page). The checker asks Patreon's identity endpoint, with memberships, using the user's token, which
@@ -261,6 +325,14 @@ from the catalogue so that it can move to a service of its own, shared by every 
   passes Better Auth's state cookie on with the redirect); providers are linked only as asked
   (`disableImplicitLinking`), Patreon whatever its email (`allowDifferentEmails`, trusted). `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
+- **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
+  session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
+  `AccessRecorder.seen`, which both handles call on each signed-in request, at most every ten minutes per session, with
+  the address `getClientAddress()` gives (Better Auth's is only the first X-Forwarded-For value, or localhost). While a
+  user has a dispute open, `record` writes `access_records`; the users recorded are the disputes open, cached a minute,
+  and changed at once as `applyStripeEvent` opens (`startRecording`, seeded with the last session) or closes
+  (`stopRecording`, which deletes them once none is open) one. `/admin/subscriptions/evidence/<credit>` downloads it
+  all as text, audited as `dispute.evidence`.
 - **Entitlement** (`entitlement.ts`): `locals.entitlement()` says whether whoever is signed in may use what a
   subscription gives (an admin always may; anyone else by credits or by Patreon, `subscribedBy`), read once a request
   and only when asked. A feature that needs it calls
@@ -286,10 +358,12 @@ Auth's `bearer` plugin), never the session cookie: the runtime hands Better Auth
 
 ### The environment
 
-`src/env.ts` declares the server's variables with `defineEnvVars`, each with a zod schema from `lib/server/config.ts`,
-and code reads them from `$app/env/private`. SvelteKit validates them when the server starts, **and when it builds**,
+Each application's `src/env.ts` declares its server's variables with `defineEnvVars`, each with a zod schema from its
+`lib/server/config.ts`, and code reads them from `$app/env/private`. SvelteKit validates them when the server starts, **and when it builds**,
 as it loads the server's modules to analyse them. The build is given placeholders (CI, the Dockerfile); the real values,
 read and validated again at start-up, come from the environment the server runs in.
+
+The catalogue's:
 
 | Variable       | Required | Meaning                                                    |
 | -------------- | -------- | ---------------------------------------------------------- |
@@ -297,14 +371,29 @@ read and validated again at start-up, come from the environment the server runs 
 | `API_KEYS`     | yes      | The keys accepted, separated by commas; `module:<key>` for the EMMA module's |
 | `API_RATE_PER_MINUTE` | no | The most API requests one key or user may make in a minute; 300 by default |
 | `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
-| `AUTH_SECRET`  | yes      | Signs the website's cookies and encrypts providers' tokens: 32 characters or more |
-| `SITE_URL`     | yes      | The website's address as visitors reach it                 |
+| `ACCOUNTS_URL` | yes      | The accounts' address on the deployment's network, for their internal API |
+| `ACCOUNTS_KEY` | yes      | The catalogue's key to the internal API: 32 characters or more |
+| `ACCOUNTS_SITE_URL` | yes | The accounts' address as visitors reach it                 |
+| `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
+
+The accounts':
+
+| Variable       | Required | Meaning                                                    |
+| -------------- | -------- | ---------------------------------------------------------- |
+| `DATABASE_URL` | yes      | Their PostgreSQL connection string                         |
+| `LOG_LEVEL`    | no       | `debug`, `info` (the default), `warn` or `error`           |
+| `AUTH_SECRET`  | yes      | Signs their cookies and encrypts providers' tokens: 32 characters or more |
+| `SITE_URL`     | yes      | Their address as visitors reach it                         |
+| `INTERNAL_API_KEYS` | yes | The other applications' keys to the internal API, separated by commas |
+| `COOKIE_DOMAIN` | no      | The domain the session cookie is set on, shared by every application's subdomain |
+| `APP_ORIGINS`  | no       | The other applications' origins, which visitors are sent back to once signed in |
 | `AUTH_<PROVIDER>_ID`, `AUTH_<PROVIDER>_SECRET` | no | A provider's app, for `GITHUB`, `GOOGLE`, `DISCORD` and `PATREON`; each is offered only with both |
-| `PATREON_CAMPAIGN_ID` | no | The catalogue's Patreon campaign, whose patrons at the least pledge are subscribed |
+| `PATREON_CAMPAIGN_ID` | no | Mondarth's Patreon campaign, whose patrons at the least pledge are subscribed |
 | `PATREON_URL` | no | Patreon's address, for the end-to-end tests' stand-in alone |
 | `ADMIN_USER_IDS` | no | The user ids of admins whatever their role, separated by commas, such as the first admin |
 | `AUTH_TEST_PROVIDER_URL` | no | A stand-in sign-in provider, for the end-to-end tests alone |
-| `MIGRATIONS_DIR` | no (worker) | Where the migrations are; `drizzle` by default      |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX_CODE`, `STRIPE_CURRENCY`, `STRIPE_API_URL` | no | Selling subscription time through Stripe |
+| `MIGRATIONS_DIR` | no (`migrate.js`) | Where the migrations are; `drizzle` by default |
 
 adapter-node reads its own: `PORT`, and behind a proxy `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER` and
 `XFF_DEPTH` (set in `deploy/compose.yaml`).

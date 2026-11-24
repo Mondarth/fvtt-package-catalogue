@@ -22,7 +22,7 @@ A bug fix starts with a test that fails because of the bug, marked as a regressi
 
 ## End-to-end tests
 
-[Playwright](https://playwright.dev), in `packages/catalogue/tests/e2e/`, against the built server and worker and a
+[Playwright](https://playwright.dev), in `apps/catalogue/tests/e2e/`, against the built server and worker and a
 throwaway PostgreSQL:
 
 ```shell

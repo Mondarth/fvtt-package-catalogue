@@ -1,0 +1,114 @@
+import { render, screen } from '@testing-library/svelte';
+import { createRawSnippet } from 'svelte';
+import { describe, expect, it, vi } from 'vitest';
+
+import { ENDPOINTS } from '../../../src/lib/endpoints.js';
+import Error from '../../../src/routes/+error.svelte';
+import Layout from '../../../src/routes/+layout.svelte';
+import Page from '../../../src/routes/+page.svelte';
+import Developers from '../../../src/routes/developers/+page.svelte';
+import { inLocale } from '../support/locale.js';
+import { messagesOf } from '../support/messages.js';
+
+const state = vi.hoisted(() => ({ page: { status: 404, url: new URL('https://catalogue.example.org/') } }));
+vi.mock('$app/state', () => state);
+
+const en = messagesOf('en');
+const es = messagesOf('es');
+const SITE = 'https://accounts.example.org';
+const USER = { name: 'Ulenar', admin: false, impersonated: false };
+
+describe('the home page', () => {
+  const home = (signedIn: typeof USER | null) =>
+    render(Page, { data: { signedIn, accountsSite: SITE }, params: {} } as never);
+
+  it('says what the catalogue is, linking its API and what the accounts store', () => {
+    home(null);
+    expect(screen.getByRole('heading', { level: 1, name: en.site_title })).toBeInTheDocument();
+    expect(screen.getByText(en.home_lede)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: en.developers_link })).toHaveAttribute('href', '/developers');
+    expect(screen.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${SITE}/privacy`);
+  });
+
+  it('sends a visitor to sign in at the accounts, which send them back here', () => {
+    home(null);
+    expect(screen.getByRole('link', { name: en.sign_in_heading })).toHaveAttribute(
+      'href',
+      `${SITE}/?next=${encodeURIComponent('https://catalogue.example.org/')}`,
+    );
+  });
+
+  it('asks no one signed in to sign in', () => {
+    home(USER);
+    expect(screen.queryByRole('link', { name: en.sign_in_heading })).not.toBeInTheDocument();
+  });
+});
+
+describe('the API page', () => {
+  it('introduces the catalogue and lists every endpoint', () => {
+    render(Developers);
+    expect(screen.getByRole('heading', { level: 1, name: en.developers_heading })).toBeInTheDocument();
+    expect(screen.getByText(en.home_lede)).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(ENDPOINTS.length);
+    expect(screen.getByText(en.endpoint_lookup_summary)).toBeInTheDocument();
+  });
+
+  it('is in Spanish for a Spanish visitor', () => {
+    inLocale('es');
+    render(Developers);
+    expect(screen.getByRole('heading', { level: 1, name: es.developers_heading })).toBeInTheDocument();
+    expect(screen.getByText(es.endpoint_status_summary)).toBeInTheDocument();
+  });
+});
+
+describe('the layout', () => {
+  const children = createRawSnippet(() => ({ render: () => '<p>Page content</p>' }));
+  const layout = (signedIn: typeof USER | null) =>
+    render(Layout, { children, params: {}, data: { signedIn, accountsSite: SITE } });
+
+  it('renders the page in its main landmark, with a language picker and no notice in English', () => {
+    layout(null);
+    expect(screen.getByRole('main')).toHaveTextContent('Page content');
+    expect(screen.getByRole('link', { name: en.home_link })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('says a machine translated page was translated by machine', () => {
+    inLocale('es');
+    layout(null);
+    expect(screen.getByRole('note')).toHaveTextContent(es.machine_translation_notice);
+  });
+
+  it("puts the bar along the top once signed in, its links the accounts' pages", () => {
+    layout(USER);
+    expect(screen.getByRole('navigation', { name: en.workspace_label })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: en.subscription_link })).toHaveAttribute('href', `${SITE}/subscription`);
+    expect(screen.queryByRole('link', { name: en.admin_link })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: en.profile_button_label.replace('{name}', 'Ulenar') })).toHaveAttribute(
+      'href',
+      `${SITE}/profile`,
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('links the admin pages for an admin, and says whom an admin views the site as, stopped at the accounts', () => {
+    layout({ name: 'Ulenar', admin: true, impersonated: true });
+    expect(screen.getByRole('link', { name: en.admin_link })).toHaveAttribute('href', `${SITE}/admin`);
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveTextContent(en.impersonation_banner.replace('{name}', 'Ulenar'));
+    expect(screen.getByRole('link', { name: en.impersonation_stop_at_accounts })).toHaveAttribute('href', SITE);
+  });
+});
+
+describe('the error page', () => {
+  it('says there is no page for a 404, and apologises for anything else', () => {
+    state.page.status = 404;
+    render(Error);
+    expect(screen.getByText(en.error_not_found)).toBeInTheDocument();
+    state.page.status = 500;
+    render(Error);
+    expect(screen.getByText(en.error_other)).toBeInTheDocument();
+  });
+});

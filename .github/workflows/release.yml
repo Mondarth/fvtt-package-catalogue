@@ -58,7 +58,10 @@ jobs:
       id-token: write
     outputs:
       contract-tag: ${{ steps.release.outputs.contract-tag }}
+      accounts-contract-tag: ${{ steps.release.outputs.accounts-contract-tag }}
+      ui-tag: ${{ steps.release.outputs.ui-tag }}
       catalogue-tag: ${{ steps.release.outputs.catalogue-tag }}
+      accounts-tag: ${{ steps.release.outputs.accounts-tag }}
     steps:
       # The release App is on the rulesets' bypass list, so its token may push to the
       # protected branches. Each token expires within an hour.
@@ -143,6 +146,57 @@ jobs:
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha,scope=image
 
+  accounts-image:
+    name: Publish the accounts' container image
+    needs: release
+    if: needs.release.outputs.accounts-tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.accounts-tag }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to the GitHub Container Registry
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # As the catalogue's: the full version, its major.minor and major lines, and latest. The tag is
+      # `@mondarth/accounts-v<version>`, the image `ghcr.io/<owner>/accounts`.
+      - name: Work out the tags
+        id: tags
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/accounts"
+          version="${TAG##*-v}"
+          major="${version%%.*}"
+          minor="${version%.*}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'list<<EOF'
+            echo "${image}:${version}"
+            echo "${image}:${minor}"
+            echo "${image}:${major}"
+            echo "${image}:latest"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ needs.release.outputs.accounts-tag }}
+      - name: Build and push the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/accounts/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.tags.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=accounts-image
+
   prune-images:
     name: Prune container images
     needs: image
@@ -154,7 +208,10 @@ jobs:
   sync-dev:
     name: Bring dev up to date
     needs: release
-    if: needs.release.outputs.contract-tag != '' || needs.release.outputs.catalogue-tag != ''
+    if: >-
+      needs.release.outputs.contract-tag != '' || needs.release.outputs.accounts-contract-tag != '' ||
+      needs.release.outputs.ui-tag != '' ||
+      needs.release.outputs.catalogue-tag != '' || needs.release.outputs.accounts-tag != ''
     runs-on: ubuntu-latest
     steps:
       # The release App is on the rulesets' bypass list, so its token may push to the

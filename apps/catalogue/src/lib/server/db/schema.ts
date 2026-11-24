@@ -1,0 +1,252 @@
+/**
+ * The catalogue's database. Columns are snake_case in PostgreSQL (drizzle.config.ts `casing`).
+ *
+ * Releases hold what the API gives, normalised by @mondarth/fvtt-resolver's `normaliseManifest`. The manifests they
+ * came from are kept too, so that releases can be normalised again, without fetching anything, when the normaliser
+ * changes.
+ */
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  unique,
+} from 'drizzle-orm/pg-core';
+
+import { sql } from 'drizzle-orm';
+
+import type { Compatibility, ConsistencyReport } from '@mondarth/fvtt-package-catalogue-contract';
+import type { ListedVersion } from '../refresh.js';
+
+export const packageType = pgEnum('package_type', ['module', 'system', 'world']);
+export const releaseDetail = pgEnum('release_detail', ['listed', 'loaded']);
+export const relationshipKind = pgEnum('relationship_kind', ['requires', 'systems', 'conflicts', 'recommends']);
+export const coreChannel = pgEnum('core_channel', ['stable', 'testing', 'development', 'prototype']);
+export const gapReason = pgEnum('gap_reason', ['http', 'network', 'budget', 'invalid']);
+export const crawlReason = pgEnum('crawl_reason', ['request', 'closure', 'refresh', 'warm']);
+export const unavailableReason = pgEnum('unavailable_reason', ['archived', 'gone']);
+
+const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
+
+/** A package the catalogue knows of. */
+export const packages = pgTable(
+  'packages',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: packageType().notNull(),
+    packageId: text().notNull(),
+    title: text(),
+    /** A premium package, as Foundry VTT's listing says. */
+    premium: boolean().notNull().default(false),
+    /** The listing's `last_updated`: its details change only when this does. */
+    listingUpdatedAt: timestamp({ withTimezone: true }),
+    /** When its releases were last brought up to date: the API's `asOf`. */
+    syncedAt: timestamp({ withTimezone: true }),
+    /** Why it cannot be had, if it cannot: then it holds no releases, and is not crawled for any. */
+    unavailable: unavailableReason(),
+    /** More of why, in words. */
+    unavailableNote: text(),
+    /** The version its own manifest gave when last read. */
+    ownVersion: text(),
+    /** When its own manifest was last checked, whether it could be read or not; null if never. */
+    ownCheckedAt: timestamp({ withTimezone: true }),
+    /** When its own manifest was last read, giving `ownVersion`; null if never. */
+    ownReadAt: timestamp({ withTimezone: true }),
+    /**
+     * The title its own manifest gave when last read, if any: the package's title where Foundry VTT's index does not
+     * list it, as for one installed by its manifest alone, or one archived.
+     */
+    ownTitle: text(),
+    createdAt,
+  },
+  // The packages whose own manifest is due a check, the least recently checked first.
+  table => [unique().on(table.type, table.packageId), index().on(table.ownCheckedAt)],
+);
+
+/**
+ * A package on Foundry VTT's index, as the index gives it, whether the catalogue has crawled it or not: the catalogue's
+ * copy of the index, read with each refresh. A package the index stops listing is kept, marked delisted.
+ */
+export const listings = pgTable(
+  'listings',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: packageType().notNull(),
+    packageId: text().notNull(),
+    title: text(),
+    summary: text(),
+    authorName: text(),
+    authorUsername: text(),
+    providerId: text(),
+    providerName: text(),
+    url: text(),
+    marketplaceUrl: text(),
+    tags: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** The IDs of the game systems it is for; empty for any. */
+    systems: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    premium: boolean().notNull().default(false),
+    exclusive: boolean().notNull().default(false),
+    /** The index's status, such as `approved` or `archived`. */
+    status: text(),
+    /** The index's `last_updated`. */
+    lastUpdated: timestamp({ withTimezone: true }),
+    latestVersion: text(),
+    /** The newest version for each line of builds, as the index lists them. */
+    versions: jsonb().$type<ListedVersion[]>().notNull().default([]),
+    /** The SHA-256 of what the index gave, so that an entry is written only when it changes. */
+    hash: text().notNull(),
+    /** When the index stopped listing it; null while it lists it. */
+    delistedAt: timestamp({ withTimezone: true }),
+    createdAt,
+    /** When the entry last changed. */
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  table => [unique().on(table.type, table.packageId)],
+);
+
+/** A manifest as fetched, by the SHA-256 of its body. */
+export const rawManifests = pgTable('raw_manifests', {
+  hash: text().primaryKey(),
+  url: text().notNull(),
+  body: jsonb().notNull(),
+  fetchedAt: createdAt,
+});
+
+/** One version of a package. */
+export const releases = pgTable(
+  'releases',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    packageRef: integer()
+      .notNull()
+      .references(() => packages.id, { onDelete: 'cascade' }),
+    version: text().notNull(),
+    minimum: text(),
+    maximum: text(),
+    verified: text(),
+    /** The listing's core compatibility for this version, which its author can edit after the release. */
+    listing: jsonb().$type<Compatibility>(),
+    manifest: text(),
+    download: text(),
+    versionManifest: text(),
+    protected: boolean().notNull().default(false),
+    origin: text().notNull(),
+    detail: releaseDetail().notNull(),
+    unlisted: boolean().notNull().default(false),
+    loadFailed: boolean().notNull().default(false),
+    /** What saved the release: the worker's `crawl`, or a test's seed. */
+    source: text().notNull(),
+    /** The manifest it was loaded from, if it was. */
+    manifestHash: text().references(() => rawManifests.hash),
+    /** When the release last changed. Set by the store's upsert: Drizzle's `$onUpdate` does not run for one. */
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  table => [unique().on(table.packageRef, table.version)],
+);
+
+/** A relationship a release declares, in the order its manifest gives them. */
+export const relationships = pgTable(
+  'relationships',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    releaseRef: integer()
+      .notNull()
+      .references(() => releases.id, { onDelete: 'cascade' }),
+    kind: relationshipKind().notNull(),
+    position: smallint().notNull(),
+    targetType: packageType().notNull(),
+    targetId: text().notNull(),
+    minimum: text(),
+    maximum: text(),
+    verified: text(),
+    manifest: text(),
+    reason: text(),
+  },
+  table => [
+    unique().on(table.releaseRef, table.kind, table.position),
+    // What depends on a package: for closures and for refreshing dependants.
+    index().on(table.targetType, table.targetId),
+  ],
+);
+
+/** A build of Foundry VTT. */
+export const coreReleases = pgTable('core_releases', {
+  version: text().primaryKey(),
+  generation: integer().notNull(),
+  channel: coreChannel().notNull(),
+  createdAt,
+});
+
+/** Something a source could not fetch or read, as @mondarth/fvtt-resolver reports it. */
+export const sourceGaps = pgTable(
+  'source_gaps',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    source: text().notNull(),
+    url: text().notNull(),
+    reason: gapReason().notNull(),
+    status: integer(),
+    packageKey: text(),
+    version: text(),
+    seenAt: createdAt,
+  },
+  table => [index().on(table.packageKey)],
+);
+
+/** A package someone asked for, that a closure needs, due a refresh or on the index to warm, waiting for the worker. */
+export const crawlRequests = pgTable(
+  'crawl_requests',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: packageType().notNull(),
+    packageId: text().notNull(),
+    reason: crawlReason().notNull(),
+    /** A manifest URL a client gave for the package, which it may be found by, as one installed by its manifest. */
+    manifest: text(),
+    requestedAt: createdAt,
+    /** How many times the worker has failed to crawl it. */
+    attempts: integer().notNull().default(0),
+    /** When the worker may next try it: later after each failure. */
+    notBefore: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  table => [unique().on(table.type, table.packageId), index().on(table.notBefore)],
+);
+
+/** Each check of how the catalogue compares with Foundry VTT's index, as `/status` gives the latest. */
+export const consistencyReports = pgTable('consistency_reports', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  at: timestamp({ withTimezone: true }).notNull(),
+  /** The report, but for its time. */
+  report: jsonb().$type<Omit<ConsistencyReport, 'at'>>().notNull(),
+});
+
+/** One run of a worker job. */
+export const syncRuns = pgTable('sync_runs', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  job: text().notNull(),
+  startedAt: createdAt,
+  finishedAt: timestamp({ withTimezone: true }),
+  requests: integer().notNull().default(0),
+  outcome: text({ enum: ['ok', 'failed'] }),
+  error: text(),
+});
+
+/**
+ * The accounts' and subscriptions' tables, as they were before they moved to the accounts' own database
+ * (apps/accounts). Nothing in the catalogue reads them now. They stay declared, frozen, so that drizzle-kit writes no
+ * migration dropping them before the deployment has copied them to the accounts and checked the copy: a later
+ * release drops them, with these files.
+ */
+export * from './legacy/accounts-schema.js';
+export * from './legacy/subscriptions-schema.js';

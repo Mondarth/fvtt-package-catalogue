@@ -82,7 +82,7 @@ for a package that already exists, so the package is created by hand first.
 
    ```shell
    pnpm --filter @mondarth/fvtt-package-catalogue-contract build
-   cd packages/contract
+   cd packages/catalogue-contract
    pnpm publish --access public --no-git-checks
    ```
 

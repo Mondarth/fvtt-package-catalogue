@@ -7,16 +7,21 @@ FROM node:24-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/contract/package.json packages/contract/
-COPY packages/catalogue/package.json packages/catalogue/
+COPY packages/catalogue-contract/package.json packages/catalogue-contract/
+COPY packages/accounts-contract/package.json packages/accounts-contract/
+COPY packages/ui/package.json packages/ui/
+COPY apps/catalogue/package.json apps/catalogue/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY tsconfig.base.json ./
-COPY packages/contract packages/contract
-COPY packages/catalogue packages/catalogue
+COPY packages/catalogue-contract packages/catalogue-contract
+COPY packages/accounts-contract packages/accounts-contract
+COPY packages/ui packages/ui
+COPY apps/catalogue apps/catalogue
 # SvelteKit validates the environment when it analyses the build as well as when the server starts. These placeholders
 # satisfy the build; the server reads, and validates, the real values when it starts.
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build API_KEYS=build-only \
-    AUTH_SECRET=build-only-placeholder-not-a-secret-0000 SITE_URL=http://build.invalid \
+    ACCOUNTS_URL=http://build.invalid ACCOUNTS_SITE_URL=http://build.invalid \
+    ACCOUNTS_KEY=build-only-placeholder-not-a-key-000000 \
     pnpm --filter @mondarth/fvtt-package-catalogue build
 
 FROM node:24-alpine
@@ -27,9 +32,9 @@ ENV NODE_ENV=production \
 WORKDIR /app
 # The bundles are ES modules.
 RUN echo '{ "type": "module" }' > package.json
-COPY --from=build /repo/packages/catalogue/build ./build
-COPY --from=build /repo/packages/catalogue/drizzle ./drizzle
-COPY --from=build /repo/packages/catalogue/overrides.json ./overrides.json
+COPY --from=build /repo/apps/catalogue/build ./build
+COPY --from=build /repo/apps/catalogue/drizzle ./drizzle
+COPY --from=build /repo/apps/catalogue/overrides.json ./overrides.json
 # The image's own unprivileged user; neither process writes to the file system.
 USER node
 EXPOSE 3000

@@ -1,0 +1,30 @@
+/*
+ * Mondarth's theme, which every application shares: its colours, as custom properties the pieces of @mondarth/ui and
+ * the applications' own styles use, light, or dark where the browser prefers dark; and the page's base.
+ */
+:root {
+  --bg: #fdfcfa;
+  --fg: #1d1b18;
+  --muted: #5f5a52;
+  --accent: #8a3b12;
+  --note-bg: #f6efe6;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513;
+    --fg: #ece8e1;
+    --muted: #a9a297;
+    --accent: #f0a46f;
+    --note-bg: #26221d;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}

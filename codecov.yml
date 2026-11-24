@@ -11,10 +11,19 @@ coverage:
 # One flag per package. The lcov reports give paths from the repository root.
 flags:
   contract:
-    paths: [packages/contract/src/]
+    paths: [packages/catalogue-contract/src/]
+    carryforward: true
+  accounts-contract:
+    paths: [packages/accounts-contract/src/]
+    carryforward: true
+  ui:
+    paths: [packages/ui/src/]
     carryforward: true
   catalogue:
-    paths: [packages/catalogue/src/]
+    paths: [apps/catalogue/src/]
+    carryforward: true
+  accounts:
+    paths: [apps/accounts/src/]
     carryforward: true
 
 comment:

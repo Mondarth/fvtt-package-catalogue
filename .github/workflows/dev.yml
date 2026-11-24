@@ -74,23 +74,47 @@ jobs:
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: |
-          for package in contract catalogue; do
-            node scripts/coverage-summary.ts "packages/${package}/coverage/coverage-summary.json" "Unit coverage: ${package}" >> "$GITHUB_STEP_SUMMARY"
+          for package in packages/catalogue-contract packages/accounts-contract packages/ui apps/catalogue apps/accounts; do
+            node scripts/coverage-summary.ts "${package}/coverage/coverage-summary.json" "Unit coverage: ${package#*/}" >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Upload the contract's coverage to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          files: packages/contract/coverage/lcov.info
+          files: packages/catalogue-contract/coverage/lcov.info
           flags: contract
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload the accounts contract's coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: packages/accounts-contract/coverage/lcov.info
+          flags: accounts-contract
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload the shared UI's coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: packages/ui/coverage/lcov.info
+          flags: ui
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: Upload the catalogue's coverage to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          files: packages/catalogue/coverage/lcov.info
+          files: apps/catalogue/coverage/lcov.info
           flags: catalogue
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Upload the accounts' coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: apps/accounts/coverage/lcov.info
+          flags: accounts
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: Keep the coverage reports
@@ -98,7 +122,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage
-          path: packages/*/coverage
+          path: |
+            apps/*/coverage
+            packages/*/coverage
           retention-days: 7
 
   build:
@@ -114,6 +140,10 @@ jobs:
           API_KEYS: build-only
           AUTH_SECRET: build-only-placeholder-not-a-secret-0000
           SITE_URL: http://build.invalid
+          INTERNAL_API_KEYS: build-only-placeholder-not-a-key-000000
+          ACCOUNTS_URL: http://build.invalid
+          ACCOUNTS_SITE_URL: http://build.invalid
+          ACCOUNTS_KEY: build-only-placeholder-not-a-key-000000
       # What npm would receive, without publishing it.
       - name: Pack the contract
         run: pnpm --filter @mondarth/fvtt-package-catalogue-contract pack --dry-run
@@ -122,8 +152,9 @@ jobs:
         with:
           name: build
           path: |
-            packages/contract/dist
-            packages/catalogue/build
+            packages/catalogue-contract/dist
+            apps/catalogue/build
+            apps/accounts/build
           retention-days: 7
 
   image:
@@ -141,6 +172,22 @@ jobs:
           cache-from: type=gha,scope=image
           cache-to: type=gha,scope=image,mode=max
 
+  accounts-image:
+    name: Accounts' container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # As the catalogue's: built as the release builds it, without pushing it.
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/accounts/Dockerfile
+          push: false
+          cache-from: type=gha,scope=accounts-image
+          cache-to: type=gha,scope=accounts-image,mode=max
+
   docs:
     name: Docs
     uses: ./.github/workflows/docs.yml
@@ -149,7 +196,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: ${{ always() }}
-    needs: [commits, typecheck, lint, unit, build, image, docs]
+    needs: [commits, typecheck, lint, unit, build, image, accounts-image, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Check that every job passed (or was skipped)

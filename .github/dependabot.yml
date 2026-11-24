@@ -42,9 +42,9 @@ updates:
     commit-message:
       prefix: build(docs)
 
-  # Base images: the documentation build, the catalogue's image and its deployment.
+  # Base images: the documentation build, the catalogue's and the accounts' images, and the deployment.
   - package-ecosystem: docker
-    directories: ['/docs', '/']
+    directories: ['/docs', '/', '/apps/accounts']
     target-branch: dev
     schedule:
       interval: weekly
@@ -57,7 +57,8 @@ updates:
         update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker-compose
-    directories: ['/deploy', '/packages/catalogue', '/packages/catalogue/tests/e2e']
+    directories:
+      ['/deploy', '/apps/catalogue', '/apps/catalogue/tests/e2e', '/apps/accounts', '/apps/accounts/tests/e2e']
     target-branch: dev
     schedule:
       interval: weekly

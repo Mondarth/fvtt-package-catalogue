@@ -1,5 +1,5 @@
-import { readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { GlobalConfig, PluginSpec } from 'semantic-release';
@@ -11,8 +11,18 @@ export interface PackageRelease {
   config: GlobalConfig;
 }
 
-/** The directory of every package in the workspace. */
-export const packageDirs: string[] = readdirSync('packages').map(name => join('packages', name));
+/**
+ * The directory of every package in the workspace: the applications under `apps/` and the libraries under `packages/`,
+ * as git tracks them, so that a directory holding only what a tool generated is none.
+ */
+export const packageDirs: string[] = execFileSync(
+  'git',
+  ['ls-files', '--', ':(glob)apps/*/package.json', ':(glob)packages/*/package.json'],
+  { encoding: 'utf8' },
+)
+  .split('\n')
+  .filter(path => path !== '')
+  .map(path => dirname(path));
 
 /** Every workspace package with its release configuration. */
 export async function packageReleases(): Promise<PackageRelease[]> {
