@@ -199,7 +199,7 @@
   "subscription_buy_needs_consent": "Hay que aceptar los Términos y Condiciones para comprar: marca la casilla de arriba.",
   "subscription_buy": "Comprar",
   "subscription_buy_named": "Comprar {name}",
-  "subscription_buy_how": "Pagas en la página de pago de Stripe. Stripe, a través de Onelink, es el comerciante registrado (aparece en tu extracto como «ONELINK* MONDARTH»): calcula y cobra los impuestos que correspondan donde vives, y te envía por correo el recibo y la factura. El importe final, en tu propia moneda, se muestra allí antes de pagar.",
+  "subscription_buy_how": "Pagas en la página de pago de Stripe. Stripe, a través de Onelink, es el comerciante registrado (aparece en tu extracto como «ONELINK* MONDARTH.COM»): calcula y cobra los impuestos que correspondan donde vives, y te envía por correo el recibo y la factura. El importe final, en tu propia moneda, se muestra allí antes de pagar.",
   "subscription_buy_cancel": "Puedes cancelar una compra en un plazo de 14 días y recibir el reembolso del tiempo aún no usado, y pedir el reembolso de tu tiempo restante en cualquier momento después.",
   "subscription_buy_terms": "Términos y Condiciones",
   "subscription_buy_problem_consent": "Marca la casilla para pedir que tu tiempo se active en cuanto pagues y aceptar los Términos y Condiciones antes de comprar.",

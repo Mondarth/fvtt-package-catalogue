@@ -166,9 +166,10 @@ Patreon
   pledge to Mondarth's campaign: see [Subscriptions](#subscriptions). Someone signed in with Patreon before it
   asked for them links Patreon again, from their **Subscription** page, when it says so.
 
-A user's providers are linked only as they ask, never because two share an email address: signing in with another
-provider makes a profile of its own. Patreon is linked from the **Subscription** page, whatever its email address; one
-Patreon account belongs to one profile alone.
+Signing in with another provider, by an email address a profile already has, signs in to that profile and links the
+provider to it, where the provider and the profile have both verified the address; where either has not, it is refused
+(`account_not_linked`). Patreon is linked from the **Subscription** page too, whatever its email address, once Patreon
+has verified it; one Patreon account belongs to one profile alone.
 
 Signing in keeps what the provider gives of the visitor (their name, email address and picture), their sessions, and
 where each session signed in from. The accounts' "What we store" page (`/privacy`) lays it all out, row by row, and a

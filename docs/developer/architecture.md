@@ -322,8 +322,9 @@ In the accounts:
   memberships (403, or given before the scope was asked for), stops it at once. Requests at once share one asking.
   Better Auth's account hooks (`auth.ts`) forget the answer as Patreon is linked, signed in with or linked again, and
   unlinked, never as its token is refreshed. Linking is `routes/subscription/link-patreon` (a route of its own, as it
-  passes Better Auth's state cookie on with the redirect); providers are linked only as asked
-  (`disableImplicitLinking`), Patreon whatever its email (`allowDifferentEmails`, trusted). `PATREON_URL` points it,
+  passes Better Auth's state cookie on with the redirect); a provider signed in with is linked to
+  the profile with its email address where both have verified it (Better Auth's implicit linking, no provider trusted
+  without it), and Patreon is linked as asked whatever its email (`allowDifferentEmails`), once Patreon has verified it. `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
 - **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
   session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
