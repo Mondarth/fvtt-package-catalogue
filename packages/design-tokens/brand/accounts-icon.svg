@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -16 332 332" role="img" aria-labelledby="mdr-accounts-icon-t">
+  <title id="mdr-accounts-icon-t">Mondarth Accounts</title>
+  <defs>
+    <linearGradient id="mdr-accounts-icon-crescent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#13f4e7"/><stop offset=".55" stop-color="#94fdfd"/><stop offset="1" stop-color="#2ff9e3"/>
+    </linearGradient>
+    <linearGradient id="mdr-accounts-icon-gear" gradientUnits="userSpaceOnUse" x1="321" y1="33" x2="119" y2="279">
+      <stop offset="0" stop-color="#fce36b"/><stop offset=".5" stop-color="#efbb47"/><stop offset="1" stop-color="#dea235"/>
+    </linearGradient>
+    <linearGradient id="mdr-accounts-icon-card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a4daff"/><stop offset="1" stop-color="#2e8ee6"/>
+    </linearGradient>
+  </defs>
+  <path d="M161,19.5 A131.6,131.6 0 1 0 163,279 A141.2,141.2 0 0 1 161,19.5Z" fill="url(#mdr-accounts-icon-crescent)"/>
+  <clipPath id="mdr-accounts-icon-gear-end"><path d="M0,0 H332 V300 H174 V200 H0 Z"/></clipPath>
+  <g fill="url(#mdr-accounts-icon-gear)">
+    <path d="M198.2,50.7 A99.5,99.5 0 0 1 214.7,51.5 L229.6,33.9 A119.5,119.5 0 0 1 253.1,42.3 L253.7,65.3 A99.5,99.5 0 0 1 267.4,75.4 L289.6,69.2 A119.5,119.5 0 0 1 304.5,89.2 L292.1,108.6 A99.5,99.5 0 0 1 297.9,124.7 L319.8,131.8 A119.5,119.5 0 0 1 321,156.8 L299.9,166 A99.5,99.5 0 0 1 295.7,182.6 L309.9,200.7 A119.5,119.5 0 0 1 297.1,222.1 L274.4,218 A99.5,99.5 0 0 1 261.7,229.5 L263.4,252.4 A119.5,119.5 0 0 1 240.8,263 L224.2,247 A99.5,99.5 0 0 1 207.3,249.5 L196,269.5 A119.5,119.5 0 0 1 171.3,265.7 L166.4,243.2 A99.5,99.5 0 0 1 155,238 L166.7,216 A74.6,74.6 0 1 0 199.1,75.6Z" clip-path="url(#mdr-accounts-icon-gear-end)"/>
+    <polygon points="119,68.5 140.2,49 168.5,72 194.2,42 204,50 212.2,69.8 169.5,113.8 163.2,110.8"/>
+    <polygon points="175.5,233 175,272 177.5,278 201.5,276 205,257 228,249.5 236,240 236,215 209.5,229"/>
+  </g>
+  <g transform="translate(172 166) scale(1.3) translate(-172 -166)">
+  <rect x="112.5" y="121.5" width="115" height="89" rx="9.5" fill="url(#mdr-accounts-icon-card)" stroke="#2a2a22" stroke-width="5"/>
+  <rect x="157" y="127" width="26" height="8" rx="3" fill="#2a2a22"/>
+  <g fill="none" stroke="#2a2a22" stroke-width="5" stroke-linecap="round">
+    <circle cx="143.5" cy="156.5" r="11"/>
+    <path d="M123.5,197 A20,19.5 0 0 1 163.5,197 Z" stroke-linejoin="round"/>
+    <path d="M178,154 H216 M178,169 H216 M178,184 H201"/>
+  </g>
+  </g>
+</svg>

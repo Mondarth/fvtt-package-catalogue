@@ -468,6 +468,9 @@ importers:
 
   packages/design-tokens:
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.64.1
+        version: 1.64.1
       '@terrazzo/cli':
         specifier: ^2.10.0
         version: 2.10.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
