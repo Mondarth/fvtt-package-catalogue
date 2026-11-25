@@ -1,3 +1,19 @@
+## [@mondarth/accounts-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.1.1...@mondarth/accounts-v0.2.0) (2026-11-25)
+
+### Features
+
+* **accounts:** mark the pages as the accounts' site ([52fa973](https://github.com/Mondarth/fvtt-package-catalogue/commit/52fa973f779353dd1ebf911946c9bebb300eb514))
+* **accounts:** publish the Terms and Conditions at /terms ([4049a6c](https://github.com/Mondarth/fvtt-package-catalogue/commit/4049a6c12b68898bafe3e0d47f9542d35010e00e))
+* **accounts:** refuse deleting a profile with a refund or dispute open ([b195f6c](https://github.com/Mondarth/fvtt-package-catalogue/commit/b195f6c26f98f9198fd70bb2b840ce3ace6aa1af))
+* **accounts:** remember identities for introductory offers and refusals ([435333d](https://github.com/Mondarth/fvtt-package-catalogue/commit/435333d80eeeabf15436e66884a4887d5deb5d60))
+* **accounts:** show the accounts' logo in the header and on sign-in ([b4e65b8](https://github.com/Mondarth/fvtt-package-catalogue/commit/b4e65b8d1f5a36c9ed2b71f37a4335eabec9abaf))
+* **accounts:** use favicons of the accounts' new logo ([255bcc3](https://github.com/Mondarth/fvtt-package-catalogue/commit/255bcc389183e74e0281ca4d1e6dfcc44f9a6334))
+* **design-tokens:** add Mondarth's logos as SVG, and their favicons ([ca4a920](https://github.com/Mondarth/fvtt-package-catalogue/commit/ca4a92035603c307e04afc77beb5dd5e68fe3db7))
+
+### Build System
+
+* **repo:** build the design tokens in the images ([f22b5f9](https://github.com/Mondarth/fvtt-package-catalogue/commit/f22b5f910472a048c6e86c6ad8803304bd864c61))
+
 ## [@mondarth/accounts-v0.1.1](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.1.0...@mondarth/accounts-v0.1.1) (2026-11-24)
 
 ### Bug Fixes
