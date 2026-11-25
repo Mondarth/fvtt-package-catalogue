@@ -60,9 +60,10 @@ way.
 
 ## npm trusted publishing
 
-The release workflow publishes `@mondarth/fvtt-package-catalogue-contract` without a token: npm trusts the
-repository's release workflow instead, through OIDC. That trust is set per package, and only
-for a package that already exists, so the package is created by hand first.
+The release workflow publishes `@mondarth/fvtt-package-catalogue-contract` and `@mondarth/design-tokens` without a
+token: npm trusts the repository's release workflow instead, through OIDC. That trust is set per package, and only
+for a package that already exists, so each package is created by hand first, as below for the contract (for the
+design tokens, `pnpm --filter @mondarth/design-tokens build` and `cd packages/design-tokens`).
 
 1. **Have the scope.** `@mondarth` belongs to the npm organisation `mondarth`; publish as one of its owners, with
    two-factor authentication on.

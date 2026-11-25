@@ -1,0 +1,62 @@
+{
+  "$type": "color",
+  "color": {
+    "$description": "The theme's colours, light: what every page and component uses.",
+    "background": {
+      "$value": "{palette.neutral.50}",
+      "$description": "The page."
+    },
+    "surface": {
+      "$value": "{palette.neutral.0}",
+      "$description": "Something raised on the page: a card, a dialog, a field."
+    },
+    "subtle": {
+      "$value": "{palette.neutral.100}",
+      "$description": "A quiet background, as of a note or a table's header, and quiet dividers."
+    },
+    "text": {
+      "$value": "{palette.neutral.900}",
+      "$description": "Text, on any of the backgrounds."
+    },
+    "text-muted": {
+      "$value": "{palette.neutral.600}",
+      "$description": "Secondary text: hints, dates, captions."
+    },
+    "text-on-accent": {
+      "$value": "{palette.neutral.50}",
+      "$description": "Text on the accent, as of a primary button."
+    },
+    "accent": {
+      "$value": "{palette.rust.700}",
+      "$description": "Links, primary actions, and what is current or chosen."
+    },
+    "border": {
+      "$value": "{palette.neutral.200}",
+      "$description": "Dividers and the edges of surfaces."
+    },
+    "border-strong": {
+      "$value": "{palette.neutral.600}",
+      "$description": "The edges of controls, which must stand out from what is around them."
+    },
+    "focus": {
+      "$value": "{palette.rust.700}",
+      "$description": "The focus ring."
+    },
+    "danger": {
+      "$value": "{palette.red.700}",
+      "$description": "Errors, and actions that cannot be undone."
+    },
+    "warning": {
+      "$value": "{palette.amber.700}",
+      "$description": "What needs care."
+    },
+    "success": {
+      "$value": "{palette.green.700}",
+      "$description": "What is done."
+    },
+    "info": {
+      "$value": "{palette.blue.700}",
+      "$description": "What is worth knowing."
+    }
+  }
+}

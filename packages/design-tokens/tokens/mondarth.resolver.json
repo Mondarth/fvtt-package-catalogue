@@ -1,0 +1,43 @@
+{
+  "name": "Mondarth",
+  "version": "2025.10",
+  "description": "Mondarth's design tokens: the base set, then the theme, light or dark.",
+  "sets": {
+    "base": {
+      "sources": [
+        {
+          "$ref": "base/palette.tokens.json"
+        },
+        {
+          "$ref": "base/size.tokens.json"
+        }
+      ]
+    }
+  },
+  "modifiers": {
+    "theme": {
+      "description": "Light or dark. Light unless the browser prefers dark, or the page says which.",
+      "contexts": {
+        "light": [
+          {
+            "$ref": "theme/light.tokens.json"
+          }
+        ],
+        "dark": [
+          {
+            "$ref": "theme/dark.tokens.json"
+          }
+        ]
+      },
+      "default": "light"
+    }
+  },
+  "resolutionOrder": [
+    {
+      "$ref": "#/sets/base"
+    },
+    {
+      "$ref": "#/modifiers/theme"
+    }
+  ]
+}

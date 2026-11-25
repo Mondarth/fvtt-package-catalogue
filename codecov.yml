@@ -16,6 +16,9 @@ flags:
   accounts-contract:
     paths: [packages/accounts-contract/src/]
     carryforward: true
+  design-tokens:
+    paths: [packages/design-tokens/src/]
+    carryforward: true
   ui:
     paths: [packages/ui/src/]
     carryforward: true

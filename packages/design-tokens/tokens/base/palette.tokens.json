@@ -1,0 +1,174 @@
+{
+  "$description": "Mondarth's palette. Never used directly: the theme's colours name these by what they are for.",
+  "$type": "color",
+  "palette": {
+    "neutral": {
+      "$description": "Warm greys, from paper white to ink.",
+      "0": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1.0, 1.0, 1.0],
+          "hex": "#ffffff"
+        }
+      },
+      "50": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9922, 0.9882, 0.9804],
+          "hex": "#fdfcfa"
+        }
+      },
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9647, 0.9373, 0.902],
+          "hex": "#f6efe6"
+        }
+      },
+      "150": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9255, 0.9098, 0.8824],
+          "hex": "#ece8e1"
+        }
+      },
+      "200": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.8667, 0.8392, 0.7843],
+          "hex": "#ddd6c8"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6627, 0.6353, 0.5922],
+          "hex": "#a9a297"
+        }
+      },
+      "600": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.3725, 0.3529, 0.3216],
+          "hex": "#5f5a52"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.2275, 0.2078, 0.1686],
+          "hex": "#3a352b"
+        }
+      },
+      "800": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.149, 0.1333, 0.1137],
+          "hex": "#26221d"
+        }
+      },
+      "850": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1255, 0.1137, 0.0902],
+          "hex": "#201d17"
+        }
+      },
+      "900": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1137, 0.1059, 0.0941],
+          "hex": "#1d1b18"
+        }
+      },
+      "950": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.0863, 0.0824, 0.0745],
+          "hex": "#161513"
+        }
+      }
+    },
+    "rust": {
+      "$description": "Mondarth's accent.",
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9412, 0.6431, 0.4353],
+          "hex": "#f0a46f"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.5412, 0.2314, 0.0706],
+          "hex": "#8a3b12"
+        }
+      }
+    },
+    "red": {
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1.0, 0.5412, 0.502],
+          "hex": "#ff8a80"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.6431, 0.0863, 0.102],
+          "hex": "#a4161a"
+        }
+      }
+    },
+    "amber": {
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.9608, 0.7569, 0.4235],
+          "hex": "#f5c16c"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.4784, 0.2941, 0.0],
+          "hex": "#7a4b00"
+        }
+      }
+    },
+    "green": {
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.5608, 0.8196, 0.5608],
+          "hex": "#8fd18f"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1804, 0.4196, 0.1804],
+          "hex": "#2e6b2e"
+        }
+      }
+    },
+    "blue": {
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.549, 0.7686, 0.9255],
+          "hex": "#8cc4ec"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.1216, 0.3725, 0.5451],
+          "hex": "#1f5f8b"
+        }
+      }
+    }
+  }
+}

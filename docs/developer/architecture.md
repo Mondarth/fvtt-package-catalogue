@@ -19,9 +19,13 @@ libraries they share or publish under `packages/`. Each releases from the commit
   `httpAccounts`, an `Accounts` asking it, who and what kept a minute, failures thrown as `AccountsUnavailable`.
   Versioned and tagged, never published.
 
+`packages/design-tokens` (`@mondarth/design-tokens`)
+: Mondarth's design decisions as design tokens, and the CSS built from them that every Mondarth website styles itself
+  with: see {doc}`design-system`. Published to npm, for mondarth.com, which is not in this workspace.
+
 `packages/ui` (`@mondarth/ui`, private)
 : The Svelte pieces every Mondarth application shares, so that each looks and reads as one with the others: the logo,
-  the theme (`theme.css`, the colours as custom properties, light and dark), the top bar, the language picker, notices
+  the theme (`theme.css`: the design tokens, and the page's base), the top bar, the language picker, notices
   and callouts, language names (`/language`), and dates written as each reader writes them (`/dates`). Each piece takes
   its words from the application, which translates them, so the package holds no messages of its own; the
   catalogue's `TopBar`, `LanguagePicker` and `MachineTranslationNotice` are its own, giving theirs. Shipped as
