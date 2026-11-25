@@ -8,14 +8,18 @@ FROM node:24-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/ui/package.json packages/ui/
 COPY packages/accounts-contract/package.json packages/accounts-contract/
 COPY apps/accounts/package.json apps/accounts/
 RUN pnpm install --frozen-lockfile --ignore-scripts --filter @mondarth/accounts...
 COPY tsconfig.base.json ./
+COPY packages/design-tokens packages/design-tokens
 COPY packages/ui packages/ui
 COPY packages/accounts-contract packages/accounts-contract
 COPY apps/accounts apps/accounts
+# The install ran no scripts, so the design tokens' CSS, which the theme imports, is built here.
+RUN pnpm --filter @mondarth/design-tokens build
 # SvelteKit validates the environment when it analyses the build as well as when the server starts. These placeholders
 # satisfy the build; the server reads, and validates, the real values when it starts.
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build AUTH_SECRET=build-only-placeholder-not-a-secret-0000 \

@@ -1,0 +1,70 @@
+{
+  "$type": "color",
+  "color": {
+    "$description": "The theme's colours, light: what every page and component uses.",
+    "background": {
+      "$value": "{palette.slate.50}",
+      "$description": "The page."
+    },
+    "surface": {
+      "$value": "{palette.slate.0}",
+      "$description": "Something raised on the page: a card, a dialog, a field."
+    },
+    "subtle": {
+      "$value": "{palette.slate.100}",
+      "$description": "A quiet background, as of a note or a table's header, and quiet dividers."
+    },
+    "text": {
+      "$value": "{palette.slate.950}",
+      "$description": "Text, on any of the backgrounds."
+    },
+    "text-muted": {
+      "$value": "{palette.slate.700}",
+      "$description": "Secondary text: hints, dates, captions."
+    },
+    "text-on-accent": {
+      "$value": "{palette.slate.50}",
+      "$description": "Text on the accent."
+    },
+    "accent": {
+      "$value": "{palette.turquoise.700}",
+      "$description": "Links, the current page, and what is chosen."
+    },
+    "action": {
+      "$value": "{palette.gold.300}",
+      "$description": "The main action's fill, as of a primary button: the gear's gold, in both themes."
+    },
+    "text-on-action": {
+      "$value": "{palette.slate.950}",
+      "$description": "Text on the main action."
+    },
+    "border": {
+      "$value": "{palette.slate.200}",
+      "$description": "Dividers and the edges of surfaces."
+    },
+    "border-strong": {
+      "$value": "{palette.slate.600}",
+      "$description": "The edges of controls, which must stand out from what is around them."
+    },
+    "focus": {
+      "$value": "{palette.turquoise.600}",
+      "$description": "The focus ring."
+    },
+    "danger": {
+      "$value": "{palette.red.700}",
+      "$description": "Errors, and actions that cannot be undone."
+    },
+    "warning": {
+      "$value": "{palette.orange.700}",
+      "$description": "What needs care."
+    },
+    "success": {
+      "$value": "{palette.green.700}",
+      "$description": "What is done."
+    },
+    "info": {
+      "$value": "{palette.blue.700}",
+      "$description": "What is worth knowing."
+    }
+  }
+}

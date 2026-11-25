@@ -1,0 +1,48 @@
+{
+  "name": "@mondarth/design-tokens",
+  "version": "0.0.0",
+  "description": "Mondarth's design tokens, in the Design Tokens Community Group's format (2025.10), and the CSS custom properties built from them, light and dark, that every Mondarth website styles itself with.",
+  "author": "Ulenar of Mondarth",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mondarth/fvtt-package-catalogue.git",
+    "directory": "packages/design-tokens"
+  },
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./dist/tokens.css",
+    "./tokens/*": "./tokens/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "tokens"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tz build",
+    "prepare": "tz build",
+    "test": "tz build && vitest run",
+    "test:coverage": "tz build && vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "typecheck:fallback": "tsc6 --noEmit"
+  },
+  "devDependencies": {
+    "@terrazzo/cli": "^2.10.0",
+    "@terrazzo/plugin-css": "^2.10.0",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.1.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript7": "npm:typescript@^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

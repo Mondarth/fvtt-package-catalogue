@@ -1,30 +1,26 @@
 /*
- * Mondarth's theme, which every application shares: its colours, as custom properties the pieces of @mondarth/ui and
- * the applications' own styles use, light, or dark where the browser prefers dark; and the page's base.
+ * Mondarth's theme, which every application shares: the design tokens' custom properties (`--mdr-*`, light, or dark
+ * where the browser prefers it or the page asks for it with `data-theme`), and the page's base.
  */
-:root {
-  --bg: #fdfcfa;
-  --fg: #1d1b18;
-  --muted: #5f5a52;
-  --accent: #8a3b12;
-  --note-bg: #f6efe6;
-  color-scheme: light dark;
-}
+@import '@mondarth/design-tokens/tokens.css';
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161513;
-    --fg: #ece8e1;
-    --muted: #a9a297;
-    --accent: #f0a46f;
-    --note-bg: #26221d;
-  }
+/*
+ * The names the applications' styles used before the tokens, kept while they move to the tokens' own. Each is the token
+ * it always meant; new styles use the tokens.
+ */
+:root,
+[data-theme] {
+  --bg: var(--mdr-color-background);
+  --fg: var(--mdr-color-text);
+  --muted: var(--mdr-color-text-muted);
+  --accent: var(--mdr-color-accent);
+  --note-bg: var(--mdr-color-subtle);
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+  background: var(--mdr-color-background);
+  color: var(--mdr-color-text);
+  font-family: var(--mdr-font-family-sans);
+  line-height: var(--mdr-font-line-height-body);
 }

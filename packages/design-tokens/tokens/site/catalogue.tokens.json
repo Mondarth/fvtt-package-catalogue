@@ -1,0 +1,9 @@
+{
+  "$type": "color",
+  "color": {
+    "site": {
+      "$value": "{palette.gold.300}",
+      "$description": "The site's own colour, its emblem's: The catalogue: the book and key. A mark beside the logo or along an edge, never text, and never the only sign of anything."
+    }
+  }
+}

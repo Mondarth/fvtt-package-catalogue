@@ -1,0 +1,87 @@
+/* The design system page: its logos, the palette's swatches, and its colour tables, in Furo's own colours. */
+.mdr-logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.mdr-logos figure {
+  margin: 0;
+  padding: 0.75rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  background: #fff;
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.5rem;
+}
+.mdr-logos figcaption {
+  font-size: 0.8rem;
+  color: #273031;
+}
+.mdr-ramps {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.mdr-ramp-name {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-foreground-secondary);
+  margin-bottom: 0.25rem;
+}
+.mdr-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+  gap: 3px;
+}
+.mdr-swatch {
+  display: grid;
+  align-content: end;
+  min-height: 3.4rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.3rem;
+  font-family: var(--font-stack--monospace);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+.mdr-swatch b {
+  font-family: var(--font-stack);
+  font-size: 0.75rem;
+}
+.mdr-pinned {
+  outline: 2px solid var(--color-foreground-primary);
+  outline-offset: 1px;
+}
+.mdr-table {
+  overflow-x: auto;
+  margin-block: 1rem;
+}
+.mdr-table table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.mdr-table th,
+.mdr-table td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--color-background-border);
+  white-space: nowrap;
+}
+.mdr-table .mdr-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mdr-chip {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.4rem;
+  vertical-align: -2px;
+  border-radius: 0.2rem;
+  border: 1px solid var(--color-background-border);
+}

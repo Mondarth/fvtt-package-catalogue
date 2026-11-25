@@ -1,0 +1,9 @@
+{
+  "$type": "color",
+  "color": {
+    "site": {
+      "$value": "{palette.blue.400}",
+      "$description": "The site's own colour, its emblem's: The accounts: the ID card. A mark beside the logo or along an edge, never text, and never the only sign of anything."
+    }
+  }
+}

@@ -9,14 +9,18 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/catalogue-contract/package.json packages/catalogue-contract/
 COPY packages/accounts-contract/package.json packages/accounts-contract/
+COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/ui/package.json packages/ui/
 COPY apps/catalogue/package.json apps/catalogue/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY tsconfig.base.json ./
 COPY packages/catalogue-contract packages/catalogue-contract
 COPY packages/accounts-contract packages/accounts-contract
+COPY packages/design-tokens packages/design-tokens
 COPY packages/ui packages/ui
 COPY apps/catalogue apps/catalogue
+# The install ran no scripts, so the design tokens' CSS, which the theme imports, is built here.
+RUN pnpm --filter @mondarth/design-tokens build
 # SvelteKit validates the environment when it analyses the build as well as when the server starts. These placeholders
 # satisfy the build; the server reads, and validates, the real values when it starts.
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build API_KEYS=build-only \
