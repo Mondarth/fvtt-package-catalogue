@@ -150,6 +150,7 @@ describe("a user's admin page", () => {
       audit: [],
       done: 'ban',
       refused: null,
+      purchasesRefusedAt: null,
     });
     expect(recent).toHaveBeenCalledWith({ limit: 20, userId: 'u1' });
   });

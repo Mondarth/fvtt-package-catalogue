@@ -5,8 +5,9 @@ import { suggestedRefund, withinCancellation } from '#lib/server/subscriptions/r
 
 import { REFUND_REASONS, REFUND_REASON_MAX } from '#lib/refund-reasons.js';
 
+import type { IdentityStanding } from '#lib/server/accounts/identities.js';
 import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
-import type { Credit, GivenReason } from '#lib/server/subscriptions/store.js';
+import type { Credit, GivenReason, Offer } from '#lib/server/subscriptions/store.js';
 import type { Actions, PageServerLoad } from './$types';
 
 /** What a Patreon link that failed came back saying, as Better Auth names it, or the link route did. */
@@ -115,6 +116,24 @@ const REFUND_DONE = ['requested', 'refunded'] as const;
 const impersonating = (locals: App.Locals) => typeof locals.session?.impersonatedBy === 'string';
 
 /**
+ * The introductory offer an account may claim, if any: one on sale, for an account never subscribed, by credits of
+ * any kind, and known by no identity that claimed one (Terms, Sec. B.V.3).
+ *
+ * @param onSale - The offers on sale
+ * @param history - The account's credits
+ * @param standing - Where the account stands by its identities
+ * @returns The offer, or undefined
+ */
+function introductoryFor(
+  onSale: readonly Offer[],
+  history: readonly unknown[],
+  standing: IdentityStanding,
+): Offer | undefined {
+  if (history.length > 0 || standing.introductoryClaimed) return undefined;
+  return onSale.find(offer => offer.introductory);
+}
+
+/**
  * The user's subscription: until when, the time that made it (dates, where it came from and its period, but not an
  * admin's notes), the offers on sale, each to be bought through Stripe where it is sold there, any purchase still
  * being paid for, and their Patreon, where the catalogue offers it: linked or not, what Patreon last said, and the
@@ -123,14 +142,17 @@ const impersonating = (locals: App.Locals) => typeof locals.session?.impersonate
 export const load: PageServerLoad = async ({ locals, url }) => {
   const { user, patreon, stripe } = locals;
   if (user === null) redirect(303, '/');
-  const [entitlement, history, offers, processing, patreonStatus, minimum] = await Promise.all([
+  const [entitlement, history, onSale, processing, patreonStatus, minimum, standing] = await Promise.all([
     locals.entitlement(),
     locals.subscriptions.history(user.id),
     locals.subscriptions.activeOffers(),
     locals.subscriptions.processingCheckouts(user.id),
     patreon?.status(user.id),
     patreon?.minimum(),
+    locals.identities.standing(user.id),
   ]);
+  const offers = onSale.filter(offer => !offer.introductory);
+  const introductory = introductoryFor(onSale, history, standing);
   const linkError = url.searchParams.get('error');
   return {
     entitlement,
@@ -165,6 +187,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       };
     }),
     canBuy: stripe !== undefined && !impersonating(locals),
+    // The introductory offer this account may claim, if any: never subscribed, and claimed by no one it is known as.
+    introductory:
+      introductory === undefined
+        ? null
+        : { id: introductory.id, name: introductory.name, months: introductory.months, days: introductory.days },
+    // Purchases refused, after a dispute of theirs was lost, by an identity this account is known by (Terms, B.IV.5).
+    purchasesRefused: standing.purchasesRefusedAt !== null,
     // While a payment of theirs is disputed with their bank, no more time is sold to them.
     disputing: history.some(credit => credit.disputed === 'open'),
     processing: processing.length,
@@ -190,11 +219,41 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     patreonDone: url.searchParams.get('patreon'),
     // How the refund just asked for came back: made at once, within 14 days of buying, or asked of an admin.
     refundDone: REFUND_DONE.find(done => done === url.searchParams.get('refund')) ?? null,
+    // Whether an introductory offer was just claimed.
+    claimed: url.searchParams.has('claimed'),
     patreonError: linkError === null ? null : (LINK_ERRORS[linkError] ?? 'failed'),
   };
 };
 
 export const actions: Actions = {
+  /**
+   * Claims an introductory offer: free time, added like time bought, for an account never subscribed, once a person
+   * (Terms, Sec. B.V.3). Every identity the account is known by is marked as having claimed one, so that no account
+   * known by any of them claims another, even one made again after deleting this.
+   */
+  claim: async ({ locals, request }) => {
+    const { user } = locals;
+    if (user === null) redirect(303, '/');
+    if (impersonating(locals)) return fail(403, { claim: 'impersonating' as const });
+    const offerId = field(await request.formData(), 'offer');
+    const [history, onSale, standing] = await Promise.all([
+      locals.subscriptions.history(user.id),
+      locals.subscriptions.activeOffers(),
+      locals.identities.standing(user.id),
+    ]);
+    const offer = introductoryFor(onSale, history, standing);
+    if (offer?.id !== offerId) return fail(403, { claim: 'unavailable' as const });
+    await locals.subscriptions.credit({
+      userId: user.id,
+      source: 'introductory',
+      offerId: offer.id,
+      months: offer.months,
+      days: offer.days,
+    });
+    await locals.identities.claimIntroductory(user.id);
+    redirect(303, '/subscription?claimed');
+  },
+
   /**
    * Buys an offer through Stripe: once the user has asked for their time to start at once and agreed to the terms of
    * sale, a checkout is begun, recording when, and they are sent to Stripe's checkout page to pay. Stripe's webhook
@@ -207,6 +266,9 @@ export const actions: Actions = {
     if (impersonating(locals)) return fail(403, { buy: 'impersonating' as const });
     if ((await locals.subscriptions.history(user.id)).some(credit => credit.disputed === 'open')) {
       return fail(403, { buy: 'disputed' as const });
+    }
+    if ((await locals.identities.standing(user.id)).purchasesRefusedAt !== null) {
+      return fail(403, { buy: 'refused' as const });
     }
     const form = await request.formData();
     const offerId = field(form, 'offer');

@@ -2,6 +2,7 @@ import type { Auth, SignedIn } from '#lib/server/accounts/auth.js';
 import type { AccessRecorder } from '#lib/server/accounts/access.js';
 import type { AuditStore } from '#lib/server/accounts/audit.js';
 import type { BanNotices } from '#lib/server/accounts/ban-notice.js';
+import type { KnownIdentities } from '#lib/server/accounts/identities.js';
 import type { AccountsStore } from '#lib/server/accounts/store.js';
 import type { Entitlement } from '#lib/server/subscriptions/entitlement.js';
 import type { PatreonChecker } from '#lib/server/subscriptions/patreon.js';
@@ -35,6 +36,8 @@ declare global {
       adminUserIds: readonly string[];
       /** Reads the notice a banned user's sign-in comes back with, on the website's requests. */
       banNotices: BanNotices;
+      /** The identities every account was known by, against abuse, on the website's and webhooks' requests. */
+      identities: KnownIdentities;
       /** Records the access of users whose payments are disputed, on the website's and webhooks' requests. */
       access: AccessRecorder;
       /** Subscriptions, on the website's requests. */

@@ -1,10 +1,10 @@
-import { isActionFailure, isRedirect } from '@sveltejs/kit';
+import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
 
 import { actions as offerActions, load as offersLoad } from '../../../src/routes/admin/subscriptions/+page.server.js';
 import { actions as userActions } from '../../../src/routes/admin/users/[id]/+page.server.js';
 import { load as subscriptionLoad } from '../../../src/routes/subscription/+page.server.js';
-import { fakeEvent } from '../support/event.js';
+import { fakeEvent, noIdentities } from '../support/event.js';
 
 import type { AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { AccountsStore } from '../../../src/lib/server/accounts/store.js';
@@ -55,6 +55,7 @@ const offer = (more: Partial<Offer> = {}): Offer => ({
   availableFrom: null,
   availableUntil: null,
   retiredAt: null,
+  introductory: false,
   createdBy: 'admin',
   createdAt: BEFORE,
   ...more,
@@ -132,6 +133,9 @@ describe('the subscription page', () => {
       ],
       offers: [{ id: 'o1', name: '12 months', months: 12, days: 0, prices: { GBP: 3000 }, stripePrice: null }],
       canBuy: false,
+      introductory: null,
+      purchasesRefused: false,
+      claimed: false,
       disputing: false,
       processing: 0,
       checkout: null,
@@ -237,6 +241,59 @@ describe("the offers page's outstanding disputes", () => {
       },
       expect.objectContaining({ creditId: 'c2', openedAt: null, paid: null, dashboard: null }),
     ]);
+  });
+});
+
+describe("a user's admin page's purchases", () => {
+  const record = vi.fn<AuditStore['record']>(() => Promise.resolve());
+  const REFUSED = new Date('2026-11-20T00:00:00Z');
+
+  function allow(found = true, refusedAt: Date | null = REFUSED) {
+    const identities = noIdentities({ purchasesRefusedAt: refusedAt });
+    const run = userActions.allowPurchases;
+    if (run === undefined) throw new Error('No allowPurchases action');
+    const result = run(
+      fakeEvent<UserEvent>({
+        url: 'http://catalogue.test/admin/users/u1?/allowPurchases',
+        method: 'POST',
+        params: { id: 'u1' },
+        locals: {
+          user: ADMIN as never,
+          accounts: { userDetail: () => Promise.resolve(found ? { id: 'u1' } : undefined) } as unknown as AccountsStore,
+          audit: { record } as unknown as AuditStore,
+          identities,
+        },
+      }),
+    );
+    return { identities, result };
+  }
+
+  it('allows purchases again, refused after a dispute lost, recording who did, and when they were refused', async () => {
+    const { identities, result } = allow();
+    const error = await thrown(() => result);
+    expect(isRedirect(error) && error.location).toBe('/admin/users/u1?done=allowPurchases');
+    expect(identities.allowPurchases).toHaveBeenCalledWith('u1');
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'admin',
+        action: 'purchases.allow',
+        subjectId: 'u1',
+        before: { purchasesRefusedAt: REFUSED.toISOString() },
+        after: { purchasesRefusedAt: null },
+      }),
+    );
+  });
+
+  it('allows them for one not refused, changing nothing', async () => {
+    const { result } = allow(true, null);
+    await thrown(() => result);
+    expect(record).toHaveBeenLastCalledWith(expect.objectContaining({ before: { purchasesRefusedAt: null } }));
+  });
+
+  it('is not found for a user there is not', async () => {
+    const { identities, result } = allow(false);
+    expect(isHttpError(await thrown(() => result), 404)).toBe(true);
+    expect(identities.allowPurchases).not.toHaveBeenCalled();
   });
 });
 
@@ -420,6 +477,7 @@ describe('the offers page', () => {
       availableFrom: new Date('2027-01-01T00:00:00Z'),
       availableUntil: new Date('2027-02-01T00:00:00Z'),
       createdBy: 'admin',
+      introductory: false,
     });
     expect(record).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'offer.create', actorId: 'admin' }));
   });
@@ -439,6 +497,25 @@ describe('the offers page', () => {
       event: vi.fn<StripeGateway['event']>(),
     };
   }
+
+  it('makes an introductory offer free, whatever prices are given, and never puts it to Stripe', async () => {
+    const stripe = fakeStripe();
+    const createOffer = vi.fn<SubscriptionStore['createOffer']>(() => Promise.resolve(offer({ introductory: true })));
+    await thrown(() =>
+      act(
+        'create',
+        { ...valid, name: '7 days free', months: '', days: '7', introductory: 'on' },
+        { createOffer },
+        stripe,
+      ),
+    );
+    expect(stripe.offerPrice).not.toHaveBeenCalled();
+    expect(createOffer.mock.calls[0]?.[0]).toMatchObject({ introductory: true, prices: {}, days: 7 });
+    expect(createOffer.mock.calls[0]?.[0]).not.toHaveProperty('providers');
+    expect(record).toHaveBeenLastCalledWith(
+      expect.objectContaining({ after: expect.objectContaining({ introductory: true }) as unknown }),
+    );
+  });
 
   it('makes an offer with a price in the Stripe currency a Stripe Product and Price, and sells it through Stripe', async () => {
     const stripe = fakeStripe();

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { banNotices } from '../../../../src/lib/server/accounts/ban-notice.js';
 import { createAccountsHandle, isAuthPath } from '../../../../src/lib/server/accounts/handle.js';
-import { fakeEvent } from '../../support/event.js';
+import { fakeEvent, noIdentities } from '../../support/event.js';
 
 import type { RequestEvent } from '@sveltejs/kit';
 import type { AccessRecorder } from '../../../../src/lib/server/accounts/access.js';
@@ -17,6 +17,9 @@ const SESSION = { id: 's1', userId: 'u1' };
 const STRIPE = { currency: 'GBP' } as StripeGateway;
 const ACCESS = { record: vi.fn(() => Promise.resolve()), seen: vi.fn(() => Promise.resolve()) };
 
+/** Known identities, as the handle gives them to the pages and webhooks. */
+const IDENTITIES = noIdentities();
+
 function setUp(found: { user: typeof USER; session: Record<string, unknown> } | null) {
   const cookies = new Headers();
   cookies.append('Set-Cookie', 'session=renewed');
@@ -27,6 +30,7 @@ function setUp(found: { user: typeof USER; session: Record<string, unknown> } | 
   const accounts = {} as AccountsStore;
   const audit = {} as AuditStore;
   const handle = createAccountsHandle(auth as unknown as Auth, {
+    identities: IDENTITIES,
     accounts,
     providers: ['github'],
     audit,

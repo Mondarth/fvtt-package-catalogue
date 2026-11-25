@@ -8,6 +8,7 @@
  */
 import type { AccessRecorder } from '../accounts/access.js';
 import type { AuditStore } from '../accounts/audit.js';
+import type { KnownIdentities } from '../accounts/identities.js';
 import type { Logger } from '../log.js';
 import type { PaymentEvent } from './stripe.js';
 import type { SubscriptionStore } from './store.js';
@@ -22,6 +23,8 @@ export interface PaymentDeps {
   readonly log: Logger;
   /** Records a disputing buyer's access, from a dispute's opening until none of theirs is open. */
   readonly access?: AccessRecorder | undefined;
+  /** The identities accounts are known by: purchases by the buyer's are refused once a dispute of theirs is lost. */
+  readonly identities?: Pick<KnownIdentities, 'refusePurchases'> | undefined;
 }
 
 /** What an event came to: the time credited, or nothing more to do. */
@@ -97,7 +100,7 @@ export async function applyStripeEvent(event: PaymentEvent, deps: PaymentDeps): 
  */
 async function applyReversal(
   event: Extract<PaymentEvent, { kind: 'refunded' | 'dispute' }>,
-  { subscriptions, audit, log, access }: PaymentDeps,
+  { subscriptions, audit, log, access, identities }: PaymentDeps,
 ): Promise<Applied> {
   const credit = await subscriptions.creditOf(STRIPE_ACTOR, event.paymentIntent);
   if (credit === undefined) {
@@ -133,8 +136,12 @@ async function applyReversal(
   // The credit was just found, and credits are never deleted but with their user.
   /* v8 ignore next */
   if (taken === undefined) return 'unknown';
-  // A dispute lost is decided: recording the buyer's access stops, and what was kept is cleared.
-  if (event.kind === 'dispute') await access?.stopRecording(credit.userId);
+  // A dispute lost is decided: recording the buyer's access stops, and what was kept is cleared. Further purchases by
+  // every identity the buyer is known by are refused, across deleting and making a new account (Terms, Sec. B.IV.5).
+  if (event.kind === 'dispute') {
+    await access?.stopRecording(credit.userId);
+    await identities?.refusePurchases(credit.userId);
+  }
   if (taken === 'duplicate') return 'duplicate';
   await audit.record({
     actorId: STRIPE_ACTOR,

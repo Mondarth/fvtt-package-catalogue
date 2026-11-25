@@ -205,6 +205,21 @@ describe("a Stripe refund or dispute of a payment's credit", () => {
   });
 });
 
+describe('a dispute lost, and further purchases', () => {
+  it('refuses purchases by every identity the buyer is known by, but for one won, or a refund', async () => {
+    await apply(paid());
+    const identities = { refusePurchases: vi.fn(() => Promise.resolve()) };
+    const applyWith = (event: PaymentEvent) =>
+      applyStripeEvent(event, { subscriptions, audit, log: memoryLogger(), identities });
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'open' });
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'won' });
+    await applyWith({ kind: 'refunded', paymentIntent: 'pi_1', amount: 360, refunded: 100 });
+    expect(identities.refusePurchases).not.toHaveBeenCalled();
+    await applyWith({ kind: 'dispute', paymentIntent: 'pi_1', state: 'lost' });
+    expect(identities.refusePurchases).toHaveBeenCalledWith('u1');
+  });
+});
+
 describe("a dispute, and the buyer's access", () => {
   /** A recorder that remembers what it was told. */
   const recorder = () => ({

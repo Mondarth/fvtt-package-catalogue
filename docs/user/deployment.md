@@ -98,7 +98,8 @@ sign in at the accounts, and are sent back to the catalogue.
 
    `AUTH_SECRET`
    : Signs the accounts' cookies and encrypts what sign-in providers give (`openssl rand -hex 32`). Keep it secret, and
-     keep it the same: changing it signs everyone out, and the providers' tokens already stored can no longer be read.
+     keep it the same: changing it signs everyone out, the providers' tokens already stored can no longer be read, and
+     the identities remembered against abuse (introductory offers claimed, purchases refused) match no one any more.
 
    `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET`, `AUTH_PATREON_ID`, `AUTH_PATREON_SECRET` (optional)
    : Signing in with GitHub, Google, Discord and Patreon (see [Signing in](#signing-in)). Each provider is offered only
@@ -260,11 +261,22 @@ it says so.
   theirs is disputed, each request they make, on the website or through the API, is recorded (`access_records`),
   starting with that last session; every record of them is deleted once none of their disputes is open, whatever its
   outcome. Both are on the "What we store" page. One lost is charged back: it takes back what remains of the purchase's time, and stays recorded.
-- The Terms and Conditions the **Subscription** page links to are published at `/terms`: publish them before selling
-  for real.
+- **Purchases refused.** Once a dispute is lost, purchases are refused for every account known by one of the buyer's
+  identities (their email address, and each account they sign in with), a new account made after deleting the old one
+  among them: their **Subscription** page says so in place of the offers. A user's admin page shows since when, with
+  **Allow purchases again**, which the audit log records.
+- **Introductory offers.** An offer made with **Introductory** ticked is free: it has no price and is never sold through
+  Stripe. An account never subscribed claims it on its **Subscription** page, once a person: whoever claims it, every
+  identity they are known by is marked, so that a profile deleted and made again claims none. While several are on
+  sale, the one with the shortest period is offered. Retire it to stop offering it.
+- **Deleting a profile** is refused while a refund asked for is still to be made, or a payment is disputed: the
+  profile page disables its button, saying why.
+- The identities above are kept as keyed one-way hashes, after a profile is deleted, against abuse
+  (`known_identities`); the "What we store" page says so. They are keyed by `AUTH_SECRET`.
+- The Terms and Conditions are published at `/terms`, which every page, and the purchase consent, link to.
 
-**Patreon.** A user who links Patreon, from their **Subscription** page, is subscribed while they are an active
-patron of the catalogue's campaign, pledging at least the least pledge set on the admin pages' **Subscriptions** page.
+**Patreon.** A user who links Patreon, from their **Subscription** page, is subscribed while they are a paid member of
+Mondarth's Patreon, pledging at least the least pledge set on the admin pages' **Subscriptions** page.
 It makes no credits: Patreon is asked, with the patron's own token, as they use what a subscription gives.
 
 - Set `PATREON_CAMPAIGN_ID` to the campaign's id: Patreon's API gives it

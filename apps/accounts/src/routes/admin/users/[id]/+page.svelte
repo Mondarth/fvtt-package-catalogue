@@ -35,6 +35,7 @@
     grant: m.admin_done_grant,
     setEnd: m.admin_done_set_end,
     revoke: m.admin_done_revoke,
+    allowPurchases: m.admin_done_allow_purchases,
   };
 
   /** A form's problem, by what it was. */
@@ -212,6 +213,15 @@
       {m.admin_subscription_none()}
     {/if}
   </p>
+  {#if data.purchasesRefusedAt !== null}
+    <!-- Refused after a dispute was lost, by an identity the user is known by: an admin may allow them again. -->
+    <div class="refused">
+      <p>{m.admin_purchases_refused({ date: time(data.purchasesRefusedAt) })}</p>
+      <form method="POST" action="?/allowPurchases">
+        <button type="submit">{m.admin_purchases_allow()}</button>
+      </form>
+    </div>
+  {/if}
   {#if data.patreon?.linked}
     <p class="patreon">
       {data.patreon.subscribed ? m.admin_patreon_subscribes() : m.admin_patreon_does_not()}
@@ -371,6 +381,16 @@
 </section>
 
 <style>
+  .refused {
+    padding: 0.6rem 0.8rem;
+    border-inline-start: 3px solid var(--accent);
+    background: var(--note-bg);
+  }
+
+  .refused p {
+    margin-top: 0;
+  }
+
   .facts {
     display: grid;
     grid-template-columns: max-content 1fr;
