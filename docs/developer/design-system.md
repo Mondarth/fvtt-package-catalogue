@@ -6,7 +6,7 @@ one. The design system that makes them so has three levels, each built on the on
 1. **Design tokens** (`packages/design-tokens`): every design decision (a colour, a space, a size of type, a duration)
    as a named token, and the CSS custom properties built from them. Framework-free, so any website can use them.
 2. **Components** (`packages/ui`): the Svelte components the applications share, styled with the tokens alone.
-   Storybook is to become where they are reviewed and tested.
+   Storybook is where they are reviewed and tested (see [Components](#components)).
 3. **Applications** (`apps/*`): their pages, built from the components. Each tests its own routes.
 
 ## Design tokens
@@ -159,3 +159,48 @@ the logo colours where they are.
 
 The Hugo site takes `tokens.css` from the published package, at a pinned version, and maps its theme's own variables
 onto the tokens, so that it keeps its theme and wears Mondarth's colours.
+
+(components)=
+
+## Components
+
+`packages/ui` holds the components every application shares: the logo, the top bar, the language picker, notices
+and callouts. Each is styled with the tokens alone (`--mdr-*`), never the palette, and takes its words from the
+application, which translates them.
+
+### Storybook
+
+[Storybook](https://storybook.js.org/) is where the components are reviewed, and tested. Its preview loads the theme
+(`@mondarth/ui/theme.css`, and so the tokens), and its toolbar chooses the theme (light, dark, or as the browser
+prefers) and the site, as a page's `data-theme` and `data-site` would.
+
+```shell
+pnpm --filter @mondarth/ui storybook        # http://localhost:6006
+```
+
+Each component has its stories beside it, `<Component>.stories.svelte`, written with
+[addon-svelte-csf](https://github.com/storybookjs/addon-svelte-csf); a story it cannot express is written in plain
+CSF, `<Component>.stories.ts`. The release publishes the Storybook with this documentation, at
+[`storybook/`](https://mondarth.github.io/fvtt-package-catalogue/storybook/), where an application's own Storybook can
+compose it.
+
+### Testing components
+
+Every story is a test (`@storybook/addon-vitest`), run by Vitest in Chromium:
+
+- it renders, in the theme;
+- its play function, where it has one, does what a person would, and checks what follows;
+- [axe](https://github.com/dequelabs/axe-core) checks it, and an accessibility violation fails it
+  (`a11y: { test: 'error' }` in `.storybook/preview.ts`).
+
+```shell
+pnpm --filter @mondarth/ui test             # the stories, and the unit tests
+pnpm --filter @mondarth/ui test:coverage    # with the coverage gate
+```
+
+What is not a component (dates, language names) has unit tests, in happy-dom (`tests/`). Coverage counts both, with
+Istanbul, which reads the Svelte components' statements as written. The applications do not test the shared
+components again: they test their own routes, the components in them as they are used.
+
+A new component comes with its stories, at least one with a play function, in light and dark.
+
