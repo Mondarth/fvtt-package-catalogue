@@ -14,6 +14,7 @@ export default defineConfig(
       '**/build/**',
       '**/.svelte-kit/**',
       '**/coverage/**',
+      '**/storybook-static/**',
       '**/drizzle/meta/**',
       '**/src/lib/paraglide/**',
       '**/playwright-report/**',

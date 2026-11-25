@@ -22,3 +22,6 @@ docs/_build/
 CHANGELOG.md
 # Prettier does not understand MyST: it re-indents directive fences and definition lists.
 docs/**/*.md
+
+# Storybook builds (packages/ui)
+storybook-static/

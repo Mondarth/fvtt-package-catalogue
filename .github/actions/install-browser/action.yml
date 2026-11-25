@@ -1,0 +1,36 @@
+name: Install a browser
+description: >-
+  Installs a Playwright browser and what it needs, cached by the lockfile. The install's apt downloads can stall on a
+  slow Ubuntu mirror for longer than a job's timeout, when it usually takes seconds, so a stalled install is stopped
+  after five minutes and tried once more.
+
+inputs:
+  browser:
+    description: chromium, firefox or webkit
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    - name: Install the browser
+      shell: bash
+      run: |
+        for attempt in 1 2; do
+          timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ inputs.browser }} && exit 0
+          echo "::warning::Installing ${{ inputs.browser }} failed or took over five minutes (attempt $attempt)"
+          # sudo runs apt-get in a session of its own, which timeout cannot reach: stop it, and wait for it, and any
+          # dpkg it started, to let go of dpkg's locks.
+          sudo pkill -TERM -x apt-get || true
+          for _ in $(seq 30); do
+            pgrep -x 'apt-get|dpkg' > /dev/null || break
+            sleep 1
+          done
+          # An apt run stopped part-way can leave dpkg needing to finish configuring.
+          sudo dpkg --configure -a || true
+        done
+        exit 1
