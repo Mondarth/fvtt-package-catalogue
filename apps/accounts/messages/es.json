@@ -48,6 +48,8 @@
   "delete_button": "Eliminar perfil",
   "delete_unconfirmed": "Marca la casilla para confirmar que quieres eliminar tu perfil.",
   "delete_stale": "Por tu seguridad, cierra la sesión y vuelve a iniciarla antes de eliminar tu perfil: iniciaste sesión hace más de un día.",
+  "delete_blocked_refund": "No puedes eliminar tu perfil mientras se tramita un reembolso que pediste. Cuando se haya hecho, podrás eliminarlo.",
+  "delete_blocked_dispute": "No puedes eliminar tu perfil mientras un pago tuyo está en disputa con tu banco. Cuando se resuelva la disputa, podrás eliminarlo.",
   "privacy_heading": "Qué guardamos",
   "privacy_lede": "Al iniciar sesión en el catálogo se guarda lo que enumera esta página, y nada más sobre ti. No lo vendemos, no lo compartimos ni lo usamos para publicidad.",
   "privacy_column_what": "Qué",
