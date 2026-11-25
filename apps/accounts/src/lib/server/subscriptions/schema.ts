@@ -3,8 +3,8 @@
  * user is subscribed for. A user is subscribed until the latest credit ends (see `store.ts`). No payment details are
  * kept: a credit names its payment provider and the provider's own reference alone, where the invoice is kept.
  *
- * A user with a Patreon account linked is subscribed too while Patreon says they are a patron of the catalogue's
- * campaign at the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
+ * A user with a Patreon account linked is subscribed too while Patreon says they are a member of Mondarth's Patreon,
+ * pledging the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
  * `patreon.ts`), and makes no credits.
  *
  * What `subscription_credits` and `patreon_memberships` hold of a user is on the website's "What we store" page

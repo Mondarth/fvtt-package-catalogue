@@ -13,6 +13,12 @@ const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()
 vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
+/**
+ * The consent's words, as a screen reader reads them, its link's among them: the test DOM, which lays out no inline
+ * element, sets the link apart from the full stop after it, which a browser does not.
+ */
+const CONSENT_WORDS = en.subscription_buy_consent.replace('{terms}', en.subscription_buy_terms);
+const CONSENT = (name: string) => name.replace(/\s+([.,])/g, '$1') === CONSENT_WORDS;
 const fill = (message: string, values: Record<string, string | number>) =>
   Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, String(value)), message);
 
@@ -326,14 +332,18 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(offers).toHaveTextContent(fill(en.subscription_price_before_tax, { price: '£30.00' }));
     expect(offers).not.toHaveTextContent('€35.00');
     expect(offers).toHaveTextContent(en.subscription_buy_how);
-    expect(within(offers).getByRole('link', { name: en.subscription_buy_terms })).toHaveAttribute('href', '/terms');
+    // The terms, from the consent, in a tab of their own, so that what is ticked stays ticked, and from the note.
+    const terms = within(offers).getAllByRole('link', { name: en.subscription_buy_terms });
+    expect(terms.map(link => link.getAttribute('href'))).toEqual(['/terms', '/terms']);
+    expect(terms[0]?.closest('label')).not.toBeNull();
+    expect(terms[0]).toHaveAttribute('target', '_blank');
     expect(offers).not.toHaveTextContent(en.subscription_buy_soon);
   });
 
   it('asks once, for every offer, for the consent the terms need, each Buy waiting for it and saying why', async () => {
     show({ offers: [STRIPE_OFFER, { ...STRIPE_OFFER, id: 'o2', name: '1 month' }] });
     const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
-    const consents = within(offers).getAllByRole('checkbox', { name: en.subscription_buy_consent });
+    const consents = within(offers).getAllByRole('checkbox', { name: CONSENT });
     expect(consents).toHaveLength(1);
     const buttons = ['12 months', '1 month'].map(name =>
       within(offers).getByRole('button', { name: fill(en.subscription_buy_named, { name }) }),
@@ -387,10 +397,7 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(screen.getByText(message)).toBeInTheDocument();
     // The problem is said instead of how the checkout came back.
     expect(screen.queryByText(en.subscription_checkout_done)).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: en.subscription_buy_consent })).toHaveAttribute(
-      'aria-invalid',
-      String(buy === 'consent'),
-    );
+    expect(screen.getByRole('checkbox', { name: CONSENT })).toHaveAttribute('aria-invalid', String(buy === 'consent'));
   });
 });
 

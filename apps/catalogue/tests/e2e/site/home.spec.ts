@@ -16,6 +16,7 @@ test('the home page says what the catalogue is, and sends a visitor to sign in a
     `${ACCOUNTS_URL}/?next=${encodeURIComponent(`${E2E_URL}/`)}`,
   );
   await expect(page.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/privacy`);
+  await expect(page.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/terms`);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

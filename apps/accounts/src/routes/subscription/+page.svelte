@@ -3,6 +3,7 @@
   offers it, and the offers on sale.
 -->
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { Callout } from '@mondarth/ui';
   import { refreshAll } from '$app/navigation';
 
@@ -122,6 +123,11 @@
         return m.subscription_patreon_not_member();
     }
   }
+
+  // The consent's words, with "Terms and Conditions" a link to them, wherever the language puts it: the message marks
+  // its place.
+  const MARK = '\u0000';
+  const [consentBefore = '', consentAfter = ''] = $derived(m.subscription_buy_consent({ terms: MARK }).split(MARK));
 </script>
 
 <svelte:head>
@@ -222,7 +228,8 @@
             bind:checked={consented}
             aria-invalid={buyProblem === 'consent'}
             aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
-          {m.subscription_buy_consent()}
+          {consentBefore}<a href={resolve('/terms')} target="_blank" rel="noopener">{m.subscription_buy_terms()}</a
+          >{consentAfter}
         </label>
         <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
       {/if}
@@ -265,8 +272,7 @@
       <p class="hint">{m.subscription_buy_how()}</p>
       <p class="hint">
         {m.subscription_buy_cancel()}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the terms are published at /terms once final, which the site has no route for yet -->
-        <a href="/terms">{m.subscription_buy_terms()}</a>
+        <a href={resolve('/terms')}>{m.subscription_buy_terms()}</a>
       </p>
     {:else}
       <p class="hint">{m.subscription_buy_soon()}</p>

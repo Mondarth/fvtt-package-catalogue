@@ -11,6 +11,8 @@ import { messagesOf } from '../messages.js';
 import type { Locator, Page, TestInfo } from '@playwright/test';
 
 const en = messagesOf('en');
+/** The consent checkbox, by its words before the link to the terms, as browsers set a link apart in a name. */
+const CONSENT = en.subscription_buy_consent.split('{terms}')[0]?.trim() ?? '';
 const fill = (message: string, values: Record<string, string>) =>
   Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, value), message);
 
@@ -67,7 +69,7 @@ test('an admin sells an offer through Stripe, which a user buys, consenting, and
   // One consent for every offer: until it is given, no Buy works.
   const buy = offer.getByRole('button', { name: fill(en.subscription_buy_named, { name: offerName }) });
   await expect(buy).toBeDisabled();
-  await page.getByRole('checkbox', { name: en.subscription_buy_consent }).check();
+  await page.getByRole('checkbox', { name: CONSENT }).check();
   await buy.click();
 
   // Stripe's checkout page, stood in for: paying sends the catalogue its event, and the buyer back.
@@ -82,7 +84,7 @@ test('an admin sells an offer through Stripe, which a user buys, consenting, and
 
   // A subscriber adding time gives the consent again; leaving the checkout charges nothing.
   await expect(page.getByText(en.subscription_gives)).toHaveCount(0);
-  await page.getByRole('checkbox', { name: en.subscription_buy_consent }).check();
+  await page.getByRole('checkbox', { name: CONSENT }).check();
   await buy.click();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('status').filter({ hasText: en.subscription_checkout_cancelled })).toBeVisible();
@@ -110,7 +112,7 @@ async function bought(page: Page, info: TestInfo) {
   const buyer = nameFor('refunded', info);
   await signInAs(page, buyer);
   await page.goto('/subscription');
-  await page.getByRole('checkbox', { name: en.subscription_buy_consent }).check();
+  await page.getByRole('checkbox', { name: CONSENT }).check();
   await page.getByRole('button', { name: fill(en.subscription_buy_named, { name: offerName }) }).click();
   const session = new URL(page.url()).pathname.split('/').pop() ?? '';
   await page.getByRole('button', { name: 'Pay' }).click();

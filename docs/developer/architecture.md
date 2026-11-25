@@ -237,6 +237,11 @@ In the accounts:
 - The site needs no script to sign in: signing in, signing out and deleting the profile are forms posted to small
   endpoints (`routes/sign-in/[provider]`, `routes/sign-out`, `routes/profile/delete`) that call Better Auth on the
   server and pass its cookies on with a redirect.
+- **The Terms and Conditions** are at `/terms` (`routes/terms`), their text in `lib/components/Terms.svelte`, in
+  English, which governs: a page in another language says so above them. The text is the user's, agreed with their
+  solicitor: change it only as they change the terms, word for word, with its "Last updated" date. Clause C.X.2, the
+  governing law, is the user's own wording, and a test (`terms.svelte.test.ts`) holds it word for word. Every page
+  links the terms and "What we store" at its foot, and the purchase consent links the terms, in a tab of their own.
 - `lib/stored.ts` lists what each row of the "What we store" page covers, by column; a test checks it against the
   tables as the migrations make them, so that a column added must be added to the page too.
 - **Admins** have Better Auth's admin plugin, with the website's roles and permissions (`accounts/permissions.ts`): a
