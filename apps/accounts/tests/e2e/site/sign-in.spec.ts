@@ -16,7 +16,7 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
   ).toBeVisible();
   await expect(page.getByRole('note')).toHaveCount(0);
 
-  await page.getByRole('link', { name: en.privacy_link }).click();
+  await page.getByRole('main').getByRole('link', { name: en.privacy_link }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.privacy_heading })).toBeVisible();
   await expect(page.getByRole('row')).toHaveCount(24);
 });

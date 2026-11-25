@@ -46,9 +46,15 @@
   {@render children()}
 </main>
 
+<footer>
+  <a href={resolve('/terms')}>{m.terms_link()}</a>
+  <a href={resolve('/privacy')}>{m.privacy_link()}</a>
+</footer>
+
 <style>
   header,
-  main {
+  main,
+  footer {
     max-width: 48rem;
     margin: 0 auto;
     padding: 0 1rem;
@@ -72,6 +78,14 @@
 
   main {
     padding-block: 1rem 2rem;
+  }
+
+  footer {
+    display: flex;
+    gap: 1.5rem;
+    padding-block: 1rem 2rem;
+    border-top: 1px solid var(--muted);
+    font-size: 0.9rem;
   }
 
   .impersonating {

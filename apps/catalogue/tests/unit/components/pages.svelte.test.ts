@@ -28,6 +28,7 @@ describe('the home page', () => {
     expect(screen.getByText(en.home_lede)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: en.developers_link })).toHaveAttribute('href', '/developers');
     expect(screen.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${SITE}/privacy`);
+    expect(screen.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${SITE}/terms`);
   });
 
   it('sends a visitor to sign in at the accounts, which send them back here', () => {

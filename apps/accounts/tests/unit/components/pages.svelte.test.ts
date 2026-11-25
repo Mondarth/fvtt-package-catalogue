@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -81,6 +81,13 @@ describe('the layout', () => {
     expect(screen.getByRole('main')).toHaveTextContent('Page content');
     expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('links the terms and what is stored at the foot of every page', () => {
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    const foot = screen.getByRole('contentinfo');
+    expect(within(foot).getByRole('link', { name: en.terms_link })).toHaveAttribute('href', '/terms');
+    expect(within(foot).getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', '/privacy');
   });
 
   it('says a machine translated page was translated by machine', () => {
