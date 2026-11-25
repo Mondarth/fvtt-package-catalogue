@@ -8,6 +8,9 @@ inputs:
   browser:
     description: chromium, firefox or webkit
     required: true
+  package:
+    description: The workspace package whose Playwright installs it (the root has none)
+    default: '@mondarth/ui'
 
 runs:
   using: composite
@@ -21,7 +24,7 @@ runs:
       shell: bash
       run: |
         for attempt in 1 2; do
-          timeout --kill-after=30s 5m pnpm exec playwright install --with-deps ${{ inputs.browser }} && exit 0
+          timeout --kill-after=30s 5m pnpm --filter '${{ inputs.package }}' exec playwright install --with-deps ${{ inputs.browser }} && exit 0
           echo "::warning::Installing ${{ inputs.browser }} failed or took over five minutes (attempt $attempt)"
           # sudo runs apt-get in a session of its own, which timeout cannot reach: stop it, and wait for it, and any
           # dpkg it started, to let go of dpkg's locks.
