@@ -1,0 +1,9 @@
+{
+  "$type": "color",
+  "color": {
+    "site": {
+      "$value": "{palette.turquoise.200}",
+      "$description": "The site's own colour, its emblem's: AIDE: the scroll and quill. A mark beside the logo or along an edge, never text, and never the only sign of anything."
+    }
+  }
+}

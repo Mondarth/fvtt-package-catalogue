@@ -1,7 +1,7 @@
 {
   "name": "Mondarth",
   "version": "2025.10",
-  "description": "Mondarth's design tokens: the base set, then the theme, light or dark.",
+  "description": "Mondarth's design tokens: the base set, then the theme, light or dark, then the site, whose emblem's colour it takes.",
   "sets": {
     "base": {
       "sources": [
@@ -30,6 +30,32 @@
         ]
       },
       "default": "light"
+    },
+    "site": {
+      "description": "Which Mondarth website: mondarth.com unless the page says which (data-site).",
+      "contexts": {
+        "mondarth": [
+          {
+            "$ref": "site/mondarth.tokens.json"
+          }
+        ],
+        "catalogue": [
+          {
+            "$ref": "site/catalogue.tokens.json"
+          }
+        ],
+        "aide": [
+          {
+            "$ref": "site/aide.tokens.json"
+          }
+        ],
+        "accounts": [
+          {
+            "$ref": "site/accounts.tokens.json"
+          }
+        ]
+      },
+      "default": "mondarth"
     }
   },
   "resolutionOrder": [
@@ -38,6 +64,9 @@
     },
     {
       "$ref": "#/modifiers/theme"
+    },
+    {
+      "$ref": "#/modifiers/site"
     }
   ]
 }

@@ -30,6 +30,7 @@ describe('the built tokens', () => {
           `${text} on ${background}`,
         ).toBeGreaterThanOrEqual(4.5);
     expect(contrast(colour(theme, 'text-on-accent'), colour(theme, 'accent'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colour(theme, 'text-on-action'), colour(theme, 'action'))).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(['light', 'dark'] as const)('make controls and focus stand out, %s', theme => {
@@ -53,6 +54,16 @@ describe('the built tokens', () => {
     expect([...(rules.get("[data-theme='dark']")?.keys() ?? [])].every(name => name.startsWith('--mdr-color-'))).toBe(
       true,
     );
+  });
+
+  it("give each site its emblem's colour, and nothing else, where a page says which it is", () => {
+    const sites = { mondarth: '#f3891c', catalogue: '#efbb47', aide: '#2ff9e3', accounts: '#60b6fa' };
+    for (const [site, emblem] of Object.entries(sites)) {
+      const rule = rules.get(`[data-site='${site}']`);
+      expect([...(rule?.keys() ?? [])], site).toEqual(['--mdr-color-site']);
+      expect(themeOf(rules.get(':root') ?? new Map(), rule).get('--mdr-color-site'), site).toBe(emblem);
+    }
+    expect(themes.light.get('--mdr-color-site')).toBe(sites.mondarth);
   });
 
   it('name every variable --mdr-', () => {
