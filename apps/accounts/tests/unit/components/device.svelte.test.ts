@@ -84,6 +84,7 @@ describe("the profile's signed-in devices", () => {
         saved: false,
         signedOut: null,
         impersonated: false,
+        deletionBlock: null,
         devices: [
           device('here', 'website', true, 'Firefox on Linux'),
           device('ext', 'emma-extension'),

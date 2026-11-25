@@ -2,12 +2,13 @@ import { fail, redirect } from '@sveltejs/kit';
 
 import { checkNickname } from '#lib/server/accounts/nickname.js';
 import { field } from '#lib/server/form.js';
+import { deletionBlockOf } from '#lib/server/subscriptions/deletion.js';
 import { describeAgent } from '#lib/user-agent.js';
 
 import type { Actions, PageServerLoad } from './$types';
 
 /** Why the profile page was come back to: a deletion it could not make. */
-const PROBLEMS = ['unconfirmed', 'stale', 'impersonating'] as const;
+const PROBLEMS = ['unconfirmed', 'stale', 'impersonating', 'dispute', 'refund'] as const;
 type Problem = (typeof PROBLEMS)[number];
 
 const isProblem = (value: string | null): value is Problem => (PROBLEMS as readonly (string | null)[]).includes(value);
@@ -61,6 +62,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     signedOut: url.searchParams.get('signed-out'),
     // An admin viewing the site as the user may not sign their devices out; Better Auth's hooks refuse it too.
     impersonated: typeof locals.session?.impersonatedBy === 'string',
+    // Why the profile may not be deleted now, if it may not: a refund still to be made, or a payment disputed.
+    deletionBlock: deletionBlockOf(await locals.subscriptions.history(user.id)),
   };
 };
 

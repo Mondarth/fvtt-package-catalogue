@@ -48,6 +48,8 @@
   "delete_button": "Delete profile",
   "delete_unconfirmed": "Tick the box to confirm that you want your profile deleted.",
   "delete_stale": "For your safety, sign out and sign in again before deleting your profile: you signed in more than a day ago.",
+  "delete_blocked_refund": "Your profile cannot be deleted while a refund you asked for is still being made. Once it is made, you can delete it.",
+  "delete_blocked_dispute": "Your profile cannot be deleted while a payment of yours is disputed with your bank. Once the dispute is decided, you can delete it.",
   "privacy_heading": "What we store",
   "privacy_lede": "Signing in to the catalogue stores what this page lists, and nothing else about you. We do not sell it, share it, or use it for advertising.",
   "privacy_column_what": "What",

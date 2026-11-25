@@ -210,6 +210,12 @@ test('a buyer asks for a refund after 14 days, saying why, which an admin sees a
   await expect(page.getByRole('region', { name: en.subscription_history_heading })).toContainText(
     en.subscription_refund_requested,
   );
+
+  // While it is still to be made, the buyer cannot delete their profile, and is told why.
+  await page.goto('/profile');
+  const remove = page.getByRole('button', { name: en.delete_button });
+  await expect(remove).toBeDisabled();
+  await expect(remove).toHaveAccessibleDescription(en.delete_blocked_refund);
   await signOut(page);
 
   // The admin sees it, with the buyer's reason, and makes it in Stripe's dashboard, stood in for.
