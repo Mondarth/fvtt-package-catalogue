@@ -19,6 +19,7 @@ const TABLES = [
   'patreon_memberships',
   'last_sessions',
   'access_records',
+  'known_identities',
 ];
 
 describe('what the "What we store" page lists', () => {

@@ -290,4 +290,8 @@ test('a dispute is listed for admins while open, and once lost charges the purch
     en.subscription_refund_refunded,
   );
   await expect(page.getByText(/^Subscribed until /)).toHaveCount(0);
+  // Lost, so further purchases by them are refused, which the page says in place of the offers.
+  await expect(page.getByRole('region', { name: en.subscription_offers_heading })).toContainText(
+    en.subscription_buy_refused,
+  );
 });

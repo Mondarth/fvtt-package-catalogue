@@ -2,7 +2,7 @@ import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
 
 import { actions, load } from '../../../src/routes/subscription/+page.server.js';
-import { fakeEvent } from '../support/event.js';
+import { fakeEvent, noIdentities } from '../support/event.js';
 
 import type { StripeGateway } from '../../../src/lib/server/subscriptions/stripe.js';
 import type { Checkout, Offer, SubscriptionStore } from '../../../src/lib/server/subscriptions/store.js';
@@ -21,6 +21,7 @@ const offer = (more: Partial<Offer> = {}): Offer => ({
   availableFrom: null,
   availableUntil: null,
   retiredAt: null,
+  introductory: false,
   createdBy: 'admin',
   createdAt: NOW,
   ...more,
@@ -179,6 +180,17 @@ describe('buying an offer through Stripe', () => {
     expect(store.openCheckout).not.toHaveBeenCalled();
   });
 
+  it('sells nothing to an account whose purchases are refused, after a dispute lost', async () => {
+    const store = fakeStore();
+    const identities = noIdentities({ purchasesRefusedAt: new Date('2026-11-20T00:00:00Z') });
+    const result = await buy(
+      { offer: 'o1', consent: 'on' },
+      { stripe: fakeStripe(), subscriptions: store as unknown as SubscriptionStore, identities },
+    );
+    expect(isActionFailure(result) && result.data).toEqual({ buy: 'refused' });
+    expect(store.openCheckout).not.toHaveBeenCalled();
+  });
+
   it('sells nothing while an admin views the site as the user', async () => {
     const store = fakeStore();
     const result = await buy(
@@ -237,6 +249,42 @@ describe('the subscription page, where the catalogue sells through Stripe', () =
     if (result === undefined) throw new Error('The page gave nothing');
     return result;
   }
+
+  it('offers an introductory offer apart, to an account never subscribed, and says when purchases are refused', async () => {
+    const FREE = offer({ id: 'free', name: '7 days free', months: 0, days: 7, prices: {}, introductory: true });
+    const subscriptions = (history: unknown[]) =>
+      ({
+        history: () => Promise.resolve(history),
+        activeOffers: () => Promise.resolve([offer(), FREE]),
+        processingCheckouts: () => Promise.resolve([]),
+      }) as unknown as SubscriptionStore;
+    const fresh = await loaded({ subscriptions: subscriptions([]) }, 'https://catalogue.test/subscription?claimed');
+    expect(fresh).toMatchObject({
+      introductory: { id: 'free', name: '7 days free', months: 0, days: 7 },
+      purchasesRefused: false,
+      claimed: true,
+    });
+    expect(fresh.offers.map(given => given.id)).toEqual(['o1']);
+    // Once subscribed, or known by an identity that claimed one, it is offered no longer.
+    const granted = {
+      id: 'c1',
+      source: 'grant',
+      months: 1,
+      days: 0,
+      startsAt: NOW,
+      endsAt: NOW,
+      createdAt: NOW,
+      amountPaid: null,
+      currencyPaid: null,
+      disputed: null,
+    };
+    expect(await loaded({ subscriptions: subscriptions([granted]) })).toMatchObject({ introductory: null });
+    const claimed = await loaded({
+      subscriptions: subscriptions([]),
+      identities: noIdentities({ introductoryClaimed: true, purchasesRefusedAt: new Date() }),
+    });
+    expect(claimed).toMatchObject({ introductory: null, purchasesRefused: true, claimed: false });
+  });
 
   it('prices each offer sold through Stripe before tax, in its currency, and says how the checkout came back', async () => {
     const result = await loaded({ stripe: fakeStripe() });
@@ -624,5 +672,78 @@ describe("a purchase's refund, as its buyer sees it before confirming", () => {
     expect(await previewed({ refundedAmount: 3600 })).toBeNull();
     expect(await previewed({ source: 'grant' })).toBeNull();
     expect(await previewed({ currencyPaid: null })).toBeNull();
+  });
+});
+
+type ClaimEvent = Parameters<NonNullable<(typeof actions)['claim']>>[0];
+
+describe('claiming an introductory offer', () => {
+  const FREE = offer({ id: 'free', name: '7 days free', months: 0, days: 7, prices: {}, introductory: true });
+
+  /** Claims an offer, with what the request has. */
+  function claim(offerId: string, locals: Partial<App.Locals>) {
+    const run = actions.claim;
+    if (run === undefined) throw new Error('No claim action');
+    return run(
+      fakeEvent<ClaimEvent>({
+        url: 'https://catalogue.test/subscription?/claim',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ offer: offerId }).toString(),
+        locals: { user: USER as never, session: {} as never, ...locals },
+      }),
+    );
+  }
+
+  /** The store, with credits given. */
+  const storeWith = (history: unknown[] = []) => ({
+    ...fakeStore([offer(), FREE], history),
+    credit: vi.fn<SubscriptionStore['credit']>(() => Promise.resolve('duplicate')),
+  });
+
+  it('adds its time to an account never subscribed, and marks every identity it is known by', async () => {
+    const store = storeWith();
+    const identities = noIdentities();
+    const error = await thrown(() =>
+      claim('free', { subscriptions: store as unknown as SubscriptionStore, identities }),
+    );
+    expect(isRedirect(error) && error.location).toBe('/subscription?claimed');
+    expect(store.credit).toHaveBeenCalledWith({
+      userId: 'u1',
+      source: 'introductory',
+      offerId: 'free',
+      months: 0,
+      days: 7,
+    });
+    expect(identities.claimIntroductory).toHaveBeenCalledWith('u1');
+  });
+
+  it('refuses an account ever subscribed, one known by an identity that claimed one, or another offer', async () => {
+    for (const [history, standing, offerId] of [
+      [[{ disputed: null }], {}, 'free'],
+      [[], { introductoryClaimed: true }, 'free'],
+      [[], {}, 'o1'],
+    ] as const) {
+      const store = storeWith([...history]);
+      const identities = noIdentities(standing);
+      const result = await claim(offerId, { subscriptions: store as unknown as SubscriptionStore, identities });
+      expect(isActionFailure(result) && result.data).toEqual({ claim: 'unavailable' });
+      expect(store.credit).not.toHaveBeenCalled();
+      expect(identities.claimIntroductory).not.toHaveBeenCalled();
+    }
+  });
+
+  it('refuses while an admin views the site as the user', async () => {
+    const store = storeWith();
+    const result = await claim('free', {
+      session: { impersonatedBy: 'admin' } as never,
+      subscriptions: store as unknown as SubscriptionStore,
+    });
+    expect(isActionFailure(result) && result.data).toEqual({ claim: 'impersonating' });
+  });
+
+  it('only goes home for no one signed in', async () => {
+    const error = await thrown(() => claim('free', { user: null }));
+    expect(isRedirect(error) && error.location).toBe('/');
   });
 });

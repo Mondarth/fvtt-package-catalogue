@@ -11,6 +11,7 @@ import {
   audit,
   auth,
   banNotices,
+  identities,
   log,
   patreon,
   providers,
@@ -34,6 +35,7 @@ export const handle = sequence(
     stripe,
     access,
     appOrigins,
+    identities,
   }),
   handleI18n,
 );

@@ -1,6 +1,31 @@
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 
 import { memoryLogger } from './logger.js';
+
+import type { KnownIdentities } from '../../../src/lib/server/accounts/identities.js';
+
+/**
+ * Known identities as a test has them by default: a person who claimed no introductory offer, and may buy.
+ *
+ * @param standing - Where they stand, if otherwise
+ * @returns The identities, each method a spy
+ */
+export function noIdentities(standing: Partial<Awaited<ReturnType<KnownIdentities['standing']>>> = {}): {
+  [K in keyof KnownIdentities]: Mock<KnownIdentities[K]>;
+} {
+  return {
+    remember: vi.fn<KnownIdentities['remember']>(() => Promise.resolve([])),
+    rememberThese: vi.fn<KnownIdentities['rememberThese']>(() => Promise.resolve([])),
+    standing: vi.fn<KnownIdentities['standing']>(() =>
+      Promise.resolve({ introductoryClaimed: false, purchasesRefusedAt: null, ...standing }),
+    ),
+    claimIntroductory: vi.fn<KnownIdentities['claimIntroductory']>(() => Promise.resolve()),
+    refusePurchases: vi.fn<KnownIdentities['refusePurchases']>(() => Promise.resolve()),
+    allowPurchases: vi.fn<KnownIdentities['allowPurchases']>(() => Promise.resolve()),
+  };
+}
 
 export interface FakeEventOptions<P> {
   readonly params?: P;
@@ -31,6 +56,7 @@ export function fakeEvent<E extends RequestEvent = RequestEvent>({
     locals: {
       requestId: 'request-1',
       log: memoryLogger(),
+      identities: noIdentities(),
       ...locals,
     },
   };

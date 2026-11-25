@@ -172,6 +172,17 @@ export const STORED: readonly StoredItem[] = [
     ],
   },
   {
+    id: 'known_identities',
+    from: 'us',
+    columns: [
+      'known_identities.hash',
+      'known_identities.kind',
+      'known_identities.first_seen_at',
+      'known_identities.introductory_claimed_at',
+      'known_identities.purchases_refused_at',
+    ],
+  },
+  {
     id: 'pending',
     from: 'us',
     columns: ['verifications.id', 'verifications.identifier', 'verifications.value', 'verifications.expires_at'],

@@ -331,6 +331,17 @@ In the accounts:
   the profile with its email address where both have verified it (Better Auth's implicit linking, no provider trusted
   without it), and Patreon is linked as asked whatever its email (`allowDifferentEmails`), once Patreon has verified it. `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
+- **Known identities** (`accounts/identities.ts`, `known_identities`): every email address and sign-in account a
+  profile was ever known by, kept as an HMAC-SHA256 under a key derived from `AUTH_SECRET`, and tied to no user, so
+  that it outlives deleting the profile. They are remembered as a profile and a sign-in are made (Better Auth's
+  database hooks), before a profile is deleted (`deleteUser.beforeDelete`, ahead of Better Auth deleting its sign-ins),
+  and whenever they are asked of, which covers profiles made before. They make an **introductory offer** (an offer
+  marked so: free, never sold through Stripe) claimable once a person, by an account never subscribed (the Subscription
+  page's `claim` action, a credit of source `introductory`); and, once a dispute is lost, they **refuse purchases** by
+  every account known by one of them, a new one made after deleting among them, until an admin allows them again from
+  the user's page (`purchases.allow` in the audit log). Terms, Sec. B.III.5, B.IV.5, B.V.3.
+- **Deleting a profile** is refused while a refund asked for is still to be made, or a payment is disputed
+  (`subscriptions/deletion.ts`; Terms, Sec. B.III.4): the profile page disables its button, saying why.
 - **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
   session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
   `AccessRecorder.seen`, which both handles call on each signed-in request, at most every ten minutes per session, with

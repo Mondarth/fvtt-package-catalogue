@@ -13,6 +13,7 @@ import { isAdmin } from './permissions.js';
 
 import type { AccessRecorder } from './access.js';
 import type { AuditStore } from './audit.js';
+import type { KnownIdentities } from './identities.js';
 import type { BanNotices } from './ban-notice.js';
 import type { PatreonChecker } from '../subscriptions/patreon.js';
 import type { StripeGateway } from '../subscriptions/stripe.js';
@@ -37,6 +38,8 @@ export interface AccountsHandleOptions {
   readonly stripe?: StripeGateway | undefined;
   /** Records the access of users whose payments are disputed (see `access.ts`). */
   readonly access: AccessRecorder;
+  /** The identities every account was known by, against abuse. */
+  readonly identities: KnownIdentities;
   /** The other applications' origins, which a visitor may be sent back to once signed in. */
   readonly appOrigins?: readonly string[] | undefined;
 }
@@ -59,7 +62,8 @@ export function isAuthPath(pathname: string): boolean {
  * @returns The hook
  */
 export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions): Handle {
-  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe, access } = options;
+  const { accounts, providers, audit, adminUserIds, banNotices, subscriptions, patreon, stripe, access, identities } =
+    options;
   const appOrigins = options.appOrigins ?? [];
   const subscribed = subscribedBy(subscriptions, patreon);
   return async ({ event, resolve }) => {
@@ -76,6 +80,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
       event.locals.audit = audit;
       event.locals.stripe = stripe;
       event.locals.access = access;
+      event.locals.identities = identities;
       return resolve(event);
     }
     if (!isSitePath(pathname)) return resolve(event);
@@ -90,6 +95,7 @@ export function createAccountsHandle(auth: Auth, options: AccountsHandleOptions)
     event.locals.subscriptions = subscriptions;
     event.locals.patreon = patreon;
     event.locals.stripe = stripe;
+    event.locals.identities = identities;
     event.locals.access = access;
     // Reading the session may renew it, which sets its cookie again.
     const { headers, response: found } = await auth.api.getSession({

@@ -58,6 +58,7 @@ const OFFER: Offer = {
   availableFrom: null,
   availableUntil: null,
   retiredAt: null,
+  introductory: false,
   createdBy: 'admin',
   createdAt: T('2026-10-01T00:00:00Z'),
 };

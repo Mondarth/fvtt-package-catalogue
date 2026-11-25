@@ -10,7 +10,7 @@
  * What `subscription_credits` and `patreon_memberships` hold of a user is on the website's "What we store" page
  * (`/privacy`): change one, change both. Offers and settings hold nothing of anyone.
  */
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { sql } from 'drizzle-orm';
 
@@ -22,7 +22,7 @@ const createdAt = timestamp({ withTimezone: true }).notNull().defaultNow();
 /** Where a credit's time came from. */
 export type { RefundReason } from '../../refund-reasons.js';
 
-export const CREDIT_SOURCES = ['grant', 'patreon', 'payment'] as const;
+export const CREDIT_SOURCES = ['grant', 'patreon', 'payment', 'introductory'] as const;
 export type CreditSource = (typeof CREDIT_SOURCES)[number];
 
 /**
@@ -50,6 +50,11 @@ export const subscriptionOffers = pgTable('subscription_offers', {
   availableUntil: timestamp({ withTimezone: true }),
   /** When an admin retired it: it is offered no longer. */
   retiredAt: timestamp({ withTimezone: true }),
+  /**
+   * Whether it is an introductory offer: free, never sold through a payment provider, and claimed once a person, by an
+   * account never subscribed, as the Terms and Conditions say (Sec. B.V.3).
+   */
+  introductory: boolean().notNull().default(false),
   /** The admin who made it. */
   createdBy: text().notNull(),
   createdAt,

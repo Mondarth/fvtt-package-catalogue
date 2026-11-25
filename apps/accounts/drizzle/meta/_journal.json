@@ -15,6 +15,13 @@
       "when": 1795463594775,
       "tag": "0001_keep-last-session",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795607060810,
+      "tag": "0002_known-identities",
+      "breakpoints": true
     }
   ]
 }
