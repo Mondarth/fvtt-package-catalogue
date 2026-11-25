@@ -57,6 +57,36 @@ its site's own:
 The accounts' logo was drawn from AIDE's, its scroll and quill replaced with an ID card in the blue ramp's lighter
 shades (`#a4daff` to `#2e8ee6`).
 
+### The logos as SVG
+
+`packages/design-tokens/brand/` has every logo as SVG, drawn from the originals, so that it is sharp at any size:
+
+`<site>.svg`
+: The logo (`mondarth`, `catalogue`, `aide`, `accounts`). The crescent is two arcs, each the circle through its tips
+  and its edge's furthest point; the gear is a ring of arcs with its teeth, fitted to the originals' gold, ending in
+  its check mark and, at the bottom, an upright cut and a tooth; each emblem is drawn in its own colour, lighter at the
+  top, outlined and detailed in the logos' ink (`#2a2a22`).
+
+`<site>-icon.svg`
+: The same, square, with the emblem larger, so that it is still told apart at 16 pixels: for favicons and other small
+  sizes.
+
+Their ids start `mdr-<file>-`, so that several can be inlined in one page. The package publishes them, for
+mondarth.com too (`@mondarth/design-tokens/brand/<file>`).
+
+### Favicons
+
+Each application's favicons, in its `static/`, are rendered from its icon:
+
+```shell
+pnpm --filter @mondarth/design-tokens icons <site> <directory>
+```
+
+It writes `favicon.svg` (the icon), `favicon.ico` (16, 32 and 48 pixels), `apple-touch-icon.png` (180 pixels, on the
+light theme's page, as iOS fills transparency with black), and `icon-192.png` and `icon-512.png`, which each
+application's `site.webmanifest` names. They are rendered in Chromium, so they are what browsers draw. Run it when a
+logo changes, and commit what it writes.
+
 ### The palette
 
 Each ramp keeps the hue of its logo colour and steps lightness evenly in OKLCH, so that a step weighs about the same

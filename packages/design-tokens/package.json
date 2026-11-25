@@ -1,7 +1,7 @@
 {
   "name": "@mondarth/design-tokens",
   "version": "0.0.0",
-  "description": "Mondarth's design tokens, in the Design Tokens Community Group's format (2025.10), and the CSS custom properties built from them, light and dark, that every Mondarth website styles itself with.",
+  "description": "Mondarth's design tokens, in the Design Tokens Community Group's format (2025.10), the CSS custom properties built from them, light and dark, that every Mondarth website styles itself with, and its logos as SVG.",
   "author": "Ulenar of Mondarth",
   "license": "MIT",
   "repository": {
@@ -13,11 +13,13 @@
   "exports": {
     "./tokens.css": "./dist/tokens.css",
     "./tokens/*": "./tokens/*",
+    "./brand/*": "./brand/*",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "tokens"
+    "tokens",
+    "brand"
   ],
   "sideEffects": [
     "**/*.css"
@@ -34,9 +36,11 @@
     "test": "tz build && vitest run",
     "test:coverage": "tz build && vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "typecheck:fallback": "tsc6 --noEmit"
+    "typecheck:fallback": "tsc6 --noEmit",
+    "icons": "node scripts/icons.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@terrazzo/cli": "^2.10.0",
     "@terrazzo/plugin-css": "^2.10.0",
     "@types/node": "^24.19.2",

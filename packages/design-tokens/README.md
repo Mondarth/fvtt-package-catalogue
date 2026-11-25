@@ -17,6 +17,9 @@ every Mondarth website styles itself with.
 - `tokens.css`: every token as `--mdr-<path>`, light on `:root`; dark where the browser prefers it, unless the page asks
   for light; and either theme on an element marked `data-theme="light"` or `data-theme="dark"`.
 - `tokens/`: the tokens themselves, and their resolver, `tokens/mondarth.resolver.json`.
+- `brand/`: Mondarth's logos as SVG, one for each website (`mondarth.svg`, `catalogue.svg`, `aide.svg`,
+  `accounts.svg`), and a square icon of each for favicons and small sizes (`<site>-icon.svg`), its emblem larger.
+  `pnpm icons <site> <directory>` renders a site's favicons from its icon.
 
 Use the theme's colours (`--mdr-color-*`), which name the palette's by what they are for, never the palette
 (`--mdr-palette-*`) directly. In both themes, every text colour reaches WCAG's AA contrast on every background.
