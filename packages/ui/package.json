@@ -1,6 +1,6 @@
 {
   "name": "@mondarth/ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The Svelte pieces Mondarth's applications share: the logo, the theme, the top bar, the language picker, notices, and dates written as each reader writes them.",
   "author": "Ulenar of Mondarth",
