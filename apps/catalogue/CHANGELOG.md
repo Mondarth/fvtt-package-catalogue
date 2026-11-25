@@ -1,3 +1,13 @@
+## [@mondarth/fvtt-package-catalogue-v0.13.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.12.0...@mondarth/fvtt-package-catalogue-v0.13.0) (2026-11-25)
+
+### Features
+
+* **accounts:** publish the Terms and Conditions at /terms ([4049a6c](https://github.com/Mondarth/fvtt-package-catalogue/commit/4049a6c12b68898bafe3e0d47f9542d35010e00e))
+* **catalogue:** mark the pages as the catalogue's site ([1e20335](https://github.com/Mondarth/fvtt-package-catalogue/commit/1e203350ea0b040ee49b3d0d0db52d0aa92e31af))
+* **catalogue:** show the catalogue's logo in the header ([44356e4](https://github.com/Mondarth/fvtt-package-catalogue/commit/44356e45cd8845be4b2469e0c229b2fac3d06c4d))
+* **catalogue:** use favicons of the catalogue's new logo ([2f544d2](https://github.com/Mondarth/fvtt-package-catalogue/commit/2f544d2b283ab5e661e011cf6880c1a729fdbb5e))
+* **design-tokens:** add Mondarth's logos as SVG, and their favicons ([ca4a920](https://github.com/Mondarth/fvtt-package-catalogue/commit/ca4a92035603c307e04afc77beb5dd5e68fe3db7))
+
 ## [@mondarth/fvtt-package-catalogue-v0.12.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.11.0...@mondarth/fvtt-package-catalogue-v0.12.0) (2026-11-24)
 
 ### Features
