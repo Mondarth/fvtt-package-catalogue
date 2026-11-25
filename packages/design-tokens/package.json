@@ -1,6 +1,6 @@
 {
   "name": "@mondarth/design-tokens",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Mondarth's design tokens, in the Design Tokens Community Group's format (2025.10), the CSS custom properties built from them, light and dark, that every Mondarth website styles itself with, and its logos as SVG.",
   "author": "Ulenar of Mondarth",
   "license": "MIT",
