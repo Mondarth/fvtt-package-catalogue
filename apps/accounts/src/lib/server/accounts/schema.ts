@@ -219,3 +219,24 @@ export const accessRecords = pgTable(
   },
   table => [index('access_records_user_id').on(table.userId)],
 );
+
+/** What a known identity is of: an email address, or a sign-in account (its provider and its id there). */
+export const IDENTITY_KINDS = ['email', 'account'] as const;
+export type IdentityKind = (typeof IDENTITY_KINDS)[number];
+
+/**
+ * Every identity an account was ever known by, against abuse: an email address, or a sign-in account, each kept as a
+ * keyed hash (HMAC-SHA256), never as itself (see `identities.ts`). It is tied to no user, so that it outlives deleting
+ * the account: an introductory offer is claimed once a person, whatever accounts they make, and purchases refused
+ * after a dispute lost stay refused, as the Terms and Conditions say (Sec. B.V.3, B.IV.5).
+ */
+export const knownIdentities = pgTable('known_identities', {
+  /** The identity's keyed hash, hex. */
+  hash: text().primaryKey(),
+  kind: text({ enum: IDENTITY_KINDS }).notNull(),
+  firstSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  /** When an account known by it claimed an introductory offer. */
+  introductoryClaimedAt: timestamp({ withTimezone: true }),
+  /** When purchases by it were refused, after a dispute was lost; none while it may buy. */
+  purchasesRefusedAt: timestamp({ withTimezone: true }),
+});

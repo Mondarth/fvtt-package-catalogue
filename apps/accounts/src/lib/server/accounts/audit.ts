@@ -21,6 +21,7 @@ export const AUDIT_ACTIONS = [
   'subscription.grant',
   'subscription.set-end',
   'subscription.revoke',
+  'purchases.allow',
   'offer.create',
   'offer.retire',
   'patreon.minimum',

@@ -24,6 +24,7 @@
 <ul class="links">
   <li><a href={resolve('/developers')}>{m.developers_link()}</a></li>
   <li><a href={`${data.accountsSite}/privacy`} rel="external">{m.privacy_link()}</a></li>
+  <li><a href={`${data.accountsSite}/terms`} rel="external">{m.terms_link()}</a></li>
 </ul>
 
 <style>

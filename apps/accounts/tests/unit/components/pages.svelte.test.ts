@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +34,8 @@ describe('the home page', () => {
 
   it('shows the logo above the heading, unnamed, as the heading names the page', () => {
     home({ signedIn: null, providers: [], failed: false });
-    const logo = document.querySelector('main img, picture img');
+    const logo = document.querySelector('.logo img');
+    expect(logo?.getAttribute('src')).toMatch(/svg/);
     expect(logo).toHaveAttribute('alt', '');
   });
 
@@ -83,25 +84,28 @@ describe('the layout', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
+  it('links the terms and what is stored at the foot of every page', () => {
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    const foot = screen.getByRole('contentinfo');
+    expect(within(foot).getByRole('link', { name: en.terms_link })).toHaveAttribute('href', '/terms');
+    expect(within(foot).getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', '/privacy');
+  });
+
   it('says a machine translated page was translated by machine', () => {
     inLocale('es');
     render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
     expect(screen.getByRole('note')).toHaveTextContent(es.machine_translation_notice);
   });
 
-  it('puts the logo at the far left of the top, linking home, the dark one where the browser prefers dark', () => {
+  it("puts the accounts' logo at the far left of the top, linking home", () => {
     render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
     const home = screen.getByRole('link', { name: en.home_link });
     expect(home).toHaveAttribute('href', '/');
     expect(home.closest('header')?.firstElementChild).toBe(home);
-    const source = home.querySelector('picture source');
-    expect(source).toHaveAttribute('media', '(prefers-color-scheme: dark)');
-    // Small enough for Vite to inline, or else a file of their own: SVG either way, and not the same one.
-    const dark = source?.getAttribute('srcset') ?? '';
-    const light = home.querySelector('img')?.getAttribute('src') ?? '';
-    expect(dark).toMatch(/svg/);
-    expect(light).toMatch(/svg/);
-    expect(dark).not.toBe(light);
+    // Small enough for Vite to inline, or else a file of its own: SVG either way, the accounts' (its title says so).
+    const logo = home.querySelector('img')?.getAttribute('src') ?? '';
+    expect(logo).toMatch(/svg/);
+    expect(logo.startsWith('data:') ? decodeURIComponent(logo) : logo).toMatch(/Accounts|accounts/);
   });
 
   it('puts the workspace bar along the top once signed in, the profile button at its far right', () => {

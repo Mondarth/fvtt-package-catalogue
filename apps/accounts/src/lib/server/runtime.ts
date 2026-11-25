@@ -37,6 +37,7 @@ import { banNotices as signedBanNotices } from './accounts/ban-notice.js';
 import { devPatreon } from './accounts/dev-patreon.js';
 import { testProviderUrl } from './accounts/dev-provider.js';
 import { localAccounts } from './accounts/local.js';
+import { knownIdentitiesOf } from './accounts/identities.js';
 import { isAdmin } from './accounts/permissions.js';
 import { accountsStore } from './accounts/store.js';
 import { connect } from './db/connect.js';
@@ -76,6 +77,9 @@ export const adminUserIds: readonly string[] = ADMIN_USER_IDS;
 /** The other applications' origins, which a visitor may be sent back to once signed in. */
 export const appOrigins: readonly string[] = APP_ORIGINS;
 
+/** The identities every account was known by, against abuse, keyed by `AUTH_SECRET`. */
+export const identities = knownIdentitiesOf(connection.db, AUTH_SECRET);
+
 /** Reads the notice a banned user's sign-in comes back with. */
 export const banNotices = signedBanNotices(AUTH_SECRET);
 
@@ -91,6 +95,7 @@ export const auth = createAuth({
   patreonUrl: patreonSetting.url,
   adminUserIds,
   audit,
+  identities,
 });
 
 /** Patreon, if it is a way to be subscribed. */

@@ -61,7 +61,12 @@ describe('the profile page', () => {
   };
 
   const profile = (
-    data: Partial<{ profile: typeof PROFILE; problem: 'stale' | 'unconfirmed' | null; saved: boolean }> = {},
+    data: Partial<{
+      profile: typeof PROFILE;
+      problem: 'stale' | 'unconfirmed' | 'refund' | null;
+      saved: boolean;
+      deletionBlock: 'dispute' | 'refund' | null;
+    }> = {},
     form: unknown = null,
   ) =>
     render(Profile, {
@@ -72,11 +77,36 @@ describe('the profile page', () => {
         devices: [],
         signedOut: null,
         impersonated: false,
+        deletionBlock: null,
         ...data,
       },
       form,
       params: {},
     } as never);
+
+  it('lets no one delete their profile while a refund is still to be made, or a payment disputed, saying why', () => {
+    for (const [block, said] of [
+      ['refund', en.delete_blocked_refund],
+      ['dispute', en.delete_blocked_dispute],
+    ] as const) {
+      const { unmount } = profile({ deletionBlock: block });
+      const button = screen.getByRole('button', { name: en.delete_button });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAccessibleDescription(said);
+      expect(screen.getByRole('checkbox', { name: en.delete_confirm })).toBeDisabled();
+      unmount();
+    }
+    // Refused by the server too: the reason is said once, beside the button.
+    profile({ deletionBlock: 'refund', problem: 'refund' });
+    expect(screen.getAllByText(en.delete_blocked_refund)).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('lets them delete it otherwise', () => {
+    profile();
+    expect(screen.getByRole('button', { name: en.delete_button })).toBeEnabled();
+    expect(screen.getByRole('button', { name: en.delete_button })).not.toHaveAccessibleDescription();
+  });
 
   it('shows the user id, the nickname field, and what is stored about them', () => {
     profile();

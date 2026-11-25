@@ -27,7 +27,7 @@
   const { dateTime } = useDates();
 </script>
 
-<div class="logo"><Logo height="6rem" /></div>
+<div class="logo"><Logo site="accounts" height="6rem" /></div>
 <h1>{m.sign_in_heading()}</h1>
 <p class="lede">{m.sign_in_lede()}</p>
 

@@ -74,6 +74,8 @@ export interface OfferInput extends Period {
   /** The payment providers it is put to, and what each knows it by. */
   readonly providers?: readonly string[] | undefined;
   readonly providerRefs?: OfferProviderRefs | undefined;
+  /** Whether it is an introductory offer: free, claimed once a person by an account never subscribed. */
+  readonly introductory?: boolean | undefined;
 }
 
 /** A refund, or a dispute lost, to take back the time it paid for. */
@@ -516,6 +518,7 @@ export function subscriptionStore(db: Database): SubscriptionStore {
           createdBy: input.createdBy,
           providers: [...(input.providers ?? [])],
           providerRefs: input.providerRefs ?? {},
+          introductory: input.introductory ?? false,
         })
         .returning();
       // An insert returns what it made.

@@ -45,6 +45,8 @@ describe("the subscription page's Patreon", () => {
         admin: false,
         history: [],
         offers: [],
+        introductory: null,
+        purchasesRefused: false,
         patreon:
           patreon === null
             ? null
@@ -207,6 +209,7 @@ describe("a user's admin page's Patreon", () => {
       data: {
         user: USER,
         audit: [],
+        purchasesRefusedAt: null,
         done: null,
         refused: null,
         subscription: { paidUntil: null, active: false },

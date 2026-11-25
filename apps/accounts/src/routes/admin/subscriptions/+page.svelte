@@ -35,6 +35,8 @@
     const value = form === null ? undefined : (form as Record<string, unknown>)[name];
     return typeof value === 'string' ? value : '';
   };
+  /** Whether the offer the form was sent with was to be introductory. */
+  const givenIntroductory = $derived(form !== null && (form as Record<string, unknown>).introductory === true);
 </script>
 
 <svelte:head>
@@ -76,6 +78,7 @@
               {m.admin_offer_retired({ date: date(offer.retiredAt) })}
             {:else}
               {m.admin_offer_on_sale()}
+              {#if offer.introductory}<span class="hint">{m.admin_offer_introductory_badge()}</span>{/if}
               {#if offer.providers.includes('stripe')}<span class="hint">{m.admin_offer_stripe()}</span>{/if}
               {#if offer.availableFrom !== null}<span class="hint"
                   >{m.admin_offer_from({ date: date(offer.availableFrom) })}</span
@@ -290,6 +293,11 @@
           aria-describedby={problem === 'period' ? 'offer-problem' : undefined} />
       </label>
     </div>
+    <label class="introductory">
+      <input type="checkbox" name="introductory" checked={givenIntroductory} aria-describedby="introductory-hint" />
+      {m.admin_offer_introductory()}
+    </label>
+    <p id="introductory-hint" class="hint">{m.admin_offer_introductory_hint()}</p>
     <label for="prices">{m.admin_offer_prices()}</label>
     <textarea
       id="prices"

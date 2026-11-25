@@ -8,7 +8,8 @@ import {
   TEST_PROVIDER,
 } from '../../../../src/lib/server/accounts/auth.js';
 import { auditStore } from '../../../../src/lib/server/accounts/audit.js';
-import { users } from '../../../../src/lib/server/accounts/schema.js';
+import { knownIdentitiesOf } from '../../../../src/lib/server/accounts/identities.js';
+import { accounts, knownIdentities, users } from '../../../../src/lib/server/accounts/schema.js';
 import { testDatabase } from '../../support/pglite.js';
 
 import type { Database } from '../../../../src/lib/server/db/database.js';
@@ -151,5 +152,33 @@ describe('createAuth', () => {
     );
 
     expect(user).toMatchObject({ handle: 'ancient-anchor-anchor-01' });
+  });
+
+  it("remembers each profile's address and sign-in accounts as they are made, and all of them before it is deleted", async () => {
+    const identities = knownIdentitiesOf(db, SECRET);
+    const auth = createAuth({
+      db,
+      audit: auditStore(db),
+      secret: SECRET,
+      siteUrl: 'https://catalogue.test',
+      identities,
+    });
+    const { internalAdapter } = await auth.$context;
+    const kinds = async () =>
+      (await db.select({ kind: knownIdentities.kind }).from(knownIdentities)).map(r => r.kind).sort();
+
+    const user = await internalAdapter.createUser(
+      { name: 'New', email: 'new@example.test', emailVerified: true },
+      { method: 'oauth' },
+    );
+    expect(await kinds()).toEqual(['email']);
+    await internalAdapter.linkAccount({ userId: user.id, providerId: 'github', accountId: '42' });
+    expect(await kinds()).toEqual(['account', 'email']);
+
+    // One made without Better Auth, as before identities were kept, is remembered as the profile goes, before Better
+    // Auth deletes its sign-in accounts.
+    await db.insert(accounts).values({ id: 'direct', providerId: 'discord', accountId: 'd1', userId: user.id });
+    await auth.options.user.deleteUser.beforeDelete(user);
+    expect(await kinds()).toEqual(['account', 'account', 'email']);
   });
 });

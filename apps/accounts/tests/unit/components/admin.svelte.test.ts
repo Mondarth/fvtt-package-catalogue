@@ -127,6 +127,7 @@ describe("a user's admin page", () => {
       data: {
         user: { ...USER, ...user },
         audit: more.audit ?? [],
+        purchasesRefusedAt: null,
         done: more.done ?? null,
         refused: more.refused ?? null,
         subscription: more.subscription ?? { paidUntil: null, active: false },

@@ -14,6 +14,7 @@ const ACTIONS: Readonly<Record<string, () => string>> = {
   'subscription.grant': m.audit_action_subscription_grant,
   'subscription.set-end': m.audit_action_subscription_set_end,
   'subscription.revoke': m.audit_action_subscription_revoke,
+  'purchases.allow': m.audit_action_purchases_allow,
   'offer.create': m.audit_action_offer_create,
   'offer.retire': m.audit_action_offer_retire,
   'patreon.minimum': m.audit_action_patreon_minimum,

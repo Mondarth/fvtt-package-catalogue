@@ -1,0 +1,184 @@
+{
+  "space": {
+    "$type": "dimension",
+    "$description": "Spacing: gaps, padding and margins, from a hairline to a section's.",
+    "1": {
+      "$value": {
+        "value": 0.25,
+        "unit": "rem"
+      }
+    },
+    "2": {
+      "$value": {
+        "value": 0.5,
+        "unit": "rem"
+      }
+    },
+    "3": {
+      "$value": {
+        "value": 0.75,
+        "unit": "rem"
+      }
+    },
+    "4": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      }
+    },
+    "5": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      }
+    },
+    "6": {
+      "$value": {
+        "value": 2,
+        "unit": "rem"
+      }
+    },
+    "7": {
+      "$value": {
+        "value": 3,
+        "unit": "rem"
+      }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "small": {
+      "$value": {
+        "value": 0.375,
+        "unit": "rem"
+      },
+      "$description": "Controls, fields and cards."
+    },
+    "pill": {
+      "$value": {
+        "value": 999,
+        "unit": "px"
+      },
+      "$description": "Badges and pill-shaped buttons."
+    }
+  },
+  "border": {
+    "$type": "dimension",
+    "width": {
+      "thin": {
+        "$value": {
+          "value": 1,
+          "unit": "px"
+        },
+        "$description": "Dividers, fields and surfaces."
+      },
+      "focus": {
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        },
+        "$description": "The focus ring."
+      },
+      "rule": {
+        "$value": {
+          "value": 3,
+          "unit": "px"
+        },
+        "$description": "The coloured rule at the side of a note."
+      }
+    }
+  },
+  "layout": {
+    "$type": "dimension",
+    "content": {
+      "$value": {
+        "value": 48,
+        "unit": "rem"
+      },
+      "$description": "The widest a page's text runs."
+    },
+    "dialog": {
+      "$value": {
+        "value": 32,
+        "unit": "rem"
+      },
+      "$description": "The widest a dialog is."
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "sans": {
+        "$value": ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"]
+      },
+      "mono": {
+        "$value": ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"]
+      }
+    },
+    "size": {
+      "$type": "dimension",
+      "small": {
+        "$value": {
+          "value": 0.9,
+          "unit": "rem"
+        },
+        "$description": "Hints, captions, tables."
+      },
+      "body": {
+        "$value": {
+          "value": 1,
+          "unit": "rem"
+        }
+      },
+      "large": {
+        "$value": {
+          "value": 1.1,
+          "unit": "rem"
+        },
+        "$description": "Lead text and section headings."
+      },
+      "title": {
+        "$value": {
+          "value": 1.6,
+          "unit": "rem"
+        },
+        "$description": "A page's title."
+      }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": {
+        "$value": 400
+      },
+      "strong": {
+        "$value": 600
+      }
+    },
+    "line-height": {
+      "$type": "number",
+      "body": {
+        "$value": 1.5
+      },
+      "tight": {
+        "$value": 1.2,
+        "$description": "Headings."
+      }
+    }
+  },
+  "duration": {
+    "$type": "duration",
+    "$description": "Motion. Nothing moves for a visitor who prefers reduced motion.",
+    "fast": {
+      "$value": {
+        "value": 150,
+        "unit": "ms"
+      }
+    },
+    "slow": {
+      "$value": {
+        "value": 300,
+        "unit": "ms"
+      }
+    }
+  }
+}

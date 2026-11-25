@@ -19,9 +19,13 @@ libraries they share or publish under `packages/`. Each releases from the commit
   `httpAccounts`, an `Accounts` asking it, who and what kept a minute, failures thrown as `AccountsUnavailable`.
   Versioned and tagged, never published.
 
+`packages/design-tokens` (`@mondarth/design-tokens`)
+: Mondarth's design decisions as design tokens, and the CSS built from them that every Mondarth website styles itself
+  with: see {doc}`design-system`. Published to npm, for mondarth.com, which is not in this workspace.
+
 `packages/ui` (`@mondarth/ui`, private)
 : The Svelte pieces every Mondarth application shares, so that each looks and reads as one with the others: the logo,
-  the theme (`theme.css`, the colours as custom properties, light and dark), the top bar, the language picker, notices
+  the theme (`theme.css`: the design tokens, and the page's base), the top bar, the language picker, notices
   and callouts, language names (`/language`), and dates written as each reader writes them (`/dates`). Each piece takes
   its words from the application, which translates them, so the package holds no messages of its own; the
   catalogue's `TopBar`, `LanguagePicker` and `MachineTranslationNotice` are its own, giving theirs. Shipped as
@@ -237,6 +241,11 @@ In the accounts:
 - The site needs no script to sign in: signing in, signing out and deleting the profile are forms posted to small
   endpoints (`routes/sign-in/[provider]`, `routes/sign-out`, `routes/profile/delete`) that call Better Auth on the
   server and pass its cookies on with a redirect.
+- **The Terms and Conditions** are at `/terms` (`routes/terms`), their text in `lib/components/Terms.svelte`, in
+  English, which governs: a page in another language says so above them. The text is the user's, agreed with their
+  solicitor: change it only as they change the terms, word for word, with its "Last updated" date. Clause C.X.2, the
+  governing law, is the user's own wording, and a test (`terms.svelte.test.ts`) holds it word for word. Every page
+  links the terms and "What we store" at its foot, and the purchase consent links the terms, in a tab of their own.
 - `lib/stored.ts` lists what each row of the "What we store" page covers, by column; a test checks it against the
   tables as the migrations make them, so that a column added must be added to the page too.
 - **Admins** have Better Auth's admin plugin, with the website's roles and permissions (`accounts/permissions.ts`): a
@@ -326,6 +335,17 @@ In the accounts:
   the profile with its email address where both have verified it (Better Auth's implicit linking, no provider trusted
   without it), and Patreon is linked as asked whatever its email (`allowDifferentEmails`), once Patreon has verified it. `PATREON_URL` points it,
   and sign-in, at the end-to-end tests' stand-in.
+- **Known identities** (`accounts/identities.ts`, `known_identities`): every email address and sign-in account a
+  profile was ever known by, kept as an HMAC-SHA256 under a key derived from `AUTH_SECRET`, and tied to no user, so
+  that it outlives deleting the profile. They are remembered as a profile and a sign-in are made (Better Auth's
+  database hooks), before a profile is deleted (`deleteUser.beforeDelete`, ahead of Better Auth deleting its sign-ins),
+  and whenever they are asked of, which covers profiles made before. They make an **introductory offer** (an offer
+  marked so: free, never sold through Stripe) claimable once a person, by an account never subscribed (the Subscription
+  page's `claim` action, a credit of source `introductory`); and, once a dispute is lost, they **refuse purchases** by
+  every account known by one of them, a new one made after deleting among them, until an admin allows them again from
+  the user's page (`purchases.allow` in the audit log). Terms, Sec. B.III.5, B.IV.5, B.V.3.
+- **Deleting a profile** is refused while a refund asked for is still to be made, or a payment is disputed
+  (`subscriptions/deletion.ts`; Terms, Sec. B.III.4): the profile page disables its button, saying why.
 - **Dispute evidence** (`accounts/access.ts`, `subscriptions/evidence.ts`): `last_sessions` keeps each user's latest
   session after it ends, by the trigger `keep_last_session` on `sessions` (migrations 0023, 0024) and by
   `AccessRecorder.seen`, which both handles call on each signed-in request, at most every ten minutes per session, with

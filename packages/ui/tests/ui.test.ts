@@ -2,8 +2,9 @@ import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import dark from '../src/assets/brand/logo-dark.svg';
-import light from '../src/assets/brand/logo-light.svg';
+import accounts from '@mondarth/design-tokens/brand/accounts.svg';
+import catalogue from '@mondarth/design-tokens/brand/catalogue.svg';
+import mondarth from '@mondarth/design-tokens/brand/mondarth.svg';
 import { dateLocaleOf, datesIn } from '../src/dates.js';
 import * as ui from '../src/index.js';
 import { languageName } from '../src/language.js';
@@ -107,14 +108,21 @@ describe('notices and callouts', () => {
 });
 
 describe('the logo', () => {
-  it('is the light one, or the dark one where the browser prefers dark, at the height given', () => {
-    const { container } = render(Logo, { height: '2rem', alt: 'Mondarth' });
-    const image = screen.getByRole('img', { name: 'Mondarth' });
-    expect(image).toHaveAttribute('src', light);
+  it("is the site's own, at the height given, the same in either colour scheme", () => {
+    const { container, unmount } = render(Logo, { height: '2rem', site: 'accounts', alt: 'Mondarth accounts' });
+    const image = screen.getByRole('img', { name: 'Mondarth accounts' });
+    expect(image).toHaveAttribute('src', accounts);
     expect(image.style.height).toBe('2rem');
-    const source = container.querySelector('source');
-    expect(source?.getAttribute('media')).toBe('(prefers-color-scheme: dark)');
-    expect(source).toHaveAttribute('srcset', dark);
+    expect(container.querySelector('picture, source')).toBeNull();
+    unmount();
+    render(Logo, { height: '2rem', site: 'catalogue', alt: 'Catalogue' });
+    expect(screen.getByRole('img', { name: 'Catalogue' })).toHaveAttribute('src', catalogue);
+    expect(catalogue).not.toBe(accounts);
+  });
+
+  it("is mondarth.com's unless the site is given", () => {
+    render(Logo, { height: '1rem', alt: 'Mondarth' });
+    expect(screen.getByRole('img', { name: 'Mondarth' })).toHaveAttribute('src', mondarth);
   });
 
   it('says nothing to a screen reader by default', () => {

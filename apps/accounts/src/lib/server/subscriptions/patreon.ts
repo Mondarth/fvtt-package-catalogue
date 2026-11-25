@@ -1,6 +1,6 @@
 /**
  * Patreon, as a way to be subscribed: a user with a Patreon account linked is subscribed while Patreon says they are an
- * active patron of the catalogue's campaign, pledging at least the amount the admins set. It makes no credits: it is
+ * active patron of Mondarth's campaign on Patreon, pledging at least the amount the admins set. It makes no credits: it is
  * asked, with the user's own token, as they use what a subscription gives.
  *
  * - **Kept a day.** Patreon's answer is kept in `patreon_memberships` for {@link CHECK_EVERY_MS}, then asked again.

@@ -15,6 +15,7 @@ import { bearer } from 'better-auth/plugins/bearer';
 import { deviceAuthorization } from 'better-auth/plugins/device-authorization';
 import { genericOAuth, patreon } from 'better-auth/plugins/generic-oauth';
 
+import { accountIdentity, emailIdentity } from './identities.js';
 import { forgetPatreonOf, PATREON_SCOPES, PATREON_URL, patreonUrl } from '../subscriptions/patreon.js';
 
 import { eq } from 'drizzle-orm';
@@ -26,6 +27,7 @@ import { freeHandle } from './handles.js';
 import { ac, roles } from './permissions.js';
 import { accounts, deviceCodes, sessions, users, verifications } from './schema.js';
 
+import type { KnownIdentities } from './identities.js';
 import type { Database } from '../db/database.js';
 import type { AuditStore } from './audit.js';
 import type { Random } from './handles.js';
@@ -77,6 +79,8 @@ export interface AuthOptions {
   readonly adminUserIds?: readonly string[] | undefined;
   /** Where what admins do is recorded. */
   readonly audit: AuditStore;
+  /** The identities every account was known by, remembered as profiles and sign-ins are made, and before deleting. */
+  readonly identities?: KnownIdentities | undefined;
 }
 
 /** How long an admin may view the site as someone else, in seconds, before they are themselves again. */
@@ -240,8 +244,15 @@ export function createAuth(options: AuthOptions) {
         handle: { type: 'string', required: true, input: false, defaultValue: '' },
         nickname: { type: 'string', required: false, input: false },
       },
-      // From the profile page, which asks first. A session older than a day must sign in again to do it.
-      deleteUser: { enabled: true },
+      // From the profile page, which asks first. A session older than a day must sign in again to do it. Their
+      // identities are remembered first, before Better Auth deletes their sign-in accounts, as what an account was known
+      // by outlives it.
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async user => {
+          await options.identities?.remember(user.id);
+        },
+      },
     },
     session: {
       // Signed in for 30 days, and for 30 more each day the site is used.
@@ -271,7 +282,12 @@ export function createAuth(options: AuthOptions) {
       account: {
         // What Patreon last said of a user is forgotten as their Patreon is linked, signed in with or linked again, and
         // unlinked, so that it is asked afresh: never as its token is merely refreshed, to ask it.
-        create: { after: account => forgetPatreonOf(db, account) },
+        create: {
+          after: async account => {
+            await options.identities?.rememberThese([accountIdentity(account.providerId, account.accountId)]);
+            await forgetPatreonOf(db, account);
+          },
+        },
         update: {
           after: (account, ctx) =>
             ctx?.path === undefined || ctx.path.startsWith('/callback/') || ctx.path.startsWith('/oauth2/callback/')
@@ -303,6 +319,9 @@ export function createAuth(options: AuthOptions) {
               return found !== undefined;
             }, random);
             return { data: { ...user, handle } };
+          },
+          after: async user => {
+            await options.identities?.rememberThese([emailIdentity(user.email)]);
           },
         },
         delete: {

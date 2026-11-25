@@ -8,6 +8,8 @@ test('the home page says what the catalogue is, and sends a visitor to sign in a
   await page.goto('/');
   await expect(page).toHaveTitle(en.site_title);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  // Its site's colour, among the design tokens', is the catalogue's.
+  await expect(page.locator('html')).toHaveAttribute('data-site', 'catalogue');
   await expect(page.getByRole('heading', { level: 1, name: en.site_title })).toBeVisible();
   await expect(page.getByText(en.home_lede)).toBeVisible();
   await expect(page.getByRole('note')).toHaveCount(0);
@@ -16,6 +18,7 @@ test('the home page says what the catalogue is, and sends a visitor to sign in a
     `${ACCOUNTS_URL}/?next=${encodeURIComponent(`${E2E_URL}/`)}`,
   );
   await expect(page.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/privacy`);
+  await expect(page.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/terms`);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

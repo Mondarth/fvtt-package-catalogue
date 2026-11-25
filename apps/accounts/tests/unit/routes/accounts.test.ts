@@ -11,6 +11,7 @@ import { fakeEvent, invoke } from '../support/event.js';
 
 import { banNotices } from '../../../src/lib/server/accounts/ban-notice.js';
 
+import type { SubscriptionStore } from '../../../src/lib/server/subscriptions/store.js';
 import type { AuditStore } from '../../../src/lib/server/accounts/audit.js';
 import type { Auth } from '../../../src/lib/server/accounts/auth.js';
 import type { AccountsStore, UserDetail } from '../../../src/lib/server/accounts/store.js';
@@ -118,14 +119,27 @@ describe('POST /sign-out', () => {
   });
 });
 
+/** Subscriptions with the credits given, as the profile's deletion asks them. */
+const creditsOf = (credits: object[] = []) =>
+  ({ history: () => Promise.resolve(credits) }) as unknown as SubscriptionStore;
+
 describe('POST /profile/delete', () => {
-  const post = (confirm: string | undefined, deleteUser?: () => Promise<Response>, user: unknown = USER) =>
+  const post = (
+    confirm: string | undefined,
+    deleteUser?: () => Promise<Response>,
+    user: unknown = USER,
+    credits: object[] = [],
+  ) =>
     invoke(deleteProfile, {
       url: 'http://catalogue.test/profile/delete',
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: confirm === undefined ? '' : `confirm=${confirm}`,
-      locals: { user: user as never, ...(deleteUser !== undefined && { auth: fakeAuth({ deleteUser }) }) },
+      locals: {
+        user: user as never,
+        subscriptions: creditsOf(credits),
+        ...(deleteUser !== undefined && { auth: fakeAuth({ deleteUser }) }),
+      },
     });
 
   it('deletes the profile once the box is ticked, and goes home', async () => {
@@ -140,6 +154,18 @@ describe('POST /profile/delete', () => {
     expect((await post(undefined)).headers.get('Location')).toBe('/profile?problem=unconfirmed');
   });
 
+  it('refuses while a refund asked for is still to be made, or a payment is disputed, without asking Better Auth', async () => {
+    const deleteUser = vi.fn(() => Promise.resolve(answer({ success: true })));
+    const asked = new Date('2026-11-20T00:00:00Z');
+    const refund = { disputed: null, refundRequestedAt: asked, refundedAt: null };
+    expect((await post('yes', deleteUser, USER, [refund])).headers.get('Location')).toBe('/profile?problem=refund');
+    const dispute = { disputed: 'open', refundRequestedAt: null, refundedAt: null };
+    expect((await post('yes', deleteUser, USER, [refund, dispute])).headers.get('Location')).toBe(
+      '/profile?problem=dispute',
+    );
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
   it('refuses while an admin views the site as the user, without asking Better Auth', async () => {
     const deleteUser = vi.fn(() => Promise.resolve(answer({ success: true })));
     const response = await invoke(deleteProfile, {
@@ -151,6 +177,7 @@ describe('POST /profile/delete', () => {
         user: USER,
         session: { ...SESSION, impersonatedBy: 'admin' } as never,
         auth: fakeAuth({ deleteUser }),
+        subscriptions: creditsOf(),
       },
     });
     expect(response.headers.get('Location')).toBe('/profile?problem=impersonating');
@@ -312,10 +339,12 @@ describe('the profile page', () => {
             user: user as never,
             session: SESSION as never,
             accounts: accounts({ linkedProviders, sessionsOf: () => Promise.resolve([]) }),
+            subscriptions: creditsOf(),
           },
         }),
       );
     await expect(loaded('http://catalogue.test/profile?problem=stale&saved')).resolves.toEqual({
+      deletionBlock: null,
       devices: [],
       signedOut: null,
       impersonated: false,

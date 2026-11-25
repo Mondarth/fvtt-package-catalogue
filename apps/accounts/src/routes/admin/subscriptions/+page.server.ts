@@ -69,16 +69,25 @@ export const actions: Actions = {
   /**
    * Makes an offer, from its name, period, prices and the dates it is on sale between, if given. Where the catalogue
    * sells through Stripe and the offer has a price in its currency, it is made a Stripe Product and Price first, and
-   * sold through Stripe: if Stripe cannot make them, no offer is made.
+   * sold through Stripe: if Stripe cannot make them, no offer is made. An introductory offer has no price, and is never
+   * sold: an account never subscribed claims it, once a person (Terms, Sec. B.V.3).
    */
   create: async ({ locals, request }) => {
     const form = await request.formData();
     const name = field(form, 'name');
     const period = periodOf(form);
-    const prices = parsePrices(field(form, 'prices'));
+    const introductory = form.get('introductory') === 'on';
+    // An introductory offer is free: whatever prices are given, it has none.
+    const prices = introductory ? ({ ok: true, prices: {} } as const) : parsePrices(field(form, 'prices'));
     const from = dayOf(field(form, 'from'));
     const until = dayOf(field(form, 'until'));
-    const given = { name, months: field(form, 'months'), days: field(form, 'days'), prices: field(form, 'prices') };
+    const given = {
+      name,
+      months: field(form, 'months'),
+      days: field(form, 'days'),
+      prices: field(form, 'prices'),
+      introductory,
+    };
     if (name === '' || name.length > NAME_MAX) return fail(400, { ...given, problem: 'name' as const });
     if (!isPeriod(period)) return fail(400, { ...given, problem: 'period' as const });
     if (!prices.ok) return fail(400, { ...given, problem: 'prices' as const, line: prices.line });
@@ -86,7 +95,7 @@ export const actions: Actions = {
     const admin = actorOf(locals);
     const id = randomUUID();
     const { stripe } = locals;
-    const amount = stripe === undefined ? undefined : prices.prices[stripe.currency];
+    const amount = stripe === undefined || introductory ? undefined : prices.prices[stripe.currency];
     let refs;
     if (stripe !== undefined && amount !== undefined) {
       try {
@@ -104,12 +113,13 @@ export const actions: Actions = {
       availableFrom: from,
       availableUntil: until,
       createdBy: admin,
+      introductory,
       ...(refs !== undefined && { providers: ['stripe'], providerRefs: { stripe: refs } }),
     });
     await locals.audit.record({
       actorId: admin,
       action: 'offer.create',
-      after: { offer: offer.id, name, ...period, prices: prices.prices, providers: offer.providers },
+      after: { offer: offer.id, name, ...period, prices: prices.prices, providers: offer.providers, introductory },
       requestId: locals.requestId,
     });
     redirect(303, '/admin/subscriptions?done=create');

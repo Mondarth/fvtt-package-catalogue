@@ -21,11 +21,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const user = await locals.accounts.userDetail(params.id);
   if (user === undefined) error(404);
   const configured = locals.adminUserIds.includes(user.id);
-  const [subscription, credits, patreon] = await Promise.all([
+  const [subscription, credits, patreon, standing] = await Promise.all([
     locals.subscriptions.status(user.id),
     locals.subscriptions.history(user.id),
     // What was kept of their Patreon, without asking it: only the user's own use of the site asks Patreon.
     locals.patreon?.kept(user.id),
+    locals.identities.standing(user.id),
   ]);
   return {
     subscription,
@@ -37,6 +38,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
           : null,
     })),
     patreon: patreon ?? null,
+    // Since when purchases are refused, by an identity the user is known by, after a dispute lost (Terms, B.IV.5).
+    purchasesRefusedAt: standing.purchasesRefusedAt,
     user: {
       ...user,
       providers: user.providers.map(({ providerId }) => providerId),
@@ -124,6 +127,25 @@ export const actions: Actions = {
     if ((await locals.accounts.userDetail(params.id)) === undefined) error(404);
     const { before, after } = await locals.subscriptions.setEnd(params.id, end, actorOf(locals), note);
     return subscriptionChanged(locals, params.id, 'subscription.set-end', before, after, note, 'setEnd');
+  },
+
+  /**
+   * Allows purchases again by every identity the user is known by, refused after a dispute of theirs was lost: the
+   * Terms say only that purchases may be refused, so an admin may decide they need not be.
+   */
+  allowPurchases: async ({ locals, params }) => {
+    if ((await locals.accounts.userDetail(params.id)) === undefined) error(404);
+    const { purchasesRefusedAt } = await locals.identities.standing(params.id);
+    await locals.identities.allowPurchases(params.id);
+    await locals.audit.record({
+      actorId: actorOf(locals),
+      action: 'purchases.allow',
+      subjectId: params.id,
+      before: { purchasesRefusedAt: purchasesRefusedAt?.toISOString() ?? null },
+      after: { purchasesRefusedAt: null },
+      requestId: locals.requestId,
+    });
+    redirect(303, `/admin/users/${encodeURIComponent(params.id)}?done=allowPurchases`);
   },
 
   /** Ends the user's subscription now. */

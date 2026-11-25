@@ -3,6 +3,7 @@
   offers it, and the offers on sale.
 -->
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { Callout } from '@mondarth/ui';
   import { refreshAll } from '$app/navigation';
 
@@ -41,6 +42,7 @@
     grant: m.subscription_source_grant,
     patreon: m.subscription_source_patreon,
     payment: m.subscription_source_payment,
+    introductory: m.subscription_source_introductory,
   };
 
   const { date } = useDates();
@@ -69,8 +71,15 @@
     stripe: m.subscription_buy_problem_stripe,
     impersonating: m.subscription_buy_problem_impersonating,
     disputed: m.subscription_buy_disputed,
+    refused: m.subscription_buy_refused,
   };
   const buyProblem = $derived(refused !== null && 'buy' in refused ? refused.buy : undefined);
+  /** Why claiming an introductory offer was refused. */
+  const CLAIM_PROBLEMS: Readonly<Record<string, () => string>> = {
+    unavailable: m.subscription_introductory_unavailable,
+    impersonating: m.subscription_buy_problem_impersonating,
+  };
+  const claimProblem = $derived(refused !== null && 'claim' in refused ? refused.claim : undefined);
   /** How a checkout came back. */
   const CHECKOUT_DONE: Readonly<Record<string, () => string>> = {
     done: m.subscription_checkout_done,
@@ -122,6 +131,11 @@
         return m.subscription_patreon_not_member();
     }
   }
+
+  // The consent's words, with "Terms and Conditions" a link to them, wherever the language puts it: the message marks
+  // its place.
+  const MARK = '\u0000';
+  const [consentBefore = '', consentAfter = ''] = $derived(m.subscription_buy_consent({ terms: MARK }).split(MARK));
 </script>
 
 <svelte:head>
@@ -202,7 +216,26 @@
   {#if data.disputing}
     <!-- While a payment of theirs is disputed, nothing more is sold: the section says why, instead. -->
     <p class="disputed">{m.subscription_buy_disputed()}</p>
+  {:else if data.purchasesRefused}
+    <!-- After a dispute lost, purchases are refused, by every identity the account is known by: it says so. -->
+    <p class="disputed">{m.subscription_buy_refused()}</p>
   {:else}
+    {#if claimProblem !== undefined}
+      <Callout id="claim-problem"
+        >{CLAIM_PROBLEMS[claimProblem]?.() ?? m.subscription_introductory_unavailable()}</Callout>
+    {:else if data.claimed}
+      <p role="status">{m.subscription_introductory_claimed()}</p>
+    {/if}
+    {#if data.introductory !== null}
+      <!-- Free time, for an account never subscribed, once a person: claimed, not bought. -->
+      <div class="introductory">
+        <p>{m.subscription_introductory({ name: data.introductory.name, period: periodLabel(data.introductory) })}</p>
+        <form method="POST" action="?/claim">
+          <input type="hidden" name="offer" value={data.introductory.id} />
+          <button type="submit">{m.subscription_introductory_claim({ period: periodLabel(data.introductory) })}</button>
+        </form>
+      </div>
+    {/if}
     {#if buyProblem !== undefined}
       <Callout id="buy-problem">{BUY_PROBLEMS[buyProblem]?.() ?? m.subscription_buy_problem_stripe()}</Callout>
     {:else if checkoutDone !== undefined}
@@ -222,7 +255,8 @@
             bind:checked={consented}
             aria-invalid={buyProblem === 'consent'}
             aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
-          {m.subscription_buy_consent()}
+          {consentBefore}<a href={resolve('/terms')} target="_blank" rel="noopener">{m.subscription_buy_terms()}</a
+          >{consentAfter}
         </label>
         <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
       {/if}
@@ -265,8 +299,7 @@
       <p class="hint">{m.subscription_buy_how()}</p>
       <p class="hint">
         {m.subscription_buy_cancel()}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the terms are published at /terms once final, which the site has no route for yet -->
-        <a href="/terms">{m.subscription_buy_terms()}</a>
+        <a href={resolve('/terms')}>{m.subscription_buy_terms()}</a>
       </p>
     {:else}
       <p class="hint">{m.subscription_buy_soon()}</p>
@@ -388,6 +421,16 @@
   .buy-button button:disabled {
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  .introductory {
+    padding: 0.6rem 0.8rem;
+    border-inline-start: 3px solid var(--accent);
+    background: var(--note-bg);
+  }
+
+  .introductory p {
+    margin-top: 0;
   }
 
   .disputed {

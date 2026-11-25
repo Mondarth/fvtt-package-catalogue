@@ -9,6 +9,8 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
   await page.goto('/');
   await expect(page).toHaveTitle(en.site_title);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  // Its site's colour, among the design tokens', is the accounts'.
+  await expect(page.locator('html')).toHaveAttribute('data-site', 'accounts');
   await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
   await expect(page.getByText(en.sign_in_stores)).toBeVisible();
   await expect(
@@ -16,9 +18,9 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
   ).toBeVisible();
   await expect(page.getByRole('note')).toHaveCount(0);
 
-  await page.getByRole('link', { name: en.privacy_link }).click();
+  await page.getByRole('main').getByRole('link', { name: en.privacy_link }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.privacy_heading })).toBeVisible();
-  await expect(page.getByRole('row')).toHaveCount(24);
+  await expect(page.getByRole('row')).toHaveCount(25);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

@@ -19,7 +19,7 @@
 </svelte:head>
 
 <header>
-  <a class="home" href={resolve('/')}><Logo height="2rem" alt={m.home_link()} /></a>
+  <a class="home" href={resolve('/')}><Logo site="catalogue" height="2rem" alt={m.home_link()} /></a>
   {#if data.signedIn === null}
     <LanguagePicker />
   {:else}

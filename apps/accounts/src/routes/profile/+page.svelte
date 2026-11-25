@@ -24,7 +24,12 @@
     unconfirmed: m.delete_unconfirmed,
     stale: m.delete_stale,
     impersonating: m.delete_impersonating,
+    dispute: m.delete_blocked_dispute,
+    refund: m.delete_blocked_refund,
   };
+
+  /** Why the profile may not be deleted now, which the disabled button says, by the block. */
+  const DELETION_BLOCKS = { dispute: m.delete_blocked_dispute, refund: m.delete_blocked_refund };
 
   const profile = $derived(data.profile);
   const { dateTime: date } = useDates();
@@ -133,15 +138,23 @@
 <section aria-labelledby="delete" class="delete">
   <h2 id="delete">{m.delete_heading()}</h2>
   <p>{m.delete_explanation()}</p>
-  {#if data.problem !== null}
+  {#if data.problem !== null && data.deletionBlock === null}
     <p role="alert" class="problem">{DELETE_PROBLEMS[data.problem]()}</p>
   {/if}
   <form method="POST" action="/profile/delete">
     <label>
-      <input type="checkbox" name="confirm" value="yes" required />
+      <input type="checkbox" name="confirm" value="yes" required disabled={data.deletionBlock !== null} />
       {m.delete_confirm()}
     </label>
-    <button type="submit" class="danger">{m.delete_button()}</button>
+    <button
+      type="submit"
+      class="danger"
+      disabled={data.deletionBlock !== null}
+      aria-describedby={data.deletionBlock === null ? undefined : 'delete-blocked'}>{m.delete_button()}</button>
+    {#if data.deletionBlock !== null}
+      <!-- Why the button is disabled, beside it, for as long as it is. -->
+      <p id="delete-blocked" class="blocked">{DELETION_BLOCKS[data.deletionBlock]()}</p>
+    {/if}
   </form>
 </section>
 
@@ -198,6 +211,13 @@
     margin-top: 2.5rem;
     padding-top: 1rem;
     border-top: 1px solid var(--note-bg);
+  }
+
+  .blocked {
+    margin: 0;
+    padding: 0.6rem 0.8rem;
+    border-inline-start: 3px solid var(--accent);
+    background: var(--note-bg);
   }
 
   .delete form {

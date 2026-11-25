@@ -13,6 +13,12 @@ const navigation = vi.hoisted(() => ({ refreshAll: vi.fn(() => Promise.resolve()
 vi.mock('$app/navigation', () => navigation);
 
 const en = messagesOf('en');
+/**
+ * The consent's words, as a screen reader reads them, its link's among them: the test DOM, which lays out no inline
+ * element, sets the link apart from the full stop after it, which a browser does not.
+ */
+const CONSENT_WORDS = en.subscription_buy_consent.replace('{terms}', en.subscription_buy_terms);
+const CONSENT = (name: string) => name.replace(/\s+([.,])/g, '$1') === CONSENT_WORDS;
 const fill = (message: string, values: Record<string, string | number>) =>
   Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, String(value)), message);
 
@@ -49,6 +55,9 @@ describe('the subscription page', () => {
         history: [],
         offers: [],
         canBuy: false,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -222,6 +231,7 @@ describe("a user's admin page's subscription", () => {
       data: {
         user: USER,
         audit: [],
+        purchasesRefusedAt: null,
         done: more.done ?? null,
         refused: null,
         subscription: more.subscription ?? { paidUntil: null, active: false },
@@ -309,6 +319,9 @@ describe('buying through Stripe, on the subscription page', () => {
         history: [],
         offers: [STRIPE_OFFER],
         canBuy: true,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -326,14 +339,18 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(offers).toHaveTextContent(fill(en.subscription_price_before_tax, { price: '£30.00' }));
     expect(offers).not.toHaveTextContent('€35.00');
     expect(offers).toHaveTextContent(en.subscription_buy_how);
-    expect(within(offers).getByRole('link', { name: en.subscription_buy_terms })).toHaveAttribute('href', '/terms');
+    // The terms, from the consent, in a tab of their own, so that what is ticked stays ticked, and from the note.
+    const terms = within(offers).getAllByRole('link', { name: en.subscription_buy_terms });
+    expect(terms.map(link => link.getAttribute('href'))).toEqual(['/terms', '/terms']);
+    expect(terms[0]?.closest('label')).not.toBeNull();
+    expect(terms[0]).toHaveAttribute('target', '_blank');
     expect(offers).not.toHaveTextContent(en.subscription_buy_soon);
   });
 
   it('asks once, for every offer, for the consent the terms need, each Buy waiting for it and saying why', async () => {
     show({ offers: [STRIPE_OFFER, { ...STRIPE_OFFER, id: 'o2', name: '1 month' }] });
     const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
-    const consents = within(offers).getAllByRole('checkbox', { name: en.subscription_buy_consent });
+    const consents = within(offers).getAllByRole('checkbox', { name: CONSENT });
     expect(consents).toHaveLength(1);
     const buttons = ['12 months', '1 month'].map(name =>
       within(offers).getByRole('button', { name: fill(en.subscription_buy_named, { name }) }),
@@ -387,10 +404,7 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(screen.getByText(message)).toBeInTheDocument();
     // The problem is said instead of how the checkout came back.
     expect(screen.queryByText(en.subscription_checkout_done)).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: en.subscription_buy_consent })).toHaveAttribute(
-      'aria-invalid',
-      String(buy === 'consent'),
-    );
+    expect(screen.getByRole('checkbox', { name: CONSENT })).toHaveAttribute('aria-invalid', String(buy === 'consent'));
   });
 });
 
@@ -437,6 +451,7 @@ describe("a user's admin page's payments", () => {
           self: false,
         },
         audit: [],
+        purchasesRefusedAt: null,
         done: null,
         refused: null,
         subscription: { paidUntil: UNTIL, active: true },
@@ -477,6 +492,9 @@ describe('the subscription page, to someone with no subscription', () => {
         history: [],
         offers: [],
         canBuy: false,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -525,6 +543,9 @@ describe("a purchase's refund, on the subscription page", () => {
         history,
         offers: [],
         canBuy: true,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -677,6 +698,7 @@ describe("a user's admin page's refunds and disputes", () => {
           self: false,
         },
         audit: [],
+        purchasesRefusedAt: null,
         done: null,
         refused: null,
         subscription: { paidUntil: UNTIL, active: true },
@@ -736,6 +758,9 @@ describe("a purchase's refund dialog, on the subscription page", () => {
         history: [{ ...ROW, preview }],
         offers: [],
         canBuy: true,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -811,6 +836,9 @@ describe("a purchase's refund dialog, on the subscription page", () => {
         history: [],
         offers: [],
         canBuy: false,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -884,6 +912,9 @@ describe('a refund made at once, on the subscription page', () => {
         history: [{ ...ROW, refund }],
         offers: [],
         canBuy: true,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         processing: 0,
         checkout: null,
         patreon: null,
@@ -998,6 +1029,9 @@ describe('the subscription page, while a payment is disputed', () => {
         history: [],
         offers: [{ ...OFFER, stripePrice: { currency: 'GBP', amount: 3000 } }],
         canBuy: true,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
         disputing: true,
         processing: 0,
         checkout: null,
@@ -1014,5 +1048,137 @@ describe('the subscription page, while a payment is disputed', () => {
     expect(within(offers).queryByRole('button')).not.toBeInTheDocument();
     expect(within(offers).queryByRole('checkbox')).not.toBeInTheDocument();
     expect(offers).not.toHaveTextContent('12 months');
+  });
+});
+
+describe('an introductory offer, on the subscription page', () => {
+  const FREE = { id: 'free', name: '7 days free', months: 0, days: 7 };
+  const show = (data: Record<string, unknown>, form: unknown = null) =>
+    render(Subscription, {
+      data: {
+        entitlement: { paidUntil: null, active: false, patreon: false, entitled: false },
+        admin: false,
+        history: [],
+        offers: [],
+        canBuy: false,
+        introductory: null,
+        purchasesRefused: false,
+        claimed: false,
+        processing: 0,
+        checkout: null,
+        patreon: null,
+        patreonDone: null,
+        patreonError: null,
+        ...data,
+      },
+      form,
+      params: {},
+    } as never);
+
+  it('offers it to claim, saying what it gives, and says once it is claimed', () => {
+    const { unmount } = show({ introductory: FREE });
+    const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
+    expect(offers).toHaveTextContent(fill(en.subscription_introductory, { name: '7 days free', period: '7 days' }));
+    const button = within(offers).getByRole('button', {
+      name: fill(en.subscription_introductory_claim, { period: '7 days' }),
+    });
+    expect(button.closest('form')).toHaveAttribute('action', '?/claim');
+    expect(within(button.closest('form') as HTMLElement).getByDisplayValue('free')).toHaveAttribute('name', 'offer');
+    unmount();
+    show({ claimed: true });
+    expect(screen.getByRole('status')).toHaveTextContent(en.subscription_introductory_claimed);
+    expect(screen.queryByRole('button', { name: /free/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['unavailable', en.subscription_introductory_unavailable],
+    ['impersonating', en.subscription_buy_problem_impersonating],
+    ['other', en.subscription_introductory_unavailable],
+  ])('says why claiming it was refused: %s', (claim, said) => {
+    show({}, { claim });
+    expect(screen.getByRole('alert')).toHaveTextContent(said);
+  });
+
+  it('offers nothing to an account whose purchases are refused, saying why', () => {
+    show({ purchasesRefused: true, introductory: FREE });
+    const offers = screen.getByRole('region', { name: en.subscription_offers_heading });
+    expect(offers).toHaveTextContent(en.subscription_buy_refused);
+    expect(within(offers).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('names time from an introductory offer in the purchase history', () => {
+    const at = new Date('2026-11-20T00:00:00Z');
+    show({
+      history: [
+        { id: 'c1', source: 'introductory', startsAt: at, endsAt: at, months: 0, days: 7, purchasedAt: at, paid: null },
+      ],
+    });
+    expect(screen.getByRole('region', { name: en.subscription_history_heading })).toHaveTextContent(
+      en.subscription_source_introductory,
+    );
+  });
+});
+
+describe("purchases refused, on a user's admin page", () => {
+  const USER_ROW = {
+    id: 'u1',
+    handle: 'amber-fox-oak-01',
+    nickname: null,
+    name: 'One',
+    email: 'one@example.test',
+    image: null,
+    role: 'user',
+    banned: false,
+    banReason: null,
+    banExpires: null,
+    createdAt: new Date('2026-11-01T00:00:00Z'),
+    providers: ['github'],
+    sessions: 0,
+    admin: false,
+    configured: false,
+    self: false,
+  };
+
+  it('says since when, and offers to allow them again', () => {
+    render(User, {
+      data: {
+        user: USER_ROW,
+        audit: [],
+        purchasesRefusedAt: new Date('2026-11-20T00:00:00Z'),
+        done: 'allowPurchases',
+        refused: null,
+        subscription: { paidUntil: null, active: false },
+        credits: [],
+        patreon: null,
+      },
+      form: null,
+      params: { id: 'u1' },
+    } as never);
+    expect(screen.getByText(/^Purchases are refused since/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.admin_purchases_allow }).closest('form')).toHaveAttribute(
+      'action',
+      '?/allowPurchases',
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(en.admin_done_allow_purchases);
+  });
+});
+
+describe('introductory offers, on the offers page', () => {
+  it('marks one introductory, and offers to make one', () => {
+    render(Offers, {
+      data: {
+        offers: [{ ...OFFER, prices: {}, introductory: true }],
+        refundRequests: [],
+        disputes: [],
+        done: null,
+        stripeCurrency: null,
+      },
+      form: { introductory: true },
+      params: {},
+    } as never);
+    expect(screen.getByRole('table')).toHaveTextContent(en.admin_offer_introductory_badge);
+    const box = screen.getByRole('checkbox', { name: en.admin_offer_introductory });
+    expect(box).toBeChecked();
+    expect(box).toHaveAccessibleDescription(en.admin_offer_introductory_hint);
   });
 });

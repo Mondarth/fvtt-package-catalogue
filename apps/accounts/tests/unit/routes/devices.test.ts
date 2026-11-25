@@ -90,6 +90,7 @@ describe("the profile's signed-in devices", () => {
           session: { id: 'here' } as never,
           auth: staleAuth,
           accounts: store().accounts,
+          subscriptions: { history: () => Promise.resolve([]) } as never,
         },
       }),
     )) as { devices: Device[]; signedOut: string | null; impersonated: boolean };
