@@ -27,19 +27,30 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "typecheck:fallback": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "typecheck:fallback": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build:storybook": "storybook build -o storybook-static"
   },
   "peerDependencies": {
     "svelte": "^5.57.3"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "~10.6.8",
+    "@storybook/addon-docs": "~10.6.8",
+    "@storybook/addon-svelte-csf": "^5.1.6",
+    "@storybook/addon-vitest": "~10.6.8",
+    "@storybook/svelte-vite": "~10.6.8",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/svelte": "^5.4.2",
     "@testing-library/user-event": "^14.6.9",
     "@types/node": "^24.19.2",
+    "@vitest/browser-playwright": "^5.1.0",
+    "@vitest/coverage-istanbul": "^5.1.0",
     "@vitest/coverage-v8": "^5.1.0",
     "happy-dom": "^21.0.4",
+    "playwright": "^1.64.1",
+    "storybook": "~10.6.8",
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.8",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

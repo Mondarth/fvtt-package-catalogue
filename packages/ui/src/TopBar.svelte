@@ -40,14 +40,14 @@
 <style>
   nav {
     display: flex;
-    gap: 1rem;
+    gap: var(--mdr-space-4);
     align-items: center;
   }
 
   .menu {
     flex: 1;
     display: flex;
-    gap: 1rem;
+    gap: var(--mdr-space-4);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -55,20 +55,20 @@
 
   .profile {
     display: inline-flex;
-    gap: 0.4rem;
+    gap: var(--mdr-space-2);
     align-items: center;
-    padding: 0.3rem 0.8rem;
-    border: 1px solid var(--muted);
-    border-radius: 999px;
-    color: var(--fg);
+    padding: var(--mdr-space-1) var(--mdr-space-3);
+    border: var(--mdr-border-width-thin) solid var(--mdr-color-border-strong);
+    border-radius: var(--mdr-radius-pill);
+    color: var(--mdr-color-text);
     text-decoration: none;
     white-space: nowrap;
   }
 
   .profile:hover,
   .profile:focus-visible {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--mdr-color-accent);
+    color: var(--mdr-color-accent);
   }
 
   /* Drawn, so that the button's text is the name alone. */
@@ -77,10 +77,10 @@
     width: 0.6rem;
     height: 0.6rem;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--mdr-color-accent);
   }
 
   .menu a {
-    color: var(--accent);
+    color: var(--mdr-color-accent);
   }
 </style>
