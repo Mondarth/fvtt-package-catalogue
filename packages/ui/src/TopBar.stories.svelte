@@ -2,6 +2,8 @@
   import { defineMeta } from '@storybook/addon-svelte-csf';
   import { expect } from 'storybook/test';
 
+  import { withoutChildren } from '../.storybook/args';
+
   import TopBar from './TopBar.svelte';
 
   /**
@@ -43,6 +45,6 @@
     await expect(canvas.getByRole('navigation', { name: 'Workspace' })).toHaveTextContent('English');
   }}>
   {#snippet template(args)}
-    <TopBar {...args}><span>English</span></TopBar>
+    <TopBar {...withoutChildren(args)}><span>English</span></TopBar>
   {/snippet}
 </Story>
