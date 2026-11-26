@@ -222,6 +222,14 @@ applications share (`COOKIE_DOMAIN`, Better Auth's cross-subdomain cookies), and
 (`APP_ORIGINS`) are trusted to send visitors to sign in, with `?next=` naming their page to come back to
 (`accounts/next.ts`).
 
+A visitor who comes to the accounts from another application, such as from the catalogue's profile menu, is offered
+the way back to the page they came from, at the top of every page and beside each confirmation (a checkout done, a
+refund asked for): the link to the accounts says it (`?next=`, the page, checked as a sign-in's is; `?from=`, which
+application), and the accounts keep it with the session (`sessions.return_to`, `return_site` and `return_at`, by
+`accounts/return-to.ts`), for the pages after that say nothing of it, such as Stripe's or Patreon's return. A page's
+own address comes first, so each tab goes back to where it came from. It is kept for four hours at most, and
+forgotten once taken (`/return`). The admin pages are gone to on purpose, and offer no way back.
+
 The catalogue signs no one in. It asks the accounts' internal API (`@mondarth/accounts-contract`'s `httpAccounts`),
 on the deployment's own network with its key, who a user's bearer token is for (the API) and who the website's cookies
 are for (`lib/server/signed-in.ts`, the bar along the top), with what they are entitled to. It signs out through
