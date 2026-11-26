@@ -46,7 +46,7 @@
     const bar = canvas.getByRole('navigation', { name: 'Workspace' });
     await expect(canvas.getByRole('link', { name: 'Packages' })).toHaveAttribute('href', '#packages');
     await expect(bar).toHaveTextContent('English');
-    await expect(bar.lastElementChild).toBe(canvas.getByText('Ulenar').closest('details'));
+    await expect(bar.lastElementChild).toBe(canvas.getByLabelText('Your profile, Ulenar').closest('details'));
   }}>
   {#snippet template(args)}
     <TopBar {...withoutChildren(args)}><span>English</span></TopBar>

@@ -37,10 +37,13 @@
 </nav>
 
 <style>
+  /* Its pieces wrap onto another line, at the right, where the page is too narrow for them, as on a phone. */
   nav {
     display: flex;
-    gap: var(--mdr-space-4);
+    flex-wrap: wrap;
+    gap: var(--mdr-space-2) var(--mdr-space-4);
     align-items: center;
+    justify-content: flex-end;
   }
 
   .menu {
