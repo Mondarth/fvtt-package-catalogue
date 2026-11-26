@@ -6,9 +6,11 @@
 import { and, asc, count, desc, eq, gt, ilike, ne, or } from 'drizzle-orm';
 
 import { isUniqueViolation } from '../db/errors.js';
+import { RETURN_KEPT_MS, isReturnSite } from './return-to.js';
 import { accounts, sessions, users } from './schema.js';
 
 import type { Database } from '../db/database.js';
+import type { ReturnTo } from './return-to.js';
 
 /** A provider a user signs in with. */
 export interface LinkedProvider {
@@ -83,6 +85,12 @@ export interface AccountsStore {
    * @returns How many were ended
    */
   endSessions(userId: string, which: { readonly only: string } | { readonly except: string }): Promise<number>;
+  /** Keeps the way back to another application with a session, in place of any it had. */
+  setReturn(sessionId: string, to: ReturnTo, now?: Date): Promise<void>;
+  /** The way back kept with a session: none if none was, or it is older than {@link RETURN_KEPT_MS}. */
+  returnOf(sessionId: string, now?: Date): Promise<ReturnTo | undefined>;
+  /** Forgets a session's way back, once taken. */
+  clearReturn(sessionId: string): Promise<void>;
 }
 
 const summary = {
@@ -199,6 +207,27 @@ export function accountsStore(db: Database): AccountsStore {
       /* v8 ignore next */
       const signedInNow = signedIn?.sessions ?? 0;
       return { ...user, banned: user.banned === true, providers, sessions: signedInNow };
+    },
+    async setReturn(sessionId, to, now = new Date()) {
+      await db
+        .update(sessions)
+        .set({ returnTo: to.url, returnSite: to.site, returnAt: now })
+        .where(eq(sessions.id, sessionId));
+    },
+    async returnOf(sessionId, now = new Date()) {
+      const [kept] = await db
+        .select({ url: sessions.returnTo, site: sessions.returnSite, at: sessions.returnAt })
+        .from(sessions)
+        .where(eq(sessions.id, sessionId))
+        .limit(1);
+      if (kept?.url == null || kept.at === null || !isReturnSite(kept.site)) return undefined;
+      return now.getTime() - kept.at.getTime() > RETURN_KEPT_MS ? undefined : { url: kept.url, site: kept.site };
+    },
+    async clearReturn(sessionId) {
+      await db
+        .update(sessions)
+        .set({ returnTo: null, returnSite: null, returnAt: null })
+        .where(eq(sessions.id, sessionId));
     },
   };
 }

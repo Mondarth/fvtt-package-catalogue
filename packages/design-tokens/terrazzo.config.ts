@@ -6,7 +6,7 @@ const variableName = (token: { id: string }) => `--mdr-${token.id.replaceAll('.'
 
 /** The theme's colours alone change between light and dark; the site's colour is the same in both. */
 const COLOURS = ['color.*'];
-const SITE = ['color.site'];
+const SITE = ['color.site', 'color.site-text'];
 
 /** Mondarth's websites, each the resolver's `site` context of the same name: `data-site` on a page chooses one. */
 const SITES = ['mondarth', 'catalogue', 'aide', 'accounts'];

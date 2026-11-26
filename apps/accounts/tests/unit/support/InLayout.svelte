@@ -6,6 +6,6 @@
   let { dateLocale, when }: { dateLocale: string; when: Date } = $props();
 </script>
 
-<Layout data={{ dateLocale, signedIn: null }} params={{}}>
+<Layout data={{ dateLocale, signedIn: null, returnTo: null }} params={{}}>
   <Dated locale={null} {when} />
 </Layout>

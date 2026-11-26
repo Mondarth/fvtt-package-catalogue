@@ -13,6 +13,7 @@ describe('the package', () => {
     expect(Object.keys(ui).sort()).toEqual([
       'AppShell',
       'Badge',
+      'Brand',
       'Button',
       'Callout',
       'Checkbox',
@@ -22,8 +23,10 @@ describe('the package', () => {
       'Logo',
       'Notice',
       'Panel',
+      'ReturnLink',
       'Table',
       'TopBar',
+      'UserMenu',
     ]);
   });
 });

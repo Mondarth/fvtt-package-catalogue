@@ -1,28 +1,29 @@
 <!--
-  The bar along the top of every page while signed in: the application's menu, then whatever it puts beside it, such as
-  the language picker, and, at the far right, the button to the user's profile, showing the name they are shown by.
+  The bar along the top of every page: the application's menu, if it has one, then whatever it puts beside it, such as
+  the language picker, and, at the far right, the user navigation menu (`UserMenu`): the way to sign in or register,
+  or, once signed in, the user's own menu.
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  import type { TopBarLink } from './top-bar.js';
+  import UserMenu from './UserMenu.svelte';
+
+  import type { TopBarAccount, TopBarLink } from './top-bar.js';
 
   interface Props {
     /** What the bar is labelled, as a landmark. */
     label: string;
-    /** The menu's links. */
-    links: readonly TopBarLink[];
-    /** The name the user is shown by. */
-    name: string;
-    /** Where their profile is. */
-    profileHref: string;
-    /** What the profile button says to a screen reader, naming them. */
-    profileLabel: string;
-    /** What goes between the menu and the profile button, such as the language picker. */
+    /** The menu's links, if the application has any beside the user menu. */
+    links?: readonly TopBarLink[];
+    /** The signed-in user, and their menu; none while signed out. */
+    account: TopBarAccount | null;
+    /** Where to sign in or register while signed out, and what the link says. */
+    signIn: TopBarLink;
+    /** What goes between the menu and the user menu, such as the language picker. */
     children?: Snippet;
   }
 
-  let { label, links, name, profileHref, profileLabel, children }: Props = $props();
+  let { label, links = [], account, signIn, children }: Props = $props();
 </script>
 
 <nav aria-label={label}>
@@ -32,16 +33,17 @@
     {/each}
   </ul>
   {@render children?.()}
-  <a class="profile" href={profileHref} aria-label={profileLabel}>
-    {name}
-  </a>
+  <UserMenu {account} {signIn} />
 </nav>
 
 <style>
+  /* Its pieces wrap onto another line, at the right, where the page is too narrow for them, as on a phone. */
   nav {
     display: flex;
-    gap: var(--mdr-space-4);
+    flex-wrap: wrap;
+    gap: var(--mdr-space-2) var(--mdr-space-4);
     align-items: center;
+    justify-content: flex-end;
   }
 
   .menu {
@@ -51,33 +53,6 @@
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .profile {
-    display: inline-flex;
-    gap: var(--mdr-space-2);
-    align-items: center;
-    padding: var(--mdr-space-1) var(--mdr-space-3);
-    border: var(--mdr-border-width-thin) solid var(--mdr-color-border-strong);
-    border-radius: var(--mdr-radius-pill);
-    color: var(--mdr-color-text);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .profile:hover,
-  .profile:focus-visible {
-    border-color: var(--mdr-color-accent);
-    color: var(--mdr-color-accent);
-  }
-
-  /* Drawn, so that the button's text is the name alone. */
-  .profile::before {
-    content: '';
-    width: 0.6rem;
-    height: 0.6rem;
-    border-radius: 50%;
-    background: var(--mdr-color-accent);
   }
 
   .menu a {

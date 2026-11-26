@@ -191,6 +191,7 @@ describe('who may call what', () => {
     return {
       userOf,
       userOfSession: vi.fn<Accounts['userOfSession']>(() => Promise.resolve(undefined)),
+      signOut: vi.fn<Accounts['signOut']>(() => Promise.resolve([])),
       used: vi.fn<Accounts['used']>(() => Promise.resolve()),
       entitlement: (user: ApiUser) =>
         Promise.resolve(

@@ -1,9 +1,9 @@
 <script lang="ts">
   // Mondarth's theme, which every application shares.
   import '@mondarth/ui/theme.css';
-  import { AppShell, Button, Logo } from '@mondarth/ui';
+  import { AppShell, Brand, Button } from '@mondarth/ui';
   import { resolve } from '$app/paths';
-  import LanguagePicker from '#lib/components/LanguagePicker.svelte';
+  import BackLink from '#lib/components/BackLink.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { setDateLocale } from '#lib/dates.js';
@@ -24,12 +24,10 @@
 
 <AppShell skipLabel={m.skip_link()}>
   {#snippet header()}
-    <a class="home" href={resolve('/')}><Logo site="accounts" height="2rem" alt={m.home_link()} /></a>
-    {#if data.signedIn === null}
-      <LanguagePicker />
-    {:else}
-      <div class="bar"><TopBar name={data.signedIn.name} admin={data.signedIn.admin} /></div>
-    {/if}
+    <Brand href={resolve('/')} site="accounts" name={m.site_name()} label={m.home_link()} />
+    <div class="bar">
+      <TopBar user={data.signedIn === null ? null : { name: data.signedIn.name, admin: data.signedIn.admin }} />
+    </div>
   {/snippet}
 
   {#if data.signedIn?.impersonated === true}
@@ -40,6 +38,10 @@
         <Button type="submit">{m.impersonation_stop()}</Button>
       </form>
     </div>
+  {/if}
+  {#if data.returnTo !== null}
+    <!-- The way back to the application the visitor came from, at the top of every page while they are here. -->
+    <div class="back"><BackLink to={data.returnTo} /></div>
   {/if}
   <MachineTranslationNotice />
   {@render children()}
@@ -53,10 +55,6 @@
 </AppShell>
 
 <style>
-  .home {
-    flex: none;
-  }
-
   /* The top bar takes the header's width, its profile button at the far right. */
   .bar {
     flex: 1;
@@ -66,6 +64,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--mdr-space-5);
+  }
+
+  .back {
+    margin-bottom: var(--mdr-space-5);
   }
 
   .impersonating {

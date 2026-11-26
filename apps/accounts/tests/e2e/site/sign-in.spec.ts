@@ -20,7 +20,7 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
 
   await page.getByRole('main').getByRole('link', { name: en.privacy_link }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.privacy_heading })).toBeVisible();
-  await expect(page.getByRole('row')).toHaveCount(25);
+  await expect(page.getByRole('row')).toHaveCount(26);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

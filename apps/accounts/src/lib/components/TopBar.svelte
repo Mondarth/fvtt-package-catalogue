@@ -1,7 +1,7 @@
 <!--
-  The workspace's bar along the top of every page while signed in: its menu, the user's subscription and, for an admin,
-  the admin pages, then the language picker, and, at the far right, the button to the user's profile, showing the name
-  they are shown by.
+  The workspace's bar along the top of every page: the language picker, and, at the far right, the way to sign in or
+  register, or, once signed in, the button showing the name the user is shown by, which opens their menu: their
+  profile, their subscription, the admin pages for an admin, and signing out.
 -->
 <script lang="ts">
   import { TopBar } from '@mondarth/ui';
@@ -11,25 +11,28 @@
   import { m } from '#lib/paraglide/messages.js';
 
   interface Props {
-    /** The name the user is shown by: their nickname, or else their user id. */
-    name: string;
-    /** Whether they are an admin, who is offered the admin pages. */
-    admin?: boolean;
+    /** The signed-in user: the name they are shown by, and whether they are an admin; none while signed out. */
+    user: { readonly name: string; readonly admin: boolean } | null;
   }
 
-  let { name, admin = false }: Props = $props();
+  let { user }: Props = $props();
 
-  const links = $derived([
-    { href: resolve('/subscription'), label: m.subscription_link() },
-    ...(admin ? [{ href: resolve('/admin'), label: m.admin_link() }] : []),
-  ]);
+  const account = $derived(
+    user === null
+      ? null
+      : {
+          name: user.name,
+          label: m.profile_button_label({ name: user.name }),
+          items: [
+            { href: resolve('/profile'), label: m.profile_link() },
+            { href: resolve('/subscription'), label: m.subscription_link() },
+            ...(user.admin ? [{ href: resolve('/admin'), label: m.admin_link() }] : []),
+            { action: '/sign-out', label: m.sign_out() },
+          ],
+        },
+  );
 </script>
 
-<TopBar
-  label={m.workspace_label()}
-  {links}
-  {name}
-  profileHref={resolve('/profile')}
-  profileLabel={m.profile_button_label({ name })}>
+<TopBar label={m.workspace_label()} {account} signIn={{ href: resolve('/'), label: m.sign_in_register() }}>
   <LanguagePicker />
 </TopBar>

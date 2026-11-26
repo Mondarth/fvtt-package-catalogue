@@ -10,7 +10,7 @@ const USER: AccountUser = { id: 'u1', handle: 'amber-fox-oak-01', nickname: null
 function accountsWith(answer: Accounts['userOfSession']) {
   const userOfSession = vi.fn(answer);
   return {
-    accounts: { userOf: vi.fn(), userOfSession, entitlement: vi.fn(), used: vi.fn() } as Accounts,
+    accounts: { userOf: vi.fn(), userOfSession, entitlement: vi.fn(), used: vi.fn(), signOut: vi.fn() } as Accounts,
     userOfSession,
   };
 }

@@ -8,6 +8,7 @@
   import { refreshAll } from '$app/navigation';
 
   import { useDates } from '#lib/dates.js';
+  import BackLink from '#lib/components/BackLink.svelte';
   import RefundDialog from '#lib/components/RefundDialog.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -181,6 +182,7 @@
         >{PATREON_PROBLEMS[patreonProblem]?.() ?? m.subscription_patreon_error_refused()}</Callout>
     {:else if patreonDone !== undefined}
       <p role="status">{patreonDone}</p>
+      <BackLink to={data.returnTo} />
     {/if}
     {#if data.patreon.linked}
       <p class="patreon-says">{patreonSays(data.patreon)}</p>
@@ -227,6 +229,7 @@
         >{CLAIM_PROBLEMS[claimProblem]?.() ?? m.subscription_introductory_unavailable()}</Callout>
     {:else if data.claimed}
       <p role="status">{m.subscription_introductory_claimed()}</p>
+      <BackLink to={data.returnTo} />
     {/if}
     {#if data.introductory !== null}
       <!-- Free time, for an account never subscribed, once a person: claimed, not bought. -->
@@ -243,6 +246,7 @@
       <Callout id="buy-problem">{BUY_PROBLEMS[buyProblem]?.() ?? m.subscription_buy_problem_stripe()}</Callout>
     {:else if checkoutDone !== undefined}
       <p role="status">{checkoutDone}</p>
+      <BackLink to={data.returnTo} />
     {/if}
     {#if data.processing > 0}
       <p role="status">{m.subscription_checkout_processing()}</p>
@@ -321,6 +325,7 @@
     <p role="status">
       {data.refundDone === 'refunded' ? m.subscription_refund_done_at_once() : m.subscription_refund_done()}
     </p>
+    <BackLink to={data.returnTo} />
   {/if}
   {#if data.history.length === 0}
     <p>{m.subscription_history_none()}</p>

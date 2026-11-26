@@ -1,9 +1,8 @@
 <script lang="ts">
   // Mondarth's theme, which every application shares.
   import '@mondarth/ui/theme.css';
-  import { AppShell, Logo } from '@mondarth/ui';
+  import { AppShell, Brand } from '@mondarth/ui';
   import { resolve } from '$app/paths';
-  import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -20,14 +19,12 @@
 
 <AppShell skipLabel={m.skip_link()}>
   {#snippet header()}
-    <a class="home" href={resolve('/')}><Logo site="catalogue" height="2rem" alt={m.home_link()} /></a>
-    {#if data.signedIn === null}
-      <LanguagePicker />
-    {:else}
-      <div class="bar">
-        <TopBar name={data.signedIn.name} admin={data.signedIn.admin} accounts={data.accountsSite} />
-      </div>
-    {/if}
+    <Brand href={resolve('/')} site="catalogue" name={m.site_name()} label={m.home_link()} />
+    <div class="bar">
+      <TopBar
+        user={data.signedIn === null ? null : { name: data.signedIn.name, admin: data.signedIn.admin }}
+        accounts={data.accountsSite} />
+    </div>
   {/snippet}
 
   {#if data.signedIn?.impersonated === true}
@@ -43,10 +40,6 @@
 </AppShell>
 
 <style>
-  .home {
-    flex: none;
-  }
-
   /* The top bar takes the header's width, its profile button at the far right. */
   .bar {
     flex: 1;

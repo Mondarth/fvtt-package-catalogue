@@ -22,6 +22,13 @@
       "when": 1795607060810,
       "tag": "0002_known-identities",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795717167559,
+      "tag": "0003_return-to",
+      "breakpoints": true
     }
   ]
 }
