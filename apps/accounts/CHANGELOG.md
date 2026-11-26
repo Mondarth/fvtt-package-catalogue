@@ -1,3 +1,11 @@
+## [@mondarth/accounts-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.3.0...@mondarth/accounts-v0.4.0) (2026-11-26)
+
+### Features
+
+* **accounts:** move the account links into the profile menu ([dd1aea8](https://github.com/Mondarth/fvtt-package-catalogue/commit/dd1aea810fe3184a09582e9dffb15bc9c8bbd804))
+* **accounts:** name the site beside the logo ([8b4e881](https://github.com/Mondarth/fvtt-package-catalogue/commit/8b4e881513e90579e029ccc7ec215bbf860448d4))
+* **accounts:** offer the way back to the site a visitor came from ([6ac776d](https://github.com/Mondarth/fvtt-package-catalogue/commit/6ac776ddfe07597c59694c088e3cf66369229abb))
+
 ## [@mondarth/accounts-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.2.0...@mondarth/accounts-v0.3.0) (2026-11-26)
 
 ### Features
