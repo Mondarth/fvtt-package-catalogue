@@ -4,7 +4,9 @@ import { messagesOf } from '../messages.js';
 
 const en = messagesOf('en');
 
-test('the home page says what the catalogue is, and sends a visitor to sign in at the accounts', async ({ page }) => {
+test('the home page says what the catalogue is, and the bar sends a visitor to sign in at the accounts', async ({
+  page,
+}) => {
   await page.goto('/');
   await expect(page).toHaveTitle(en.site_title);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
@@ -13,7 +15,7 @@ test('the home page says what the catalogue is, and sends a visitor to sign in a
   await expect(page.getByRole('heading', { level: 1, name: en.site_title })).toBeVisible();
   await expect(page.getByText(en.home_lede)).toBeVisible();
   await expect(page.getByRole('note')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: en.sign_in_heading })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: en.sign_in_register })).toHaveAttribute(
     'href',
     `${ACCOUNTS_URL}/?next=${encodeURIComponent(`${E2E_URL}/`)}`,
   );
