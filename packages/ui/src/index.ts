@@ -23,4 +23,4 @@ export { default as Panel } from './Panel.svelte';
 export { default as Table } from './Table.svelte';
 export { default as TopBar } from './TopBar.svelte';
 export type { FieldControl } from './Field.svelte';
-export type { TopBarLink } from './top-bar.js';
+export type { ProfileMenuItem, TopBarAccount, TopBarLink } from './top-bar.js';

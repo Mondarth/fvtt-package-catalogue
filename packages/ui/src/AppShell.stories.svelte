@@ -40,10 +40,16 @@
         <div style="flex:1">
           <TopBar
             label="Workspace"
-            links={[{ href: '#subscription', label: 'Subscription' }]}
-            name="Ulenar"
-            profileHref="#profile"
-            profileLabel="Profile: Ulenar" />
+            signIn={{ href: '#sign-in', label: 'Sign in/register' }}
+            account={{
+              name: 'Ulenar',
+              label: 'Your profile, Ulenar',
+              items: [
+                { href: '#profile', label: 'Profile' },
+                { href: '#subscription', label: 'Subscription' },
+                { action: '#sign-out', label: 'Sign out' },
+              ],
+            }} />
         </div>
       {/snippet}
       <h1>Subscription</h1>
