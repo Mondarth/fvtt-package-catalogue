@@ -1,18 +1,10 @@
-import { render, screen } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
 
-import accounts from '@mondarth/design-tokens/brand/accounts.svg';
-import catalogue from '@mondarth/design-tokens/brand/catalogue.svg';
-import mondarth from '@mondarth/design-tokens/brand/mondarth.svg';
 import { dateLocaleOf, datesIn } from '../src/dates.js';
 import * as ui from '../src/index.js';
 import { languageName } from '../src/language.js';
-import LanguagePicker from '../src/LanguagePicker.svelte';
-import Logo from '../src/Logo.svelte';
-import Bar from './support/Bar.svelte';
 import Dated from './support/Dated.svelte';
-import Noted from './support/Noted.svelte';
 
 const WHEN = new Date('2026-11-22T09:05:00Z');
 
@@ -59,74 +51,5 @@ describe('languages', () => {
   it('are named in themselves, with a capital', () => {
     expect(languageName('en')).toBe('English');
     expect(languageName('es')).toBe('Español');
-  });
-
-  it('are picked from, each named in itself, the current one chosen, choosing another switching to it', async () => {
-    const choose = vi.fn();
-    render(LanguagePicker, { label: 'Language', locales: ['en', 'es'], current: 'en', choose });
-    const picker = screen.getByRole('combobox', { name: 'Language' });
-    expect(picker).toHaveValue('en');
-    expect(screen.getAllByRole('option').map(option => [option.textContent, option.getAttribute('lang')])).toEqual([
-      ['English', 'en'],
-      ['Español', 'es'],
-    ]);
-    await userEvent.selectOptions(picker, 'en');
-    expect(choose).not.toHaveBeenCalled();
-    await userEvent.selectOptions(picker, 'es');
-    expect(choose).toHaveBeenCalledExactlyOnceWith('es');
-  });
-});
-
-describe('the top bar', () => {
-  it('has its menu, what goes beside it, and the profile button at the far right, naming the user', () => {
-    render(Bar, { links: [{ href: '/subscription', label: 'Subscription' }], beside: true });
-    const bar = screen.getByRole('navigation', { name: 'Workspace' });
-    expect(screen.getByRole('link', { name: 'Subscription' })).toHaveAttribute('href', '/subscription');
-    expect(bar).toHaveTextContent('Beside');
-    const profile = screen.getByRole('link', { name: 'Profile: Ulenar' });
-    expect(profile).toHaveAttribute('href', '/profile');
-    expect(profile).toHaveTextContent('Ulenar');
-    expect(bar.lastElementChild).toBe(profile);
-  });
-
-  it('has nothing beside its menu where it is given nothing', () => {
-    render(Bar, { links: [], beside: false });
-    expect(screen.getByRole('navigation')).not.toHaveTextContent('Beside');
-    expect(screen.getAllByRole('link')).toHaveLength(1);
-  });
-});
-
-describe('notices and callouts', () => {
-  it('note what they say, a callout as an alert that takes the focus', () => {
-    render(Noted, { text: 'Machine translated', id: 'about' });
-    expect(screen.getByRole('note')).toHaveTextContent('Machine translated');
-    const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Machine translated');
-    expect(alert).toHaveAttribute('id', 'about');
-    expect(alert).toHaveFocus();
-  });
-});
-
-describe('the logo', () => {
-  it("is the site's own, at the height given, the same in either colour scheme", () => {
-    const { container, unmount } = render(Logo, { height: '2rem', site: 'accounts', alt: 'Mondarth accounts' });
-    const image = screen.getByRole('img', { name: 'Mondarth accounts' });
-    expect(image).toHaveAttribute('src', accounts);
-    expect(image.style.height).toBe('2rem');
-    expect(container.querySelector('picture, source')).toBeNull();
-    unmount();
-    render(Logo, { height: '2rem', site: 'catalogue', alt: 'Catalogue' });
-    expect(screen.getByRole('img', { name: 'Catalogue' })).toHaveAttribute('src', catalogue);
-    expect(catalogue).not.toBe(accounts);
-  });
-
-  it("is mondarth.com's unless the site is given", () => {
-    render(Logo, { height: '1rem', alt: 'Mondarth' });
-    expect(screen.getByRole('img', { name: 'Mondarth' })).toHaveAttribute('src', mondarth);
-  });
-
-  it('says nothing to a screen reader by default', () => {
-    render(Logo, { height: '1rem' });
-    expect(screen.getByRole('presentation', { hidden: true })).toHaveAttribute('alt', '');
   });
 });

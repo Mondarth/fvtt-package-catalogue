@@ -11,6 +11,7 @@
 | Paraglide JS      | 2.29    | The website's messages                                                          |
 | Vitest            | 5.0     | With `@vitest/coverage-v8`, happy-dom, `@testing-library/svelte`                |
 | Playwright        | 1.64    |                                                                                 |
+| Storybook         | 10.6    | `@storybook/svelte-vite`, addon-svelte-csf 5, a11y, docs, vitest (`packages/ui`)  |
 | ESLint            | 10      | typescript-eslint's strict type-checked rules, eslint-plugin-svelte             |
 | semantic-release  | 25      | With semantic-release-monorepo                                                  |
 | PostgreSQL        | 18      | `postgres:18-alpine`                                                           |

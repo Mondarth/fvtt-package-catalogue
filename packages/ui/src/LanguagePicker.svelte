@@ -37,9 +37,9 @@
 <style>
   label {
     display: inline-flex;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
     align-items: center;
-    color: var(--muted);
+    color: var(--mdr-color-text-muted);
   }
 
   select {

@@ -16,9 +16,9 @@
 
 <style>
   .notice {
-    margin: 0 0 1.5rem;
-    padding: 0.75rem 1rem;
-    border-inline-start: 4px solid var(--accent);
-    background: var(--note-bg);
+    margin: 0 0 var(--mdr-space-5);
+    padding: var(--mdr-space-3) var(--mdr-space-4);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-accent);
+    background: var(--mdr-color-subtle);
   }
 </style>

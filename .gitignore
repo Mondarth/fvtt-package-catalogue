@@ -42,3 +42,6 @@ docs/_build/
 .idea/
 .DS_Store
 .eslintcache
+
+# Storybook builds (packages/ui)
+storybook-static/
