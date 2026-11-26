@@ -60,10 +60,26 @@ describe('the built tokens', () => {
     const sites = { mondarth: '#f3891c', catalogue: '#efbb47', aide: '#2ff9e3', accounts: '#60b6fa' };
     for (const [site, emblem] of Object.entries(sites)) {
       const rule = rules.get(`[data-site='${site}']`);
-      expect([...(rule?.keys() ?? [])], site).toEqual(['--mdr-color-site']);
+      expect([...(rule?.keys() ?? [])].sort(), site).toEqual(['--mdr-color-site', '--mdr-color-site-text']);
       expect(themeOf(rules.get(':root') ?? new Map(), rule).get('--mdr-color-site'), site).toBe(emblem);
     }
     expect(themes.light.get('--mdr-color-site')).toBe(sites.mondarth);
+  });
+
+  it.each(['light', 'dark'] as const)("make each site's colour, as text, readable on every background, %s", theme => {
+    for (const site of ['mondarth', 'catalogue', 'aide', 'accounts'])
+      for (const background of BACKGROUNDS)
+        expect(
+          contrast(colour(theme, `site-text-${site}`), colour(theme, background)),
+          `${site}'s name on ${background}`,
+        ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('give each site its colour as text where a page says which it is, in either theme', () => {
+    for (const site of ['mondarth', 'catalogue', 'aide', 'accounts'])
+      expect(rules.get(`[data-site='${site}']`)?.get('--mdr-color-site-text'), site).toBe(
+        `var(--mdr-color-site-text-${site})`,
+      );
   });
 
   it('name every variable --mdr-', () => {

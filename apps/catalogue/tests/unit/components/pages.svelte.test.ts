@@ -85,7 +85,7 @@ describe('the layout', () => {
   it("puts the profile menu in the bar once signed in: the accounts' pages, and signing out here", () => {
     layout(USER);
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
-    const profile = screen.getByText('Ulenar');
+    const profile = screen.getByLabelText(en.profile_button_label.replace('{name}', 'Ulenar'));
     expect(profile).toHaveAccessibleName(en.profile_button_label.replace('{name}', 'Ulenar'));
     expect(bar.lastElementChild).toBe(profile.closest('details'));
     const link = (name: string) => screen.getByRole('link', { name, hidden: true });

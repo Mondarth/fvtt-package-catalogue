@@ -61,7 +61,7 @@
   <a class="sign-in" href={signIn.href}>{signIn.label}</a>
 {:else}
   <details class="account" bind:this={details} bind:open>
-    <summary class="profile" aria-label={account.label}>{account.name}</summary>
+    <summary class="profile" aria-label={account.label}><span class="name">{account.name}</span></summary>
     <ul class="items" class:from-start={fromStart} bind:this={items}>
       {#each account.items as item (item.label)}
         <li>
@@ -123,6 +123,17 @@
   .account {
     position: relative;
     display: inline-block;
+    max-width: 100%;
+  }
+
+  /* A long name is cut short, its whole in the button's label. */
+  .profile {
+    max-width: 14rem;
+  }
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* The button's own marker gives way to the dot and a caret. */

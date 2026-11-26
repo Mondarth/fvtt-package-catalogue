@@ -1,7 +1,7 @@
 <script lang="ts">
   // Mondarth's theme, which every application shares.
   import '@mondarth/ui/theme.css';
-  import { AppShell, Button, Logo } from '@mondarth/ui';
+  import { AppShell, Brand, Button } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
@@ -23,7 +23,7 @@
 
 <AppShell skipLabel={m.skip_link()}>
   {#snippet header()}
-    <a class="home" href={resolve('/')}><Logo site="accounts" height="2rem" alt={m.home_link()} /></a>
+    <Brand href={resolve('/')} site="accounts" name={m.site_name()} label={m.home_link()} />
     <div class="bar">
       <TopBar user={data.signedIn === null ? null : { name: data.signedIn.name, admin: data.signedIn.admin }} />
     </div>
@@ -50,10 +50,6 @@
 </AppShell>
 
 <style>
-  .home {
-    flex: none;
-  }
-
   /* The top bar takes the header's width, its profile button at the far right. */
   .bar {
     flex: 1;

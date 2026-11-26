@@ -4,6 +4,10 @@
     "site": {
       "$value": "{palette.orange.400}",
       "$description": "The site's own colour, its emblem's: mondarth.com: the d20. A mark beside the logo or along an edge, never text, and never the only sign of anything."
+    },
+    "site-text": {
+      "$value": "{color.site-text-mondarth}",
+      "$description": "The site's colour as text, readable in either theme: its name beside the logo."
     }
   }
 }

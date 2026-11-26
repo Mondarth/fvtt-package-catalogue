@@ -49,7 +49,7 @@
   name="Signed in"
   args={{ account: { name: 'Ulenar', label: 'Your profile, Ulenar', items: ITEMS } }}
   play={async ({ canvas, canvasElement, userEvent }) => {
-    const button = canvas.getByText('Ulenar');
+    const button = canvas.getByLabelText('Your profile, Ulenar');
     await expect(button).toHaveAccessibleName('Your profile, Ulenar');
     await expect(canvas.queryByRole('link', { name: 'Sign in/register' })).toBeNull();
     // Closed until its button is pressed; then its entries, signing out a form posted, not a link.
@@ -89,7 +89,7 @@
   args={{ account: { name: 'Ulenar', label: 'Your profile, Ulenar', items: ITEMS } }}
   play={async ({ canvas, canvasElement, userEvent }) => {
     // Escape with the focus outside the menu closes it, and leaves the focus where it was.
-    await userEvent.click(canvas.getByText('Ulenar'));
+    await userEvent.click(canvas.getByLabelText('Your profile, Ulenar'));
     await expect(canvas.getByRole('link', { name: 'Admin' })).toBeVisible();
     // On its own, out of the bar, the menu hangs from its button still.
     await hangsFromItsButton(canvasElement);
@@ -108,7 +108,7 @@
   name="At the far right, as in the bar"
   args={{ account: { name: 'Ulenar', label: 'Your profile, Ulenar', items: ITEMS } }}
   play={async ({ canvas, canvasElement, userEvent }) => {
-    await userEvent.click(canvas.getByText('Ulenar'));
+    await userEvent.click(canvas.getByLabelText('Your profile, Ulenar'));
     await hangsFromItsButton(canvasElement);
     // From the button's end: there is the room, leftwards.
     const button = canvasElement.querySelector('summary')?.getBoundingClientRect() ?? new DOMRect();
