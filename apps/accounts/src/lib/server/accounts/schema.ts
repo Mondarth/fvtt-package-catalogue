@@ -62,6 +62,13 @@ export const sessions = pgTable(
     impersonatedBy: text(),
     /** The client a device signed in for, such as `emma-extension`; none for the website's own. */
     clientId: text(),
+    /**
+     * The page of another Mondarth application the visitor came from, to go back to (`?next=`), which of the
+     * applications it is (`?from=`), and when: kept a few hours, cleared once they go back.
+     */
+    returnTo: text(),
+    returnSite: text(),
+    returnAt: timestamp({ withTimezone: true }),
     createdAt,
     updatedAt,
   },

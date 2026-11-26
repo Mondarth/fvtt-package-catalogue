@@ -78,14 +78,29 @@ describe('the layout', () => {
   const children = createRawSnippet(() => ({ render: () => '<p>Page content</p>' }));
 
   it('renders the page in its main landmark, with a language picker and no notice in English', () => {
-    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
     expect(screen.getByRole('main')).toHaveTextContent('Page content');
     expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
+  it('offers the way back to the application the visitor came from, at the top of the page', () => {
+    const returnTo = { url: 'https://catalogue.example.org/developers', site: 'catalogue' } as const;
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo } });
+    const back = screen.getByRole('link', { name: en.return_catalogue });
+    expect(back).toHaveAttribute('href', `/return?to=${encodeURIComponent(returnTo.url)}`);
+    expect(
+      back.compareDocumentPosition(screen.getByText('Page content')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('offers no way back to a visitor who did not come from another application', () => {
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
+    expect(screen.queryByRole('link', { name: /^Back to / })).not.toBeInTheDocument();
+  });
+
   it('links the terms and what is stored at the foot of every page', () => {
-    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
     const foot = screen.getByRole('contentinfo');
     expect(within(foot).getByRole('link', { name: en.terms_link })).toHaveAttribute('href', '/terms');
     expect(within(foot).getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', '/privacy');
@@ -93,12 +108,12 @@ describe('the layout', () => {
 
   it('says a machine translated page was translated by machine', () => {
     inLocale('es');
-    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
     expect(screen.getByRole('note')).toHaveTextContent(es.machine_translation_notice);
   });
 
   it("puts the accounts' logo at the far left of the top, linking home", () => {
-    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
     const home = screen.getByRole('link', { name: en.home_link });
     expect(home).toHaveAttribute('href', '/');
     expect(home.closest('header')?.firstElementChild).toBe(home);
@@ -112,7 +127,7 @@ describe('the layout', () => {
     render(Layout, {
       children,
       params: {},
-      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: false } },
+      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: false }, returnTo: null },
     });
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
     const profile = screen.getByLabelText(en.profile_button_label.replace('{name}', 'Ulenar'));
@@ -133,7 +148,7 @@ describe('the layout', () => {
   });
 
   it('offers to sign in or register at the far right of the bar while signed out', () => {
-    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null, returnTo: null } });
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
     const signIn = screen.getByRole('link', { name: en.sign_in_register });
     expect(signIn).toHaveAttribute('href', '/');
@@ -149,7 +164,7 @@ describe('the layout, for an admin and while an admin views the site as someone'
     render(Layout, {
       children,
       params: {},
-      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: true, impersonated: false } },
+      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: true, impersonated: false }, returnTo: null },
     });
     // In the profile menu, not the bar.
     const admin = screen.getByRole('link', { name: en.admin_link, hidden: true });
@@ -166,7 +181,7 @@ describe('the layout, for an admin and while an admin views the site as someone'
     render(Layout, {
       children,
       params: {},
-      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: true } },
+      data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: true }, returnTo: null },
     });
     expect(screen.queryByRole('link', { name: en.admin_link })).not.toBeInTheDocument();
     const banner = screen.getByRole('status');

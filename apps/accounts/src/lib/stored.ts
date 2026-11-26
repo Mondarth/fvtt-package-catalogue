@@ -47,6 +47,7 @@ export const STORED: readonly StoredItem[] = [
   { id: 'device', from: 'browser', columns: ['sessions.ip_address', 'sessions.user_agent'] },
   { id: 'impersonation', from: 'us', columns: ['sessions.impersonated_by'] },
   { id: 'client', from: 'us', columns: ['sessions.client_id'] },
+  { id: 'return', from: 'browser', columns: ['sessions.return_to', 'sessions.return_site', 'sessions.return_at'] },
   {
     id: 'device_sign_in',
     from: 'us',

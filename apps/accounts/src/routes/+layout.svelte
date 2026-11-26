@@ -3,6 +3,7 @@
   import '@mondarth/ui/theme.css';
   import { AppShell, Brand, Button } from '@mondarth/ui';
   import { resolve } from '$app/paths';
+  import BackLink from '#lib/components/BackLink.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { setDateLocale } from '#lib/dates.js';
@@ -38,6 +39,10 @@
       </form>
     </div>
   {/if}
+  {#if data.returnTo !== null}
+    <!-- The way back to the application the visitor came from, at the top of every page while they are here. -->
+    <div class="back"><BackLink to={data.returnTo} /></div>
+  {/if}
   <MachineTranslationNotice />
   {@render children()}
 
@@ -59,6 +64,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--mdr-space-5);
+  }
+
+  .back {
+    margin-bottom: var(--mdr-space-5);
   }
 
   .impersonating {
