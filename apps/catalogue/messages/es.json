@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "site_title": "Catálogo de paquetes de Foundry VTT",
+  "skip_link": "Saltar al contenido",
   "site_description": "Lo que declaran los paquetes de Foundry VTT, para las herramientas que deciden qué instalar.",
   "home_lede": "Lo que Foundry VTT, sus sistemas de juego y sus módulos declaran en sus manifiestos, recopilado del listado de paquetes de Foundry VTT, de GitHub y de GitLab, para las herramientas que determinan qué versiones pueden instalarse juntas.",
   "endpoints_heading": "Endpoints",
