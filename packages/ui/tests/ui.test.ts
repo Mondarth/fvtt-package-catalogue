@@ -19,6 +19,7 @@ describe('the package', () => {
       'Checkbox',
       'Dialog',
       'Field',
+      'FooterLinks',
       'LanguagePicker',
       'Logo',
       'Notice',
