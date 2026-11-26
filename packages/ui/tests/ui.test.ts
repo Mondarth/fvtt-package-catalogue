@@ -10,7 +10,21 @@ const WHEN = new Date('2026-11-22T09:05:00Z');
 
 describe('the package', () => {
   it('gives every piece', () => {
-    expect(Object.keys(ui).sort()).toEqual(['Callout', 'LanguagePicker', 'Logo', 'Notice', 'TopBar']);
+    expect(Object.keys(ui).sort()).toEqual([
+      'AppShell',
+      'Badge',
+      'Button',
+      'Callout',
+      'Checkbox',
+      'Dialog',
+      'Field',
+      'LanguagePicker',
+      'Logo',
+      'Notice',
+      'Panel',
+      'Table',
+      'TopBar',
+    ]);
   });
 });
 

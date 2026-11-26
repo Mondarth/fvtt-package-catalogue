@@ -24,3 +24,23 @@ body {
   font-family: var(--mdr-font-family-sans);
   line-height: var(--mdr-font-line-height-body);
 }
+
+/* Links: the accent, underlined in text so that colour is not the only sign of one, and a visible focus. */
+a {
+  color: var(--mdr-color-accent);
+}
+
+a:focus-visible {
+  outline: var(--mdr-border-width-focus) solid var(--mdr-color-focus);
+  outline-offset: 2px;
+}
+
+/* Hidden but for screen readers: words a sighted reader has from what is around them. */
+.mdr-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
