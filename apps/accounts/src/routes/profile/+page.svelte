@@ -2,7 +2,7 @@
   The profile page: the user's id and nickname, what is stored about them, and signing out or deleting the profile.
 -->
 <script lang="ts">
-  import { Callout } from '@mondarth/ui';
+  import { Button, Callout, Checkbox, Field } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { clientName } from '#lib/device-clients.js';
@@ -53,21 +53,23 @@
 <p class="hint">{m.profile_handle_hint()}</p>
 
 <form method="POST" action="?/nickname" class="nickname">
-  <label for="nickname">{m.nickname_label()}</label>
-  <div class="field">
-    <input
-      id="nickname"
-      name="nickname"
-      value={form !== null && 'given' in form ? form.given : (profile.nickname ?? '')}
-      maxlength="64"
-      aria-describedby="nickname-hint"
-      aria-invalid={problem !== undefined} />
-    <button type="submit">{m.nickname_save()}</button>
-  </div>
-  <p id="nickname-hint" class="hint">{m.nickname_hint()}</p>
-  {#if problem !== undefined}
-    <p role="alert" class="problem">{NICKNAME_PROBLEMS[problem]()}</p>
-  {:else if data.saved}
+  <Field
+    id="nickname"
+    label={m.nickname_label()}
+    hint={m.nickname_hint()}
+    problem={problem === undefined ? undefined : NICKNAME_PROBLEMS[problem]()}>
+    {#snippet children(field)}
+      <div class="inline">
+        <input
+          {...field}
+          name="nickname"
+          value={form !== null && 'given' in form ? form.given : (profile.nickname ?? '')}
+          maxlength="64" />
+        <Button type="submit">{m.nickname_save()}</Button>
+      </div>
+    {/snippet}
+  </Field>
+  {#if problem === undefined && data.saved}
     <p role="status">{m.nickname_saved()}</p>
   {/if}
 </form>
@@ -88,7 +90,7 @@
 </section>
 
 <form method="POST" action="/sign-out">
-  <button type="submit">{m.sign_out()}</button>
+  <Button type="submit">{m.sign_out()}</Button>
 </form>
 
 <section aria-labelledby="devices">
@@ -117,12 +119,12 @@
         {#if !device.current && !data.impersonated}
           <form method="POST" action="?/signOut">
             <input type="hidden" name="session" value={device.id} />
-            <button
+            <Button
               type="submit"
               aria-label={m.devices_sign_out_named({
                 device: kindOf(device.kind),
                 date: m.devices_created({ date: date(device.createdAt) }),
-              })}>{m.devices_sign_out()}</button>
+              })}>{m.devices_sign_out()}</Button>
           </form>
         {/if}
       </li>
@@ -130,7 +132,7 @@
   </ul>
   {#if data.devices.length > 1 && !data.impersonated}
     <form method="POST" action="?/signOutOthers">
-      <button type="submit">{m.devices_sign_out_others()}</button>
+      <Button type="submit">{m.devices_sign_out_others()}</Button>
     </form>
   {/if}
 </section>
@@ -142,15 +144,14 @@
     <p role="alert" class="problem">{DELETE_PROBLEMS[data.problem]()}</p>
   {/if}
   <form method="POST" action="/profile/delete">
-    <label>
-      <input type="checkbox" name="confirm" value="yes" required disabled={data.deletionBlock !== null} />
+    <Checkbox id="confirm" name="confirm" value="yes" required disabled={data.deletionBlock !== null}>
       {m.delete_confirm()}
-    </label>
-    <button
+    </Checkbox>
+    <Button
       type="submit"
-      class="danger"
+      variant="danger"
       disabled={data.deletionBlock !== null}
-      aria-describedby={data.deletionBlock === null ? undefined : 'delete-blocked'}>{m.delete_button()}</button>
+      aria-describedby={data.deletionBlock === null ? undefined : 'delete-blocked'}>{m.delete_button()}</Button>
     {#if data.deletionBlock !== null}
       <!-- Why the button is disabled, beside it, for as long as it is. -->
       <p id="delete-blocked" class="blocked">{DELETION_BLOCKS[data.deletionBlock]()}</p>
@@ -160,15 +161,15 @@
 
 <style>
   .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
+    color: var(--mdr-color-text-muted);
+    font-size: var(--mdr-font-size-small);
   }
 
   .handle,
   .stored {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 0.3rem 1rem;
+    gap: var(--mdr-space-1) var(--mdr-space-4);
   }
 
   dd {
@@ -177,65 +178,48 @@
   }
 
   .nickname {
-    margin-block: 1.5rem;
+    margin-block: var(--mdr-space-5);
   }
 
-  .field {
+  /* The nickname and its button on one line, wrapping on a phone. */
+  .inline {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.3rem;
+    gap: var(--mdr-space-2);
   }
 
-  input:not([type]) {
+  .inline input {
     flex: 1 1 12rem;
-    padding: 0.4rem 0.6rem;
-    font: inherit;
-  }
-
-  button {
-    padding: 0.4rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
   }
 
   .problem {
-    color: var(--accent);
-  }
-
-  a {
-    color: var(--accent);
+    color: var(--mdr-color-danger);
+    font-weight: var(--mdr-font-weight-strong);
   }
 
   .delete {
-    margin-top: 2.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--note-bg);
+    margin-top: var(--mdr-space-6);
+    padding-top: var(--mdr-space-4);
+    border-top: var(--mdr-border-width-thin) solid var(--mdr-color-border);
   }
 
   .blocked {
     margin: 0;
-    padding: 0.6rem 0.8rem;
-    border-inline-start: 3px solid var(--accent);
-    background: var(--note-bg);
+    padding: var(--mdr-space-3) var(--mdr-space-4);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-accent);
+    background: var(--mdr-color-subtle);
   }
 
   .delete form {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: var(--mdr-space-4);
     align-items: center;
-  }
-
-  .danger {
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    background: none;
   }
 
   .devices {
     display: grid;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
     padding: 0;
     list-style: none;
   }
@@ -243,11 +227,12 @@
   .devices li {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1rem;
+    gap: var(--mdr-space-2) var(--mdr-space-4);
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.8rem;
-    border: 1px solid var(--note-bg);
+    padding: var(--mdr-space-2) var(--mdr-space-3);
+    border: var(--mdr-border-width-thin) solid var(--mdr-color-border);
+    border-radius: var(--mdr-radius-small);
   }
 
   .devices li div {
@@ -256,7 +241,7 @@
   }
 
   .this {
-    color: var(--accent);
-    font-size: 0.9rem;
+    color: var(--mdr-color-accent);
+    font-size: var(--mdr-font-size-small);
   }
 </style>

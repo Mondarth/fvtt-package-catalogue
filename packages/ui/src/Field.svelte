@@ -1,6 +1,6 @@
 <!--
   A field: its label, the control the page gives it, a hint, and the problem with what was entered, each tied to the
-  control as a screen reader needs (`for`, `aria-describedby`, `aria-invalid`). The page renders its own control, a
+  control as a screen reader needs (`for`, `aria-describedby`, `aria-invalid`), the problem announced as an alert. The page renders its own control, a
   native one, so that its form posts as the page's form would, and spreads `field` onto it.
 -->
 <script module lang="ts">
@@ -46,7 +46,7 @@
   <label for={id}>{label}</label>
   {@render children(field)}
   {#if hint !== undefined}<p class="hint" id={hintId}>{hint}</p>{/if}
-  {#if problem !== undefined}<p class="problem" id={problemId}>{problem}</p>{/if}
+  {#if problem !== undefined}<p class="problem" id={problemId} role="alert">{problem}</p>{/if}
 </div>
 
 <style>

@@ -13,16 +13,5 @@
 {#if data.signedIn === null}
   <SignIn providers={data.providers} failed={data.failed} banned={data.banned} next={data.next} />
 {:else}
-  <h1 class="visually-hidden">{m.workspace_label()}</h1>
+  <h1 class="mdr-visually-hidden">{m.workspace_label()}</h1>
 {/if}
-
-<style>
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-</style>
