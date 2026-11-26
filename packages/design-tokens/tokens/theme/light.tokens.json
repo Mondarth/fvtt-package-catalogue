@@ -65,6 +65,22 @@
     "info": {
       "$value": "{palette.blue.700}",
       "$description": "What is worth knowing."
+    },
+    "site-text-mondarth": {
+      "$value": "{palette.orange.700}",
+      "$description": "Mondarth's colour as text, as in its name beside the logo: a deeper shade of its emblem's, readable on the page."
+    },
+    "site-text-catalogue": {
+      "$value": "{palette.gold.700}",
+      "$description": "The catalogue's colour as text, as in its name beside the logo: a deeper shade of its emblem's, readable on the page."
+    },
+    "site-text-aide": {
+      "$value": "{palette.turquoise.700}",
+      "$description": "AIDE's colour as text, as in its name beside the logo: a deeper shade of its emblem's, readable on the page."
+    },
+    "site-text-accounts": {
+      "$value": "{palette.blue.700}",
+      "$description": "The accounts's colour as text, as in its name beside the logo: a deeper shade of its emblem's, readable on the page."
     }
   }
 }
