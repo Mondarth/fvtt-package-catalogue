@@ -178,6 +178,12 @@ prefers) and the site, as a page's `data-theme` and `data-site` would.
 pnpm --filter @mondarth/ui storybook        # http://localhost:6006
 ```
 
+Its **Foundations** pages (`packages/ui/src/foundations/*.mdx`) write down the design language: Introduction, Colour,
+Type, Spacing, Motion, Wording and Accessibility. The colour, type, spacing and motion pages read the tokens' JSON
+(`src/foundations/tokens.ts`, tested), so they show what the tokens are, never a copy of them. The Wording page is
+the house style of every message the applications show; Accessibility is what every component and page must do, and
+what is checked.
+
 Each component has its stories beside it, `<Component>.stories.svelte`, written with
 [addon-svelte-csf](https://github.com/storybookjs/addon-svelte-csf); a story it cannot express is written in plain
 CSF, `<Component>.stories.ts`. The release publishes the Storybook with this documentation, at
