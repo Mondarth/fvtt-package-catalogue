@@ -5,6 +5,8 @@ import {
   INTERNAL_PATHS,
   entitlementRequest,
   entitlementSchema,
+  signOutRequest,
+  signOutResponse,
   tokenUserRequest,
   userResponse,
   useRequest,
@@ -23,6 +25,15 @@ describe('the internal API', () => {
   it('is versioned in its paths', () => {
     expect(INTERNAL_API_ROOT).toBe('/internal/v1');
     expect(Object.values(INTERNAL_PATHS).every(path => path.startsWith(`${INTERNAL_API_ROOT}/`))).toBe(true);
+  });
+
+  it('signs out by the cookies, and is given what clears them', () => {
+    expect(signOutRequest.parse({ cookie: 'session=c1' })).toEqual({ cookie: 'session=c1' });
+    expect(signOutRequest.safeParse({}).success).toBe(false);
+    expect(signOutResponse.parse({ setCookies: ['session=; Max-Age=0'] })).toEqual({
+      setCookies: ['session=; Max-Age=0'],
+    });
+    expect(signOutResponse.safeParse({ setCookies: 'session=' }).success).toBe(false);
   });
 
   it('asks who a token is for, and is told, or that it is no one', () => {

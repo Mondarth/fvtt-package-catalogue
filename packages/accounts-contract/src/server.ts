@@ -11,6 +11,8 @@ import {
   entitlementRequest,
   entitlementSchema,
   sessionUserRequest,
+  signOutRequest,
+  signOutResponse,
   tokenUserRequest,
   useRequest,
   userResponse,
@@ -81,6 +83,11 @@ export function internalApi(accounts: Accounts, { keys }: InternalApiOptions): (
         const body = await bodyOf(request, entitlementRequest);
         if (body === undefined) return refuse(400, 'bad-request');
         return Response.json(entitlementSchema.encode(await accounts.entitlement(body.user)));
+      }
+      case INTERNAL_PATHS.signOut: {
+        const body = await bodyOf(request, signOutRequest);
+        if (body === undefined) return refuse(400, 'bad-request');
+        return Response.json(signOutResponse.encode({ setCookies: [...(await accounts.signOut(body.cookie))] }));
       }
       default: {
         const body = await bodyOf(request, useRequest);

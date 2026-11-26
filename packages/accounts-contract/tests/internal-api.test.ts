@@ -23,6 +23,9 @@ const USE = {
   userAgent: null,
 } as const;
 
+/** What the accounts send to clear the session cookie, for every Mondarth subdomain. */
+const CLEARED = 'session=; Domain=.mondarth.test; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax';
+
 /** The accounts behind the API: the token `t1`, and the cookie `session=c1`, are the user's. */
 function served() {
   const accounts = {
@@ -32,6 +35,7 @@ function served() {
     ),
     entitlement: vi.fn<Accounts['entitlement']>(() => Promise.resolve(ENTITLEMENT)),
     used: vi.fn<Accounts['used']>(() => Promise.resolve()),
+    signOut: vi.fn<Accounts['signOut']>(cookie => Promise.resolve(cookie.includes('session=c1') ? [CLEARED] : [])),
   };
   const handle = internalApi(accounts, { keys: ['old-key', 'app-key'] });
   const fetching = vi.fn((input: string | URL | Request, init?: RequestInit) =>
@@ -138,6 +142,33 @@ describe('the internal API, through its client', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe('signing out, through the internal API', () => {
+  it('ends the session the cookies name, and gives what clears them, forgetting who they were for', async () => {
+    const { accounts, fetching } = served();
+    const client = httpAccounts({ url: 'http://accounts', key: 'app-key', fetch: fetching });
+    expect(await client.userOfSession('session=c1')).toEqual(USER);
+    expect(await client.signOut('session=c1')).toEqual([CLEARED]);
+    expect(accounts.signOut).toHaveBeenCalledWith('session=c1');
+    // Asked again, not answered from what was kept a minute: the accounts are asked anew.
+    await client.userOfSession('session=c1');
+    expect(accounts.userOfSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives nothing to clear where no session is named', async () => {
+    const { fetching } = served();
+    const client = httpAccounts({ url: 'http://accounts', key: 'app-key', fetch: fetching });
+    expect(await client.signOut('other=1')).toEqual([]);
+  });
+
+  it('says the accounts are unavailable where their answer cannot be read', async () => {
+    const unreadable = vi.fn(() =>
+      Promise.resolve(Response.json({ setCookies: 'not a list' })),
+    ) as unknown as typeof fetch;
+    const client = httpAccounts({ url: 'http://accounts', key: 'app-key', fetch: unreadable });
+    await expect(client.signOut('session=c1')).rejects.toBeInstanceOf(AccountsUnavailable);
   });
 });
 
