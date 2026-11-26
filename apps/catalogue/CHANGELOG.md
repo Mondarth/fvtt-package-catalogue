@@ -1,3 +1,11 @@
+## [@mondarth/fvtt-package-catalogue-v0.15.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.14.0...@mondarth/fvtt-package-catalogue-v0.15.0) (2026-11-26)
+
+### Features
+
+* **catalogue:** name the site beside the logo ([9bf7bb3](https://github.com/Mondarth/fvtt-package-catalogue/commit/9bf7bb3f4ffe2f046703b021e92844f27b6937db))
+* **catalogue:** say the way back on the profile menu's links ([acb0311](https://github.com/Mondarth/fvtt-package-catalogue/commit/acb0311b6ea865e3c3884157d9cee4e91a6cbedc))
+* **catalogue:** sign in from the bar, and out through the accounts ([eeea7d0](https://github.com/Mondarth/fvtt-package-catalogue/commit/eeea7d0bd3a82851bcd19147fdf7dd7da9199b0e))
+
 ## [@mondarth/fvtt-package-catalogue-v0.14.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.13.0...@mondarth/fvtt-package-catalogue-v0.14.0) (2026-11-26)
 
 ### Features
