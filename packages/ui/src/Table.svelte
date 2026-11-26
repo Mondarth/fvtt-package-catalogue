@@ -18,11 +18,12 @@
 </script>
 
 <!--
-  A wide table scrolls in its own box, which a keyboard must reach to scroll it (axe's scrollable-region-focusable): a
-  region, named as the table is, in the tab order, as WAI's pattern for a scrolling region is.
+  A wide table scrolls in its own box, which a keyboard must reach to scroll it (axe's scrollable-region-focusable): in
+  the tab order, and named as the table is. A group, not a region: a landmark of the same name as the section it is in,
+  as where a heading names both, would be one a screen reader lists twice.
 -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="scroll" role="region" aria-label={caption} tabindex="0">
+<div class="scroll" role="group" aria-label={caption} tabindex="0">
   <table>
     <caption class:mdr-visually-hidden={hideCaption}>{caption}</caption>
     {@render children()}

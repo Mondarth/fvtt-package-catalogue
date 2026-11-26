@@ -23,7 +23,7 @@
   name="Purchases"
   play={async ({ canvas }) => {
     const table = canvas.getByRole('table', { name: 'Your purchases' });
-    await expect(canvas.getByRole('region', { name: 'Your purchases' })).toHaveAttribute('tabindex', '0');
+    await expect(canvas.getByRole('group', { name: 'Your purchases' })).toHaveAttribute('tabindex', '0');
     await expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
     await expect(canvas.getByText('Your purchases', { selector: 'caption' })).not.toHaveClass('mdr-visually-hidden');
   }}>

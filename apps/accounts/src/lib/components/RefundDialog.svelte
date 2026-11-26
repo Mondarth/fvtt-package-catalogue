@@ -5,6 +5,8 @@
   one an admin is to make, the buyer says why: a reason chosen, and, for Other, their own words.
 -->
 <script lang="ts">
+  import { Button, Dialog, Field } from '@mondarth/ui';
+
   import { useDates } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -41,23 +43,22 @@
 
   let { credit, label, preview }: Props = $props();
 
-  let dialog: HTMLDialogElement | undefined = $state();
+  let open = $state(false);
   /** The reason chosen. */
   let reason = $state('');
 
   const { date } = useDates();
 </script>
 
-<button type="button" aria-haspopup="dialog" aria-label={label} onclick={() => dialog?.showModal()}
-  >{m.subscription_refund_ask()}</button>
+<Button aria-haspopup="dialog" aria-label={label} onclick={() => (open = preview !== null)}
+  >{m.subscription_refund_ask()}</Button>
 {#if preview !== null}
-  <dialog bind:this={dialog} aria-labelledby="refund-{credit}" class="refund">
+  <Dialog
+    bind:open
+    title={preview.atOnce
+      ? m.subscription_refund_dialog_cancel_heading()
+      : m.subscription_refund_dialog_request_heading()}>
     <form method="post" action="?/refund">
-      <h3 id="refund-{credit}">
-        {preview.atOnce
-          ? m.subscription_refund_dialog_cancel_heading()
-          : m.subscription_refund_dialog_request_heading()}
-      </h3>
       <p>
         {m.subscription_refund_dialog_amount({
           paid: preview.paid === null ? '–' : formatPrice(preview.currency, preview.paid, getLocale()),
@@ -72,71 +73,61 @@
         <p class="ends">{m.subscription_refund_dialog_ends()}</p>
       {/if}
       {#if !preview.atOnce}
-        <label>
-          {m.subscription_refund_reason()}
-          <select
-            name="reason"
-            required
-            onchange={event => {
-              reason = event.currentTarget.value;
-            }}>
-            <option value="">{m.subscription_refund_reason_choose()}</option>
-            {#each REFUND_REASONS as given (given)}
-              <option value={given}>{REFUND_REASON_LABELS[given]()}</option>
-            {/each}
-          </select>
-        </label>
+        <Field id="refund-reason-{credit}" label={m.subscription_refund_reason()}>
+          {#snippet children(field)}
+            <select
+              {...field}
+              name="reason"
+              required
+              onchange={event => {
+                reason = event.currentTarget.value;
+              }}>
+              <option value="">{m.subscription_refund_reason_choose()}</option>
+              {#each REFUND_REASONS as given (given)}
+                <option value={given}>{REFUND_REASON_LABELS[given]()}</option>
+              {/each}
+            </select>
+          {/snippet}
+        </Field>
         {#if reason === 'other'}
-          <label>
-            {m.subscription_refund_reason_text()}
-            <textarea name="reason_text" required maxlength={REFUND_REASON_MAX} rows="3"></textarea>
-          </label>
+          <Field id="refund-reason-text-{credit}" label={m.subscription_refund_reason_text()}>
+            {#snippet children(field)}
+              <textarea {...field} name="reason_text" required maxlength={REFUND_REASON_MAX} rows="3"></textarea>
+            {/snippet}
+          </Field>
         {/if}
       {/if}
       <input type="hidden" name="credit" value={credit} />
       <input type="hidden" name="confirmed" value="yes" />
+      <!-- The buttons are the form's, so that confirming posts it. -->
       <div class="actions">
-        <button type="submit">{m.subscription_refund_confirm()}</button>
-        <button type="button" onclick={() => dialog?.close()}>{m.subscription_refund_dismiss()}</button>
+        <Button type="submit" variant="danger">{m.subscription_refund_confirm()}</Button>
+        <Button onclick={() => (open = false)}>{m.subscription_refund_dismiss()}</Button>
       </div>
     </form>
-  </dialog>
+  </Dialog>
 {/if}
 
 <style>
-  .refund {
-    max-width: min(32rem, calc(100vw - 2rem));
-    padding: 1rem 1.2rem;
-    border: 1px solid var(--note-bg);
-    background: var(--bg);
-    color: var(--fg);
+  form {
+    display: grid;
+    gap: var(--mdr-space-3);
   }
 
-  .refund form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .refund h3 {
+  p {
     margin: 0;
   }
 
-  .refund label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
   .ends {
-    padding: 0.5rem 0.7rem;
-    border-inline-start: 3px solid var(--accent);
-    background: var(--note-bg);
+    padding: var(--mdr-space-2) var(--mdr-space-3);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-warning);
+    background: var(--mdr-color-subtle);
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
+    margin-top: var(--mdr-space-3);
   }
 </style>
