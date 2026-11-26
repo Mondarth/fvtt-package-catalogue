@@ -488,6 +488,6 @@
   }
 
   .updated {
-    color: var(--muted);
+    color: var(--mdr-color-text-muted);
   }
 </style>
