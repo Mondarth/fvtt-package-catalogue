@@ -1,0 +1,37 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Accessibility" />
+
+# Accessibility
+
+Every Mondarth page is for everyone who comes to it: with a keyboard, a screen reader, a magnifier, a phone, or
+in a hurry. The aim is WCAG 2.2 at AA.
+
+## What is checked
+
+- **Every story is checked by [axe](https://github.com/dequelabs/axe-core)**, and a violation fails its test, and so
+  CI. The Accessibility panel below a story shows what axe found.
+- **Every text colour reaches 4.5:1 contrast** on every background, and the focus ring and controls' edges 3:1, in
+  both themes: the design tokens' tests check it.
+- The applications' end-to-end tests find their way by role and name, as a screen reader does, so a control with no
+  name fails them.
+
+axe finds what can be found by looking at the markup. The rest is for whoever writes the component to check.
+
+## What every component and page does
+
+- **Semantic HTML first**: a `<button>` for an action, a link for a place, a `<label>` for every field, a heading for
+  every section, in order. ARIA only for what HTML cannot say.
+- **Everything works by keyboard**, in a sensible order, with the focus always visible (`color.focus`,
+  `border.width.focus`). Nothing traps the focus but a dialog, which gives it back on closing.
+- **Every image has a text alternative**, or an empty `alt` where the words beside it say it already, as the logo
+  beside a page's name.
+- **Nothing is said by colour alone**: a status has words; a link in text is underlined.
+- **Problems are announced**: a callout is an alert and takes the focus; a field it is about names it with
+  `aria-describedby`.
+- **A disabled control says why** it is disabled, beside it, named by `aria-describedby`.
+- **Text can grow** to 200% without anything being cut off, and pages reflow at a phone's width without scrolling
+  sideways.
+- **Motion respects the reader**: see [Motion](?path=/docs/foundations-motion--docs).
+- **Language**: each page says its language (`lang`), and any words in another say theirs, as the language picker
+  names each language in itself.

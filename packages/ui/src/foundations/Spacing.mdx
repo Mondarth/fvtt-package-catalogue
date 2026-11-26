@@ -1,0 +1,84 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import { borderWidths, cssVariable, layout, radii, space } from './tokens';
+
+<Meta title="Foundations/Spacing" />
+
+# Spacing
+
+Space is one scale, `space.1` to `space.7`. Gaps, padding and margins take a step of it, so that the same distance
+means the same thing everywhere: a hairline between a label and its field, a section's breath between sections.
+
+<table>
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Size</th>
+      <th aria-hidden="true"></th>
+      <th>Property</th>
+    </tr>
+  </thead>
+  <tbody>
+    {space.map(size => (
+      <tr key={size.path}>
+        <td>
+          <code>{size.path}</code>
+        </td>
+        <td>
+          <code>{size.css}</code>
+        </td>
+        <td aria-hidden="true">
+          <div
+            style={{
+              width: `var(${cssVariable(size.path)})`,
+              height: 'var(--mdr-space-4)',
+              background: 'var(--mdr-color-accent)',
+            }}
+          />
+        </td>
+        <td>
+          <code>{cssVariable(size.path)}</code>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+- Space between siblings with `gap`, in a flex or grid layout, not with margins on each, which collapse or double.
+- Related things sit closer together than unrelated ones: a field's label and hint `space.1`, fields `space.4`,
+  sections `space.6`.
+
+## Radii, borders and widths
+
+<table>
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Value</th>
+      <th>For</th>
+      <th>Property</th>
+    </tr>
+  </thead>
+  <tbody>
+    {[...radii, ...borderWidths, ...layout].map(size => (
+      <tr key={size.path}>
+        <td>
+          <code>{size.path}</code>
+        </td>
+        <td>
+          <code>{size.css}</code>
+        </td>
+        <td>{size.description}</td>
+        <td>
+          <code>{cssVariable(size.path)}</code>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+- A border, a fill or a radius marks something as an object of its own. Use them by role, for what needs setting
+  apart, not on every block.
+- A page's text runs no wider than `layout.content`; a dialog no wider than `layout.dialog`.
+- Every page works at a phone's width, with a side gutter of `space.4` at least, and never scrolls sideways: only a
+  table or code may be wider, scrolling inside its own box.

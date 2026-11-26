@@ -1,0 +1,40 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Wording" />
+
+# Wording
+
+The interface speaks plainly, to the person using it, the way a knowledgeable person would. Every word the
+applications show is a message, translated (English and Spanish today); the components hold none of their own.
+
+## Voice
+
+- **Speak to the reader**, as "you" and "your": "Your profile", "You can subscribe by purchasing time directly."
+- **Plain words, short sentences.** Name things as the reader knows them, not as the system is built: a
+  _subscription_, not a _credit_; _what we store_, not _the data model_.
+- **British English**: "cancelled", "colour". No serial comma: "letters, digits, spaces, hyphens and underscores".
+- **No apologies, and no jokes.** Say what happened and what to do.
+
+## Form
+
+- **Sentence case**, everywhere: headings, buttons, labels. "Sign out everywhere", never "Sign Out Everywhere".
+- **A button says what it does**, starting with the verb, naming its object where it is not plain: "Save nickname",
+  "Delete profile", "Claim 7 days free". Not "OK" or "Submit".
+- **Labels and headings take no full stop**; sentences do, statuses among them.
+- **Dates and prices** are written as the reader's locale writes them (`@mondarth/ui/dates`), with the currency.
+
+## Outcomes and problems
+
+- **Confirm what was done**, in the past tense: "Nickname saved.", "Offer made."
+- **A problem says what is wrong and how to put it right**, beside what it is about (a callout, which takes the
+  focus): "A nickname has only letters, digits, spaces, hyphens and underscores.", "Tick the box to agree to the terms,
+  then buy."
+- **A refusal says why**, and what would change it: "Your profile cannot be deleted while a refund you
+  asked for is still being made. Once it is made, you can delete it."
+- **Something that cannot be undone says so** before it is done, and asks for a deliberate step, such as a box to
+  tick.
+
+## Machine translation
+
+A page translated by machine says so at its top (a notice), in the reader's language, so they know to check what
+matters in English.
