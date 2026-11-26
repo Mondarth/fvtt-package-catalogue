@@ -11,7 +11,7 @@ libraries they share or publish under `packages/`. Each releases from the commit
 
 `packages/accounts-contract` (`@mondarth/accounts-contract`, private)
 : The contract between the accounts and the applications that use them: who a user's token is for, what their
-  subscription entitles them to, and their use of a service, as an `Accounts` interface with zod schemas for the
+  subscription entitles them to, their use of a service, and signing out, as an `Accounts` interface with zod schemas for the
   accounts' internal API (`/internal/v1`). The catalogue's API depends on it alone, never on the accounts' tables: today
   `accounts/local.ts` serves it in the catalogue's own process; once the accounts are an application of their own, a
   client of that internal API takes its place. `/server` serves the internal API from an `Accounts`, as a handler of
@@ -224,9 +224,13 @@ applications share (`COOKIE_DOMAIN`, Better Auth's cross-subdomain cookies), and
 
 The catalogue signs no one in. It asks the accounts' internal API (`@mondarth/accounts-contract`'s `httpAccounts`),
 on the deployment's own network with its key, who a user's bearer token is for (the API) and who the website's cookies
-are for (`lib/server/signed-in.ts`, the bar along the top), with what they are entitled to. What moved is sent on
+are for (`lib/server/signed-in.ts`, the bar along the top), with what they are entitled to. It signs out through
+it too (`routes/sign-out`, the profile menu's Sign out): the accounts end the session the cookies name
+(`/internal/v1/sign-out`, `Accounts.signOut`) and give the `Set-Cookie` headers that clear the shared cookie, which
+the catalogue sends on its own response, as a form posted from the catalogue to the accounts' own sign-out would be a
+cross-site post, which SvelteKit refuses. What moved is sent on
 (`lib/server/http/moved.ts`): pages, and Better Auth's endpoints, are redirected to the accounts, keeping their method
-(308, or 307 for a form); Stripe's webhook and the two endpoints a device signs in with, which follow no redirect, are
+(308, or 307 for a form), all but `/sign-out`, which the catalogue serves itself; Stripe's webhook and the two endpoints a device signs in with, which follow no redirect, are
 passed on to the accounts and their answer given back. The catalogue's database keeps its old copies of the accounts'
 tables, declared frozen in `lib/server/db/legacy/`, so that no migration drops them until a later release does.
 

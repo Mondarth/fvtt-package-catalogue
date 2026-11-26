@@ -1,6 +1,7 @@
 import { E2E_ADMIN, FAKE_PROVIDER_URL } from '../environment.js';
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
+import { profileButton, signOut } from '../profile-menu.js';
 
 import type { Page, TestInfo } from '@playwright/test';
 
@@ -35,21 +36,10 @@ async function signInAs(page: Page, name: string, provider = 'Test provider') {
   await page.goto(`${FAKE_PROVIDER_URL}/as/${name}`);
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', provider) }).click();
-  await expect(page.getByRole('navigation', { name: en.workspace_label })).toBeVisible();
+  await expect(profileButton(page)).toBeVisible();
 }
 
 const patreonOf = (page: Page) => page.getByRole('region', { name: en.subscription_patreon_heading });
-
-/**
- * Signs out, from the profile page.
- *
- * @param page - The page
- */
-async function signOut(page: Page) {
-  await page.goto('/profile');
-  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
-}
 
 test('a patron links Patreon, is subscribed by their pledge, sees it change, and unlinks it', async ({
   page,

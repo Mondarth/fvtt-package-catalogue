@@ -108,18 +108,37 @@ describe('the layout', () => {
     expect(logo.startsWith('data:') ? decodeURIComponent(logo) : logo).toMatch(/Accounts|accounts/);
   });
 
-  it('puts the workspace bar along the top once signed in, the profile button at its far right', () => {
+  it('puts the workspace bar along the top once signed in, the profile button at its far right, opening its menu', () => {
     render(Layout, {
       children,
       params: {},
       data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: false } },
     });
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
-    const profile = screen.getByRole('link', { name: en.profile_button_label.replace('{name}', 'Ulenar') });
-    expect(profile).toHaveTextContent(/^\s*Ulenar\s*$/);
-    expect(profile).toHaveAttribute('href', '/profile');
-    expect(bar.lastElementChild).toBe(profile);
+    const profile = screen.getByText('Ulenar');
+    expect(profile).toHaveAccessibleName(en.profile_button_label.replace('{name}', 'Ulenar'));
+    expect(bar.lastElementChild).toBe(profile.closest('details'));
+    // Its menu: the profile, the subscription, and signing out, posted; no admin pages, nor a way to sign in.
+    const menu = profile.closest('details') as HTMLElement;
+    expect(within(menu).getByRole('link', { name: en.profile_link, hidden: true })).toHaveAttribute('href', '/profile');
+    expect(within(menu).getByRole('link', { name: en.subscription_link, hidden: true })).toHaveAttribute(
+      'href',
+      '/subscription',
+    );
+    expect(within(menu).queryByRole('link', { name: en.admin_link, hidden: true })).not.toBeInTheDocument();
+    const signOut = within(menu).getByRole('button', { name: en.sign_out, hidden: true });
+    expect(signOut.closest('form')).toHaveAttribute('action', '/sign-out');
+    expect(screen.queryByRole('link', { name: en.sign_in_register })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
+  });
+
+  it('offers to sign in or register at the far right of the bar while signed out', () => {
+    render(Layout, { children, params: {}, data: { dateLocale: 'en-GB', signedIn: null } });
+    const bar = screen.getByRole('navigation', { name: en.workspace_label });
+    const signIn = screen.getByRole('link', { name: en.sign_in_register });
+    expect(signIn).toHaveAttribute('href', '/');
+    expect(bar.lastElementChild).toBe(signIn);
+    expect(screen.queryByText(en.profile_link)).not.toBeInTheDocument();
   });
 });
 
@@ -132,8 +151,14 @@ describe('the layout, for an admin and while an admin views the site as someone'
       params: {},
       data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: true, impersonated: false } },
     });
-    expect(screen.getByRole('link', { name: en.admin_link })).toHaveAttribute('href', '/admin');
-    expect(screen.getByRole('link', { name: en.subscription_link })).toHaveAttribute('href', '/subscription');
+    // In the profile menu, not the bar.
+    const admin = screen.getByRole('link', { name: en.admin_link, hidden: true });
+    expect(admin).toHaveAttribute('href', '/admin');
+    expect(admin.closest('details')).not.toBeNull();
+    expect(screen.getByRole('link', { name: en.subscription_link, hidden: true })).toHaveAttribute(
+      'href',
+      '/subscription',
+    );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 

@@ -31,17 +31,10 @@ describe('the home page', () => {
     expect(screen.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${SITE}/terms`);
   });
 
-  it('sends a visitor to sign in at the accounts, which send them back here', () => {
+  it('leaves signing in to the bar', () => {
     home(null);
-    expect(screen.getByRole('link', { name: en.sign_in_heading })).toHaveAttribute(
-      'href',
-      `${SITE}/?next=${encodeURIComponent('https://catalogue.example.org/')}`,
-    );
-  });
-
-  it('asks no one signed in to sign in', () => {
-    home(USER);
     expect(screen.queryByRole('link', { name: en.sign_in_heading })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: en.sign_in_register })).not.toBeInTheDocument();
   });
 });
 
@@ -73,7 +66,14 @@ describe('the layout', () => {
     expect(screen.getByRole('link', { name: en.home_link })).toHaveAttribute('href', '/');
     expect(screen.getByRole('combobox', { name: en.language_label })).toBeInTheDocument();
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('offers a visitor to sign in or register, at the accounts, which send them back here', () => {
+    layout(null);
+    const bar = screen.getByRole('navigation', { name: en.workspace_label });
+    const signIn = screen.getByRole('link', { name: en.sign_in_register });
+    expect(signIn).toHaveAttribute('href', `${SITE}/?next=${encodeURIComponent('https://catalogue.example.org/')}`);
+    expect(bar.lastElementChild).toBe(signIn);
   });
 
   it('says a machine translated page was translated by machine', () => {
@@ -82,21 +82,27 @@ describe('the layout', () => {
     expect(screen.getByRole('note')).toHaveTextContent(es.machine_translation_notice);
   });
 
-  it("puts the bar along the top once signed in, its links the accounts' pages", () => {
+  it("puts the profile menu in the bar once signed in: the accounts' pages, and signing out here", () => {
     layout(USER);
-    expect(screen.getByRole('navigation', { name: en.workspace_label })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: en.subscription_link })).toHaveAttribute('href', `${SITE}/subscription`);
-    expect(screen.queryByRole('link', { name: en.admin_link })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: en.profile_button_label.replace('{name}', 'Ulenar') })).toHaveAttribute(
-      'href',
-      `${SITE}/profile`,
+    const bar = screen.getByRole('navigation', { name: en.workspace_label });
+    const profile = screen.getByText('Ulenar');
+    expect(profile).toHaveAccessibleName(en.profile_button_label.replace('{name}', 'Ulenar'));
+    expect(bar.lastElementChild).toBe(profile.closest('details'));
+    const link = (name: string) => screen.getByRole('link', { name, hidden: true });
+    expect(link(en.profile_link)).toHaveAttribute('href', `${SITE}/profile`);
+    expect(link(en.subscription_link)).toHaveAttribute('href', `${SITE}/subscription`);
+    expect(screen.queryByRole('link', { name: en.admin_link, hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.sign_out, hidden: true }).closest('form')).toHaveAttribute(
+      'action',
+      '/sign-out',
     );
+    expect(screen.queryByRole('link', { name: en.sign_in_register })).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('links the admin pages for an admin, and says whom an admin views the site as, stopped at the accounts', () => {
     layout({ name: 'Ulenar', admin: true, impersonated: true });
-    expect(screen.getByRole('link', { name: en.admin_link })).toHaveAttribute('href', `${SITE}/admin`);
+    expect(screen.getByRole('link', { name: en.admin_link, hidden: true })).toHaveAttribute('href', `${SITE}/admin`);
     const banner = screen.getByRole('status');
     expect(banner).toHaveTextContent(en.impersonation_banner.replace('{name}', 'Ulenar'));
     expect(screen.getByRole('link', { name: en.impersonation_stop_at_accounts })).toHaveAttribute('href', SITE);

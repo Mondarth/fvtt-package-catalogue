@@ -1,6 +1,7 @@
 import { E2E_ADMIN, FAKE_PROVIDER_URL } from '../environment.js';
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
+import { profileButton, signOut } from '../profile-menu.js';
 
 import type { Page, TestInfo } from '@playwright/test';
 
@@ -19,13 +20,7 @@ async function signInAs(page: Page, name: string) {
   await page.goto(`${FAKE_PROVIDER_URL}/as/${name}`);
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
-  await expect(page.getByRole('navigation', { name: en.workspace_label })).toBeVisible();
-}
-
-async function signOut(page: Page) {
-  await page.goto('/profile');
-  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  await expect(profileButton(page)).toBeVisible();
 }
 
 test('a new account claims an introductory offer once, which a profile made again by the same person cannot', async ({

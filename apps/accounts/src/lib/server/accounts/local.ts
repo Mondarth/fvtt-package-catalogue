@@ -1,7 +1,8 @@
 /**
  * The accounts ({@link Accounts}), from their own tables, as the internal API serves them to the other applications:
  * who a token, or the website's cookie, is for, by Better Auth's sessions; what their subscription entitles them to;
- * and their use of a service, kept as their last session and recorded while a payment of theirs is disputed.
+ * their use of a service, kept as their last session and recorded while a payment of theirs is disputed; and signing out
+ * of every Mondarth website, by the website's cookie.
  */
 import type { Accounts, AccountUser, Entitlement } from '@mondarth/accounts-contract';
 
@@ -31,6 +32,8 @@ export interface LocalAccountsOptions {
   readonly entitlement: (user: AccountUser) => Promise<Entitlement>;
   /** Users' last sessions, and their access while a payment of theirs is disputed. */
   readonly access: Pick<AccessRecorder, 'seen' | 'record'>;
+  /** Ends the session the cookies are for, giving the `Set-Cookie` headers that clear them: Better Auth's sign-out. */
+  readonly endSession: (headers: Headers) => Promise<readonly string[]>;
 }
 
 /**
@@ -39,7 +42,7 @@ export interface LocalAccountsOptions {
  * @param options - What they are served from
  * @returns The accounts
  */
-export function localAccounts({ sessionOf, isAdmin, entitlement, access }: LocalAccountsOptions): Accounts {
+export function localAccounts({ sessionOf, isAdmin, entitlement, access, endSession }: LocalAccountsOptions): Accounts {
   /** The user a session is for, as the accounts tell it. */
   async function userBy(headers: Headers): Promise<AccountUser | undefined> {
     const found = await sessionOf(headers);
@@ -64,6 +67,12 @@ export function localAccounts({ sessionOf, isAdmin, entitlement, access }: Local
       if (user.impersonated) return;
       if (user.sessionId !== undefined) await access.seen(user.id, user.sessionId, use);
       await access.record(user.id, use);
+    },
+    async signOut(cookie) {
+      const headers = new Headers({ cookie });
+      // Cookies naming no session: nothing to end, and nothing to clear.
+      if ((await sessionOf(headers)) === null) return [];
+      return endSession(headers);
     },
   };
 }

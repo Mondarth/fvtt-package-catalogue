@@ -14,6 +14,7 @@ import {
   INTERNAL_PATHS,
   entitlementSchema,
   serviceUseSchema,
+  signOutResponse,
   accountUserSchema,
   userResponse,
 } from './index.js';
@@ -44,13 +45,13 @@ export interface HttpAccountsOptions {
   readonly clock?: () => number;
 }
 
-/** Answers kept a while, by what was asked. */
+/** Answers kept a while, by what was asked, and forgotten on being told an answer no longer holds. */
 function kept<T>(clock: () => number) {
   const answers = new Map<string, { readonly at: number; readonly answer: Promise<T> }>();
-  return (question: string, ask: () => Promise<T>): Promise<T> => {
+  const ask = (question: string, asking: () => Promise<T>): Promise<T> => {
     const found = answers.get(question);
     if (found !== undefined && clock() - found.at < KEPT_MS) return found.answer;
-    const answer = ask();
+    const answer = asking();
     answers.delete(question);
     answers.set(question, { at: clock(), answer });
     // A failed answer is not kept: the next asks again.
@@ -61,6 +62,7 @@ function kept<T>(clock: () => number) {
     }
     return answer;
   };
+  return Object.assign(ask, { forget: (question: string) => answers.delete(question) });
 }
 
 /**
@@ -107,6 +109,12 @@ export function httpAccounts({ url, key, fetch: fetching = fetch, clock = Date.n
       ),
     async used(user, use) {
       await post(INTERNAL_PATHS.use, { user: accountUserSchema.encode(user), use: serviceUseSchema.encode(use) });
+    },
+    async signOut(cookie) {
+      const { setCookies } = await ask(INTERNAL_PATHS.signOut, { cookie }, signOutResponse);
+      // The session is over: who its cookie was for is not to be answered from what was kept.
+      users.forget(`cookie:${cookie}`);
+      return setCookies;
     },
   };
 }

@@ -33,6 +33,8 @@ export const INTERNAL_PATHS = {
   entitlement: `${INTERNAL_API_ROOT}/entitlement`,
   /** A user's use of a service: {@link useRequest}, answered with no content. */
   use: `${INTERNAL_API_ROOT}/use`,
+  /** Signing out of the website by its cookies: {@link signOutRequest}, answered by {@link signOutResponse}. */
+  signOut: `${INTERNAL_API_ROOT}/sign-out`,
 } as const;
 
 /** A time, sent as an ISO 8601 string with its offset, read as a `Date`, and written back as one. */
@@ -104,6 +106,15 @@ export const entitlementRequest = z.object({ user: accountUserSchema });
 /** Tells the accounts of a user's use of a service. */
 export const useRequest = z.object({ user: accountUserSchema, use: serviceUseSchema });
 
+/** Asks the accounts to end the session a request's cookies name: its whole `Cookie` header, as to ask who it is. */
+export const signOutRequest = z.object({ cookie: z.string() });
+
+/**
+ * The `Set-Cookie` headers that clear the session's cookies. The accounts set them for every Mondarth subdomain, so an
+ * application sends them on its own response, and the browser forgets them for every Mondarth website.
+ */
+export const signOutResponse = z.object({ setCookies: z.array(z.string()) });
+
 /** The accounts, as an application uses them. */
 export interface Accounts {
   /** The user a token is for, if it is a session's that has not ended. */
@@ -117,4 +128,9 @@ export interface Accounts {
    * disputed, it is recorded, as evidence that they know of the service and use it.
    */
   used(user: AccountUser, use: ServiceUse): Promise<void>;
+  /**
+   * Signs out of every Mondarth website: ends the session a request's `Cookie` header names, if any, and gives the
+   * `Set-Cookie` headers that clear its cookies, for the application to send on its response.
+   */
+  signOut(cookie: string): Promise<readonly string[]>;
 }

@@ -3,12 +3,11 @@
   import { expect } from 'storybook/test';
 
   import { withoutChildren } from '../.storybook/args';
-
   import TopBar from './TopBar.svelte';
 
   /**
-   * The bar along the top of every page while signed in: the menu, whatever the application puts beside it, and, at
-   * the far right, the button to the user's profile, showing their name.
+   * The bar along the top of every page: the application's links, if it has any, what it puts beside them, such as the
+   * language picker, and, at the far right, the user navigation menu (Navigation/UserMenu).
    */
   const { Story } = defineMeta({
     title: 'Navigation/TopBar',
@@ -16,33 +15,38 @@
     tags: ['autodocs'],
     args: {
       label: 'Workspace',
-      links: [
-        { href: '#subscription', label: 'Subscription' },
-        { href: '#keys', label: 'Keys' },
-      ],
-      name: 'Ulenar',
-      profileHref: '#profile',
-      profileLabel: 'Profile: Ulenar',
+      signIn: { href: '#sign-in', label: 'Sign in/register' },
+      account: null,
     },
   });
 </script>
 
 <Story
-  name="Default"
+  name="Signed out"
   play={async ({ canvas }) => {
     const bar = canvas.getByRole('navigation', { name: 'Workspace' });
-    await expect(canvas.getByRole('link', { name: 'Subscription' })).toHaveAttribute('href', '#subscription');
-    const profile = canvas.getByRole('link', { name: 'Profile: Ulenar' });
-    await expect(profile).toHaveAttribute('href', '#profile');
-    await expect(profile).toHaveTextContent('Ulenar');
-    await expect(bar.lastElementChild).toBe(profile);
-    await expect(canvas.getAllByRole('link')).toHaveLength(3);
+    // The user menu at the far right: here, the way to sign in or register.
+    await expect(bar.lastElementChild).toBe(canvas.getByRole('link', { name: 'Sign in/register' }));
   }} />
 
 <Story
-  name="With something beside the menu"
+  name="Signed in, with links and a language picker"
+  args={{
+    links: [{ href: '#packages', label: 'Packages' }],
+    account: {
+      name: 'Ulenar',
+      label: 'Your profile, Ulenar',
+      items: [
+        { href: '#profile', label: 'Profile' },
+        { action: '#sign-out', label: 'Sign out' },
+      ],
+    },
+  }}
   play={async ({ canvas }) => {
-    await expect(canvas.getByRole('navigation', { name: 'Workspace' })).toHaveTextContent('English');
+    const bar = canvas.getByRole('navigation', { name: 'Workspace' });
+    await expect(canvas.getByRole('link', { name: 'Packages' })).toHaveAttribute('href', '#packages');
+    await expect(bar).toHaveTextContent('English');
+    await expect(bar.lastElementChild).toBe(canvas.getByText('Ulenar').closest('details'));
   }}>
   {#snippet template(args)}
     <TopBar {...withoutChildren(args)}><span>English</span></TopBar>

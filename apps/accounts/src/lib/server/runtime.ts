@@ -143,6 +143,7 @@ export const internal = internalApi(
     isAdmin: user => isAdmin(user, adminUserIds),
     entitlement: cachedEntitlements(subscribedBy(subscriptions, patreon), user => user.role === 'admin'),
     access,
+    endSession: async headers => (await auth.api.signOut({ headers, asResponse: true })).headers.getSetCookie(),
   }),
   { keys: INTERNAL_API_KEYS },
 );

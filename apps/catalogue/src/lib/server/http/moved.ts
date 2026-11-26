@@ -13,7 +13,10 @@
  */
 import type { Handle } from '@sveltejs/kit/hooks';
 
-/** The pages, and their subpaths, that moved to the accounts. */
+/**
+ * The pages, and their subpaths, that moved to the accounts. Not `/sign-out`: the catalogue signs out itself, through
+ * the accounts' internal API, as a form posted to the accounts from here would be refused as a cross-site post.
+ */
 export const MOVED_PAGES: readonly string[] = [
   '/admin',
   '/auth',
@@ -22,7 +25,6 @@ export const MOVED_PAGES: readonly string[] = [
   '/privacy',
   '/profile',
   '/sign-in',
-  '/sign-out',
   '/subscription',
 ];
 

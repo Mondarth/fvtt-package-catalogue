@@ -10,6 +10,7 @@ const USE = { kind: 'api', path: '/api/v2/lookup', client: 'api', ipAddress: '20
 function setUp(found: Record<string, FoundSession> = {}) {
   const access = { seen: vi.fn(() => Promise.resolve()), record: vi.fn(() => Promise.resolve()) };
   const entitlement = vi.fn(() => Promise.resolve(ENTITLED));
+  const endSession = vi.fn((headers: Headers) => Promise.resolve([`cleared; was ${headers.get('cookie') ?? ''}`]));
   const accounts = localAccounts({
     sessionOf: headers => {
       // A bearer token, or the cookies, alone.
@@ -19,8 +20,9 @@ function setUp(found: Record<string, FoundSession> = {}) {
     isAdmin: user => user.role === 'admin' || user.id === 'named',
     entitlement,
     access,
+    endSession,
   });
-  return { accounts, access, entitlement };
+  return { accounts, access, entitlement, endSession };
 }
 
 describe('the accounts, served in the catalogue', () => {
@@ -78,5 +80,22 @@ describe('the accounts, served in the catalogue', () => {
     await accounts.used({ ...user, impersonated: true, sessionId: 's1' }, USE);
     expect(access.seen).not.toHaveBeenCalled();
     expect(access.record).not.toHaveBeenCalled();
+  });
+});
+
+describe("signing out, by the website's cookie", () => {
+  it('ends the session the cookie names, by the cookie alone, and gives what clears it', async () => {
+    const { accounts, endSession } = setUp({
+      'cookie:session=c1': { user: { id: 'u1', handle: 'h' }, session: { id: 's1' } },
+    });
+    expect(await accounts.signOut('session=c1')).toEqual(['cleared; was session=c1']);
+    const [headers] = endSession.mock.calls[0] ?? [];
+    expect([...(headers?.keys() ?? [])]).toEqual(['cookie']);
+  });
+
+  it('ends nothing, and clears nothing, for cookies that name no session', async () => {
+    const { accounts, endSession } = setUp();
+    expect(await accounts.signOut('other=1')).toEqual([]);
+    expect(endSession).not.toHaveBeenCalled();
   });
 });

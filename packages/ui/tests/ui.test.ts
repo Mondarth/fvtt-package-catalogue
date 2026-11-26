@@ -24,6 +24,7 @@ describe('the package', () => {
       'Panel',
       'Table',
       'TopBar',
+      'UserMenu',
     ]);
   });
 });

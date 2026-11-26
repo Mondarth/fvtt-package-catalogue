@@ -118,7 +118,8 @@ describe('the profile page', () => {
     expect(stored).toHaveTextContent('GitHub');
     expect(valueOf(en.profile_picture)).toHaveTextContent(en.profile_none);
     expect(within(stored).getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', '/privacy');
-    expect(screen.getByRole('button', { name: en.sign_out }).closest('form')).toHaveAttribute('action', '/sign-out');
+    // Signing out is the profile menu's, in the bar, no longer the page's.
+    expect(screen.queryByRole('button', { name: en.sign_out })).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });

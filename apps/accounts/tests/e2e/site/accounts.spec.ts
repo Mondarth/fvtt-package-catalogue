@@ -1,6 +1,7 @@
 import { FAKE_PROVIDER_URL } from '../environment.js';
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
+import { choose, profileButton, signOut } from '../profile-menu.js';
 
 import type { Page, TestInfo } from '@playwright/test';
 
@@ -22,8 +23,8 @@ async function signInAs(page: Page, name: string) {
   await page.goto(`${FAKE_PROVIDER_URL}/as/${name}`);
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
-  await expect(page.getByRole('navigation', { name: en.workspace_label })).toBeVisible();
-  return page.getByRole('navigation', { name: en.workspace_label }).getByRole('link', { name: /^Your profile/ });
+  await expect(profileButton(page)).toBeVisible();
+  return profileButton(page);
 }
 
 test('signing in makes a profile with a random user id, shown at the far right of the workspace', async ({
@@ -32,7 +33,7 @@ test('signing in makes a profile with a random user id, shown at the far right o
   const profile = await signInAs(page, nameFor('alice', info));
   await expect(profile).toHaveText(HANDLE);
 
-  await profile.click();
+  await choose(page, en.profile_link);
   await expect(page.getByRole('heading', { level: 1, name: en.profile_heading })).toBeVisible();
   const handle = (await profile.textContent())?.trim() ?? '';
   await expect(page.locator('code')).toHaveText(handle);
@@ -50,17 +51,16 @@ test.describe('a nickname', () => {
   test('is shown in place of the user id, once set, and someone else cannot take it', async ({ page }, info) => {
     const nickname = `Nick ${info.project.name} ${String(Date.now()).slice(-6)}`;
     let profile = await signInAs(page, nameFor('bob', info));
-    await profile.click();
+    await choose(page, en.profile_link);
     await page.getByRole('textbox', { name: en.nickname_label }).fill(nickname);
     await page.getByRole('button', { name: en.nickname_save }).click();
     await expect(page.getByRole('status')).toHaveText(en.nickname_saved);
     await expect(profile).toHaveText(nickname);
 
-    await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+    await signOut(page);
 
     profile = await signInAs(page, nameFor('carol', info));
-    await profile.click();
+    await choose(page, en.profile_link);
     await page.getByRole('textbox', { name: en.nickname_label }).fill(nickname.toUpperCase());
     await page.getByRole('button', { name: en.nickname_save }).click();
     await expect(page.getByRole('alert')).toHaveText(en.nickname_problem_taken);
@@ -69,10 +69,8 @@ test.describe('a nickname', () => {
 });
 
 test('signing out ends the session', async ({ page }, info) => {
-  const profile = await signInAs(page, nameFor('dave', info));
-  await profile.click();
-  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  await signInAs(page, nameFor('dave', info));
+  await signOut(page);
 
   await page.goto('/profile');
   await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
@@ -84,7 +82,7 @@ test('deleting the profile removes it, once the box is ticked: signing in again 
   const name = nameFor('erin', info);
   const profile = await signInAs(page, name);
   const handle = (await profile.textContent())?.trim() ?? '';
-  await profile.click();
+  await choose(page, en.profile_link);
 
   const deletion = page.getByRole('region', { name: en.delete_heading });
   await deletion.getByRole('checkbox', { name: en.delete_confirm }).check();
