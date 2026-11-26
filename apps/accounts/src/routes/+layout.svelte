@@ -3,7 +3,6 @@
   import '@mondarth/ui/theme.css';
   import { AppShell, Button, Logo } from '@mondarth/ui';
   import { resolve } from '$app/paths';
-  import LanguagePicker from '#lib/components/LanguagePicker.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { setDateLocale } from '#lib/dates.js';
@@ -25,11 +24,9 @@
 <AppShell skipLabel={m.skip_link()}>
   {#snippet header()}
     <a class="home" href={resolve('/')}><Logo site="accounts" height="2rem" alt={m.home_link()} /></a>
-    {#if data.signedIn === null}
-      <LanguagePicker />
-    {:else}
-      <div class="bar"><TopBar name={data.signedIn.name} admin={data.signedIn.admin} /></div>
-    {/if}
+    <div class="bar">
+      <TopBar user={data.signedIn === null ? null : { name: data.signedIn.name, admin: data.signedIn.admin }} />
+    </div>
   {/snippet}
 
   {#if data.signedIn?.impersonated === true}

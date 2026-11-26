@@ -13,6 +13,8 @@
   "error_heading": "Error {status}",
   "workspace_label": "Workspace",
   "profile_button_label": "Your profile, {name}",
+  "sign_in_register": "Sign in/register",
+  "profile_link": "Profile",
   "sign_in_heading": "Sign in",
   "sign_in_lede": "Sign in to the Mondarth catalogue with an account you already have.",
   "sign_in_with": "Sign in with {provider}",

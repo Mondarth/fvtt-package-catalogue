@@ -1,6 +1,7 @@
 import { E2E_ADMIN, FAKE_PROVIDER_URL } from '../environment.js';
 import { expect, test } from '../fixtures.js';
 import { messagesOf } from '../messages.js';
+import { choose, profileButton, signOut } from '../profile-menu.js';
 
 import type { Page, TestInfo } from '@playwright/test';
 
@@ -19,18 +20,15 @@ async function signInAs(page: Page, name: string) {
   await page.goto(`${FAKE_PROVIDER_URL}/as/${name}`);
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
-  const bar = page.getByRole('navigation', { name: en.workspace_label });
-  await expect(bar).toBeVisible();
-  return bar;
+  await expect(profileButton(page)).toBeVisible();
+  return page.getByRole('navigation', { name: en.workspace_label });
 }
 
 /** Signs in as someone new, and signs out again, giving the user id they were given. */
 async function aUser(page: Page, name: string): Promise<string> {
-  const bar = await signInAs(page, name);
-  const handle = (await bar.getByRole('link', { name: /^Your profile/ }).textContent())?.trim() ?? '';
-  await bar.getByRole('link', { name: /^Your profile/ }).click();
-  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  await signInAs(page, name);
+  const handle = (await profileButton(page).textContent())?.trim() ?? '';
+  await signOut(page);
   return handle;
 }
 
@@ -39,6 +37,8 @@ test.describe('the admin pages, for anyone but an admin', () => {
 
   test('are not found, and not offered', async ({ page }, info) => {
     const bar = await signInAs(page, nameFor('carol', info));
+    await profileButton(page).click();
+    await expect(bar.getByRole('link', { name: en.profile_link, exact: true })).toBeVisible();
     await expect(bar.getByRole('link', { name: en.admin_link, exact: true })).toHaveCount(0);
     const response = await page.goto('/admin/users');
     expect(response?.status()).toBe(404);
@@ -52,8 +52,8 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
   const handle = await aUser(page, dave);
   const nickname = `Dave ${info.project.name} ${String(Date.now()).slice(-6)}`;
 
-  const bar = await signInAs(page, E2E_ADMIN);
-  await bar.getByRole('link', { name: en.admin_link, exact: true }).click();
+  await signInAs(page, E2E_ADMIN);
+  await choose(page, en.admin_link);
   await expect(page.getByRole('heading', { level: 1, name: en.admin_users_heading })).toBeVisible();
   await page.getByRole('searchbox', { name: en.admin_search_label }).fill(handle);
   await page.getByRole('button', { name: en.admin_search_button }).click();
@@ -64,10 +64,7 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
   await page.getByRole('button', { name: en.admin_impersonate_button }).click();
   const banner = page.getByRole('status').filter({ hasText: en.impersonation_banner.replace('{name}', handle) });
   await expect(banner).toBeVisible();
-  await page
-    .getByRole('navigation', { name: en.workspace_label })
-    .getByRole('link', { name: /^Your profile/ })
-    .click();
+  await choose(page, en.profile_link);
   await page.getByRole('textbox', { name: en.nickname_label }).fill(nickname);
   await page.getByRole('button', { name: en.nickname_save }).click();
   await expect(page.getByRole('status').filter({ hasText: en.nickname_saved })).toBeVisible();
@@ -78,6 +75,7 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
 
   // Back as the admin, on the user's page, which lists what was done.
   await expect(page.getByRole('heading', { level: 1, name: nickname })).toBeVisible();
+  await profileButton(page).click();
   await expect(page.getByRole('link', { name: en.admin_link, exact: true })).toBeVisible();
   const audit = page.getByRole('region', { name: en.admin_user_audit_heading });
   await expect(audit).toContainText(en.audit_action_user_impersonate);
@@ -90,12 +88,7 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
   await expect(page.getByText(en.admin_banned_forever)).toBeVisible();
 
   // The banned user, signing in, is told so, and why.
-  await page
-    .getByRole('navigation', { name: en.workspace_label })
-    .getByRole('link', { name: /^Your profile/ })
-    .click();
-  await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
+  await signOut(page);
   await page.goto(`${FAKE_PROVIDER_URL}/as/${dave}`);
   await page.goto('/');
   await page.getByRole('button', { name: en.sign_in_with.replace('{provider}', 'Test provider') }).click();
@@ -121,8 +114,8 @@ test('an admin finds a user, views the site as them, and bans them, who is told 
 });
 
 test("an admin's own page offers nothing an admin does to others", async ({ page }) => {
-  const bar = await signInAs(page, E2E_ADMIN);
-  await bar.getByRole('link', { name: en.admin_link, exact: true }).click();
+  await signInAs(page, E2E_ADMIN);
+  await choose(page, en.admin_link);
   await page.getByRole('searchbox', { name: en.admin_search_label }).fill('e2e-admin-handle');
   await page.getByRole('button', { name: en.admin_search_button }).click();
   await page.getByRole('table').getByRole('link', { name: 'e2e-admin-handle', exact: true }).click();
@@ -142,8 +135,8 @@ test.describe('subscriptions', () => {
     const handle = await aUser(page, erin);
     const offerName = `Offer ${info.project.name} ${String(Date.now()).slice(-6)}`;
 
-    const bar = await signInAs(page, E2E_ADMIN);
-    await bar.getByRole('link', { name: en.admin_link, exact: true }).click();
+    await signInAs(page, E2E_ADMIN);
+    await choose(page, en.admin_link);
     await page.getByRole('searchbox', { name: en.admin_search_label }).fill(handle);
     await page.getByRole('button', { name: en.admin_search_button }).click();
     await page.getByRole('table').getByRole('link', { name: handle, exact: true }).click();
@@ -201,14 +194,9 @@ test.describe('subscriptions', () => {
     await expect(page.getByRole('row').filter({ hasText: offerName })).not.toContainText(en.admin_offer_on_sale);
 
     // The user sees their month.
-    await page
-      .getByRole('navigation', { name: en.workspace_label })
-      .getByRole('link', { name: /^Your profile/ })
-      .click();
-    await page.getByRole('button', { name: en.sign_out, exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: en.sign_in_heading })).toBeVisible();
-    const own = await signInAs(page, erin);
-    await own.getByRole('link', { name: en.subscription_link }).click();
+    await signOut(page);
+    await signInAs(page, erin);
+    await choose(page, en.subscription_link);
     await expect(page.getByRole('heading', { level: 1, name: en.subscription_heading })).toBeVisible();
     await expect(page.getByText(/^Subscribed until /)).toBeVisible();
     await expect(page.getByRole('table')).toContainText(en.subscription_source_grant);

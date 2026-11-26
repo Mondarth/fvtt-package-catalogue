@@ -89,10 +89,6 @@
   <p><a href={resolve('/privacy')}>{m.privacy_link()}</a></p>
 </section>
 
-<form method="POST" action="/sign-out">
-  <Button type="submit">{m.sign_out()}</Button>
-</form>
-
 <section aria-labelledby="devices">
   <h2 id="devices">{m.devices_heading()}</h2>
   <p class="hint">{m.devices_lede()}</p>
