@@ -60,21 +60,7 @@
     font-weight: var(--mdr-font-weight-strong);
   }
 
-  .field :global(:is(input, select, textarea)) {
-    max-width: 100%;
-    padding: var(--mdr-space-2) var(--mdr-space-3);
-    border: var(--mdr-border-width-thin) solid var(--mdr-color-border-strong);
-    border-radius: var(--mdr-radius-small);
-    background: var(--mdr-color-surface);
-    color: var(--mdr-color-text);
-    font: inherit;
-  }
-
-  .field :global(:is(input, select, textarea):focus-visible) {
-    outline: var(--mdr-border-width-focus) solid var(--mdr-color-focus);
-    outline-offset: 1px;
-  }
-
+  /* The control is the theme's (theme.css), its edge the danger colour while what was entered is wrong. */
   .invalid :global(:is(input, select, textarea)) {
     border-color: var(--mdr-color-danger);
   }
