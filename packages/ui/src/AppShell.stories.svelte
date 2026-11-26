@@ -5,6 +5,7 @@
   import { withoutChildren } from '../.storybook/args';
 
   import AppShell from './AppShell.svelte';
+  import FooterLinks from './FooterLinks.svelte';
   import Logo from './Logo.svelte';
   import TopBar from './TopBar.svelte';
 
@@ -54,7 +55,13 @@
       {/snippet}
       <h1>Subscription</h1>
       <p>Subscribed until 25 December 2026.</p>
-      {#snippet footer()}<a href="#privacy">What we store, and why</a>{/snippet}
+      {#snippet footer()}
+        <FooterLinks
+          links={[
+            { href: '#terms', label: 'Terms' },
+            { href: '#privacy', label: 'What we store, and why' },
+          ]} />
+      {/snippet}
     </AppShell>
   {/snippet}
 </Story>

@@ -17,6 +17,7 @@ export { default as Callout } from './Callout.svelte';
 export { default as Checkbox } from './Checkbox.svelte';
 export { default as Dialog } from './Dialog.svelte';
 export { default as Field } from './Field.svelte';
+export { default as FooterLinks } from './FooterLinks.svelte';
 export { default as LanguagePicker } from './LanguagePicker.svelte';
 export { default as Logo } from './Logo.svelte';
 export { default as Notice } from './Notice.svelte';

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,13 +22,13 @@ describe('the home page', () => {
   const home = (signedIn: typeof USER | null) =>
     render(Page, { data: { signedIn, accountsSite: SITE }, params: {} } as never);
 
-  it('says what the catalogue is, linking its API and what the accounts store', () => {
+  it('says what the catalogue is, linking its API, and leaves the Terms and what is stored to the footer', () => {
     home(null);
     expect(screen.getByRole('heading', { level: 1, name: en.site_title })).toBeInTheDocument();
     expect(screen.getByText(en.home_lede)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: en.developers_link })).toHaveAttribute('href', '/developers');
-    expect(screen.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${SITE}/privacy`);
-    expect(screen.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${SITE}/terms`);
+    expect(screen.queryByRole('link', { name: en.privacy_link })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: en.terms_link })).not.toBeInTheDocument();
   });
 
   it('leaves signing in to the bar', () => {
@@ -74,6 +74,14 @@ describe('the layout', () => {
     const signIn = screen.getByRole('link', { name: en.sign_in_register });
     expect(signIn).toHaveAttribute('href', `${SITE}/?next=${encodeURIComponent('https://catalogue.example.org/')}`);
     expect(bar.lastElementChild).toBe(signIn);
+  });
+
+  it("links the Terms and what is stored, the accounts', at the foot of every page, with the way back here", () => {
+    layout(null);
+    const foot = screen.getByRole('contentinfo');
+    const back = `?next=${encodeURIComponent('https://catalogue.example.org/')}&from=catalogue`;
+    expect(within(foot).getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${SITE}/terms${back}`);
+    expect(within(foot).getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${SITE}/privacy${back}`);
   });
 
   it('says a machine translated page was translated by machine', () => {

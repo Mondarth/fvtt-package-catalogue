@@ -1,7 +1,7 @@
 <script lang="ts">
   // Mondarth's theme, which every application shares.
   import '@mondarth/ui/theme.css';
-  import { AppShell, Brand, Button } from '@mondarth/ui';
+  import { AppShell, Brand, Button, FooterLinks } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import BackLink from '#lib/components/BackLink.svelte';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
@@ -47,10 +47,11 @@
   {@render children()}
 
   {#snippet footer()}
-    <div class="links">
-      <a href={resolve('/terms')}>{m.terms_link()}</a>
-      <a href={resolve('/privacy')}>{m.privacy_link()}</a>
-    </div>
+    <FooterLinks
+      links={[
+        { href: resolve('/terms'), label: m.terms_link() },
+        { href: resolve('/privacy'), label: m.privacy_link() },
+      ]} />
   {/snippet}
 </AppShell>
 
@@ -58,12 +59,6 @@
   /* The top bar takes the header's width, its profile button at the far right. */
   .bar {
     flex: 1;
-  }
-
-  .links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--mdr-space-5);
   }
 
   .back {

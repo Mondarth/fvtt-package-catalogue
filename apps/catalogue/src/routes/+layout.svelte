@@ -1,8 +1,9 @@
 <script lang="ts">
   // Mondarth's theme, which every application shares.
   import '@mondarth/ui/theme.css';
-  import { AppShell, Brand } from '@mondarth/ui';
+  import { AppShell, Brand, FooterLinks } from '@mondarth/ui';
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
   import MachineTranslationNotice from '#lib/components/MachineTranslationNotice.svelte';
   import TopBar from '#lib/components/TopBar.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -10,6 +11,9 @@
   import type { LayoutProps } from './$types';
 
   let { children, data }: LayoutProps = $props();
+
+  /** The way back from the accounts' pages the footer links, to this page, as the profile menu's links say it. */
+  const back = $derived(`?next=${encodeURIComponent(page.url.href)}&from=catalogue`);
 </script>
 
 <svelte:head>
@@ -37,6 +41,15 @@
   {/if}
   <MachineTranslationNotice />
   {@render children()}
+
+  {#snippet footer()}
+    <!-- The Terms, and what is stored, which are the accounts': the same on every Mondarth site. -->
+    <FooterLinks
+      links={[
+        { href: `${data.accountsSite}/terms${back}`, label: m.terms_link() },
+        { href: `${data.accountsSite}/privacy${back}`, label: m.privacy_link() },
+      ]} />
+  {/snippet}
 </AppShell>
 
 <style>
