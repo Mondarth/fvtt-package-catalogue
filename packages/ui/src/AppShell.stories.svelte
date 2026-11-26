@@ -11,7 +11,8 @@
 
   /**
    * The frame of every page: a link to skip to the content, the header, the page in its main landmark, and the
-   * footer. Text runs no wider than the content width, with a gutter on a phone.
+   * footer. It takes the window's whole width, with a gutter that grows with it; a page meant to be read keeps its
+   * text to a readable width with `Prose`.
    */
   const { Story } = defineMeta({
     title: 'Layout/AppShell',

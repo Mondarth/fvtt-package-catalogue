@@ -22,6 +22,7 @@ export { default as LanguagePicker } from './LanguagePicker.svelte';
 export { default as Logo } from './Logo.svelte';
 export { default as Notice } from './Notice.svelte';
 export { default as Panel } from './Panel.svelte';
+export { default as Prose } from './Prose.svelte';
 export { default as ReturnLink } from './ReturnLink.svelte';
 export { default as Table } from './Table.svelte';
 export { default as TopBar } from './TopBar.svelte';

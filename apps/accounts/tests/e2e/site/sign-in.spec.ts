@@ -20,7 +20,9 @@ test('the home page asks a visitor to sign in, saying first what that stores, in
 
   await page.getByRole('main').getByRole('link', { name: en.privacy_link }).click();
   await expect(page.getByRole('heading', { level: 1, name: en.privacy_heading })).toBeVisible();
-  await expect(page.getByRole('row')).toHaveCount(26);
+  // Four tables, by where what is stored comes from: 25 rows, and a header row each.
+  await expect(page.getByRole('table')).toHaveCount(4);
+  await expect(page.getByRole('row')).toHaveCount(29);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

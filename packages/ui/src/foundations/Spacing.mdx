@@ -79,6 +79,8 @@ means the same thing everywhere: a hairline between a label and its field, a sec
 
 - A border, a fill or a radius marks something as an object of its own. Use them by role, for what needs setting
   apart, not on every block.
-- A page's text runs no wider than `layout.content`; a dialog no wider than `layout.dialog`.
+- An application's frame (`AppShell`) takes the window's whole width, with a gutter from `space.4` on a phone to
+  `space.7`. A page meant to be read keeps its text to `layout.content` (`Prose`); a dialog is no wider than
+  `layout.dialog`.
 - Every page works at a phone's width, with a side gutter of `space.4` at least, and never scrolls sideways: only a
   table or code may be wider, scrolling inside its own box.

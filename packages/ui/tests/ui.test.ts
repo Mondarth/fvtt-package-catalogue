@@ -24,6 +24,7 @@ describe('the package', () => {
       'Logo',
       'Notice',
       'Panel',
+      'Prose',
       'ReturnLink',
       'Table',
       'TopBar',
