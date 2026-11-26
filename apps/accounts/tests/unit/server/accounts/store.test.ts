@@ -175,3 +175,37 @@ describe('sessions', () => {
     expect((await db.select({ id: sessions.id }).from(sessions)).map(row => row.id).sort()).toEqual(['s1', 'theirs']);
   });
 });
+
+describe('the way back to another application, kept with a session', () => {
+  const BACK = { url: 'https://catalogue.example.org/developers', site: 'catalogue' } as const;
+  const AT = new Date('2026-11-26T10:00:00Z');
+
+  beforeEach(async () => {
+    await db
+      .insert(sessions)
+      .values({ id: 's1', token: 't1', userId: 'u1', expiresAt: new Date('2027-01-01T00:00:00Z') });
+  });
+
+  it('is kept, given back for a few hours, and forgotten once taken', async () => {
+    const store = accountsStore(db);
+    await expect(store.returnOf('s1', AT)).resolves.toBeUndefined();
+    await store.setReturn('s1', BACK, AT);
+    await expect(store.returnOf('s1', new Date(AT.getTime() + 60_000))).resolves.toEqual(BACK);
+    // Past the hours it is kept for, there is no way back.
+    await expect(store.returnOf('s1', new Date(AT.getTime() + 4 * 60 * 60 * 1000 + 1))).resolves.toBeUndefined();
+    await store.clearReturn('s1');
+    await expect(store.returnOf('s1', AT)).resolves.toBeUndefined();
+  });
+
+  it('is replaced by the next, and given for no session there is not, nor for a site it does not know', async () => {
+    const store = accountsStore(db);
+    await store.setReturn('s1', BACK, AT);
+    await store.setReturn('s1', { url: 'https://aide.example.org/', site: 'aide' }, AT);
+    await expect(store.returnOf('s1', AT)).resolves.toEqual({ url: 'https://aide.example.org/', site: 'aide' });
+    await expect(store.returnOf('nobody', AT)).resolves.toBeUndefined();
+    await db.update(sessions).set({ returnSite: 'elsewhere' });
+    await expect(store.returnOf('s1', AT)).resolves.toBeUndefined();
+    await store.setReturn('s1', BACK);
+    await expect(store.returnOf('s1')).resolves.toEqual(BACK);
+  });
+});

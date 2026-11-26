@@ -388,6 +388,17 @@ describe('buying through Stripe, on the subscription page', () => {
     expect(screen.getByRole('status')).toHaveTextContent(message);
   });
 
+  it.each([
+    ['mondarth', en.return_mondarth],
+    ['aide', en.return_aide],
+  ])('offers the way back beside a checkout done, to %s', (site, label) => {
+    show({ checkout: 'done', returnTo: { url: 'https://example.org/', site } });
+    expect(screen.getByRole('link', { name: label })).toHaveAttribute(
+      'href',
+      `/return?to=${encodeURIComponent('https://example.org/')}`,
+    );
+  });
+
   it('says a payment is still being confirmed', () => {
     show({ processing: 1 });
     expect(screen.getByText(en.subscription_checkout_processing)).toBeInTheDocument();

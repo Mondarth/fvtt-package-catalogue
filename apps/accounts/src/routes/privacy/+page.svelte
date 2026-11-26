@@ -26,6 +26,7 @@
     device: { what: m.privacy_device_what, why: m.privacy_device_why },
     impersonation: { what: m.privacy_impersonation_what, why: m.privacy_impersonation_why },
     client: { what: m.privacy_client_what, why: m.privacy_client_why },
+    return: { what: m.privacy_return_what, why: m.privacy_return_why },
     device_sign_in: { what: m.privacy_device_sign_in_what, why: m.privacy_device_sign_in_why },
     audit: { what: m.privacy_audit_what, why: m.privacy_audit_why },
     subscription: { what: m.privacy_subscription_what, why: m.privacy_subscription_why },

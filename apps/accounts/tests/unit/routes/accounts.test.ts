@@ -6,6 +6,7 @@ import { load as homeLoad } from '../../../src/routes/+page.server.js';
 import { POST as deleteProfile } from '../../../src/routes/profile/delete/+server.js';
 import { actions, load as profileLoad } from '../../../src/routes/profile/+page.server.js';
 import { POST as signIn } from '../../../src/routes/sign-in/[provider]/+server.js';
+import { GET as goBack } from '../../../src/routes/return/+server.js';
 import { POST as signOut } from '../../../src/routes/sign-out/+server.js';
 import { fakeEvent, invoke } from '../support/event.js';
 
@@ -202,37 +203,92 @@ describe('POST /profile/delete', () => {
 });
 
 describe('the pages', () => {
-  it('give every page the name the user is shown by, whether they are an admin, and whether one views as them', () => {
+  it('give every page the name the user is shown by, whether they are an admin, and whether one views as them', async () => {
     const signedIn = { name: USER.handle, admin: false, impersonated: false };
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: false } }))).toEqual({
+    await expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: false } }))).resolves.toEqual({
       dateLocale: 'en',
       signedIn,
+      returnTo: null,
     });
-    expect(
+    await expect(
       layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: { ...USER, nickname: 'Ulenar' }, isAdmin: false } })),
-    ).toEqual({ dateLocale: 'en', signedIn: { ...signedIn, name: 'Ulenar' } });
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: true } }))).toEqual({
-      dateLocale: 'en',
+    ).resolves.toMatchObject({ signedIn: { ...signedIn, name: 'Ulenar' } });
+    await expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, isAdmin: true } }))).resolves.toMatchObject({
       signedIn: { ...signedIn, admin: true },
     });
     const viewedAs = { ...SESSION, impersonatedBy: 'u-admin' } as never;
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: USER, session: viewedAs, isAdmin: false } }))).toEqual({
-      dateLocale: 'en',
-      signedIn: { ...signedIn, impersonated: true },
-    });
-    expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).toEqual({
+    const returns = { returnOf: vi.fn(() => Promise.resolve(undefined)), setReturn: vi.fn() };
+    await expect(
+      layoutLoad(
+        fakeEvent<LayoutEvent>({
+          locals: { user: USER, session: viewedAs, isAdmin: false, accounts: returns as never },
+        }),
+      ),
+    ).resolves.toMatchObject({ signedIn: { ...signedIn, impersonated: true } });
+    await expect(layoutLoad(fakeEvent<LayoutEvent>({ locals: { user: null } }))).resolves.toEqual({
       dateLocale: 'en',
       signedIn: null,
+      returnTo: null,
     });
     // Dates as the reader's browser writes them, in the regional form of the page's language it prefers.
-    expect(
+    await expect(
       layoutLoad(
         fakeEvent<LayoutEvent>({
           headers: { 'Accept-Language': 'fr-FR, en-GB;q=0.9, en;q=0.8' },
           locals: { user: null },
         }),
       ),
-    ).toMatchObject({ dateLocale: 'en-GB' });
+    ).resolves.toMatchObject({ dateLocale: 'en-GB' });
+  });
+
+  describe('the way back to another application', () => {
+    const CATALOGUE = 'https://catalogue.example.org';
+    const BACK = { url: `${CATALOGUE}/developers`, site: 'catalogue' } as const;
+    const arriving = `http://accounts.test/profile?next=${encodeURIComponent(BACK.url)}&from=catalogue`;
+    const load = (url: string, session: unknown, kept?: typeof BACK) => {
+      const accounts = { returnOf: vi.fn(() => Promise.resolve(kept)), setReturn: vi.fn(() => Promise.resolve()) };
+      const event = fakeEvent<LayoutEvent>({
+        url,
+        locals: {
+          user: session === null ? null : USER,
+          session: session as never,
+          accounts: accounts as never,
+          appOrigins: [CATALOGUE],
+        },
+      });
+      return { accounts, data: layoutLoad(event) };
+    };
+
+    it('is offered by the page that says it, and kept with the session for the pages after', async () => {
+      const { accounts, data } = load(arriving, SESSION);
+      await expect(data).resolves.toMatchObject({ returnTo: BACK });
+      expect(accounts.setReturn).toHaveBeenCalledWith(SESSION.id, BACK);
+      expect(accounts.returnOf).not.toHaveBeenCalled();
+    });
+
+    it('is offered from what the session kept, on a page that says nothing of it', async () => {
+      const { accounts, data } = load('http://accounts.test/subscription?checkout=done', SESSION, BACK);
+      await expect(data).resolves.toMatchObject({ returnTo: BACK });
+      expect(accounts.returnOf).toHaveBeenCalledWith(SESSION.id);
+      expect(accounts.setReturn).not.toHaveBeenCalled();
+    });
+
+    it('is offered to a visitor not signed in, kept nowhere', async () => {
+      const { accounts, data } = load(arriving, null);
+      await expect(data).resolves.toMatchObject({ returnTo: BACK });
+      expect(accounts.setReturn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a site the accounts do not know', `?next=${encodeURIComponent('https://elsewhere.example/')}&from=catalogue`],
+      ["an application that is not one of Mondarth's", `?next=${encodeURIComponent(BACK.url)}&from=elsewhere`],
+      ["a page of the accounts' own", '?next=%2Fprofile&from=catalogue'],
+      ['no page', '?from=catalogue'],
+    ])('is not taken from %s', async (_, query) => {
+      const { accounts, data } = load(`http://accounts.test/profile${query}`, SESSION);
+      await expect(data).resolves.toMatchObject({ returnTo: null });
+      expect(accounts.setReturn).not.toHaveBeenCalled();
+    });
   });
 
   it('give the sign-in page its providers, and say when a sign-in failed', async () => {
@@ -460,5 +516,34 @@ describe('the profile page', () => {
       const error = await thrown(() => post('nickname=Ulenar', undefined, null));
       expect(isRedirect(error) && error.location).toBe('/');
     });
+  });
+});
+
+describe('going back to another application', () => {
+  const CATALOGUE = 'https://catalogue.example.org';
+  const go = (to: string, session: unknown = SESSION) => {
+    const accounts = { clearReturn: vi.fn(() => Promise.resolve()) };
+    const response = invoke(goBack, {
+      url: `http://accounts.test/return?to=${encodeURIComponent(to)}`,
+      locals: { session: session as never, accounts: accounts as never, appOrigins: [CATALOGUE] },
+    });
+    return { accounts, response };
+  };
+
+  it('goes to the page, forgetting the way back the session kept', async () => {
+    const { accounts, response } = go(`${CATALOGUE}/developers`);
+    const answered = await response;
+    expect(answered.status).toBe(303);
+    expect(answered.headers.get('location')).toBe(`${CATALOGUE}/developers`);
+    expect(accounts.clearReturn).toHaveBeenCalledWith(SESSION.id);
+  });
+
+  it('goes home from anywhere the accounts do not send visitors, and keeps nothing for no one', async () => {
+    for (const to of ['https://elsewhere.example/', '/profile', '//elsewhere.example']) {
+      expect((await go(to).response).headers.get('location')).toBe('/');
+    }
+    const { accounts, response } = go(`${CATALOGUE}/`, null);
+    expect((await response).headers.get('location')).toBe(`${CATALOGUE}/`);
+    expect(accounts.clearReturn).not.toHaveBeenCalled();
   });
 });
