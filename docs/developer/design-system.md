@@ -118,7 +118,8 @@ onto the tokens, so that it keeps its theme and wears Mondarth's colours.
 
 `packages/ui` holds the components every application shares, each shown, with how to use it, in the
 [Storybook][storybook]: the page's frame, buttons, fields, checkboxes, dialogs, tables, badges, panels, notices and
-callouts, the top bar, the language picker and the logo. Each is styled with the tokens alone (`--mdr-*`), never the
+callouts, the top bar and the user navigation menu (`UserMenu`: signing in, or the user's own menu), the language
+picker and the logo. Each is styled with the tokens alone (`--mdr-*`), never the
 palette, and takes its words from the application, which translates them. They are native elements underneath (a
 `<button>`, an `<input>` the page writes itself, a `<dialog>`), so that a page's forms post as plain HTML forms do.
 
