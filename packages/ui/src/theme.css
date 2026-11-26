@@ -4,19 +4,6 @@
  */
 @import '@mondarth/design-tokens/tokens.css';
 
-/*
- * The names the applications' styles used before the tokens, kept while they move to the tokens' own. Each is the token
- * it always meant; new styles use the tokens.
- */
-:root,
-[data-theme] {
-  --bg: var(--mdr-color-background);
-  --fg: var(--mdr-color-text);
-  --muted: var(--mdr-color-text-muted);
-  --accent: var(--mdr-color-accent);
-  --note-bg: var(--mdr-color-subtle);
-}
-
 body {
   margin: 0;
   background: var(--mdr-color-background);

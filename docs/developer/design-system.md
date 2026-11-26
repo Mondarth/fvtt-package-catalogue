@@ -91,8 +91,7 @@ with its description as a comment:
 - an element marked `data-site` takes that site's colour (`--mdr-color-site`). Each application marks its pages'
   `<html>`: `data-site="catalogue"`, `data-site="accounts"`.
 
-The applications take it through `@mondarth/ui/theme.css`, which keeps the names they used before (`--bg`, `--fg`,
-`--muted`, `--accent`, `--note-bg`) as aliases of the tokens, while their styles move to the tokens' own.
+The applications take it through `@mondarth/ui/theme.css`, and style themselves with the tokens' own names alone.
 
 ### Testing contrast
 
