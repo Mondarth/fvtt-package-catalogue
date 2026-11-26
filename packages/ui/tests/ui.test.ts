@@ -23,6 +23,7 @@ describe('the package', () => {
       'Logo',
       'Notice',
       'Panel',
+      'ReturnLink',
       'Table',
       'TopBar',
       'UserMenu',
