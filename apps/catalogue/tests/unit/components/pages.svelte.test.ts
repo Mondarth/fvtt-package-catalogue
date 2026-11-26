@@ -89,8 +89,10 @@ describe('the layout', () => {
     expect(profile).toHaveAccessibleName(en.profile_button_label.replace('{name}', 'Ulenar'));
     expect(bar.lastElementChild).toBe(profile.closest('details'));
     const link = (name: string) => screen.getByRole('link', { name, hidden: true });
-    expect(link(en.profile_link)).toHaveAttribute('href', `${SITE}/profile`);
-    expect(link(en.subscription_link)).toHaveAttribute('href', `${SITE}/subscription`);
+    // The accounts' pages, with the way back to this one; not the admin pages, gone to on purpose.
+    const back = `?next=${encodeURIComponent('https://catalogue.example.org/')}&from=catalogue`;
+    expect(link(en.profile_link)).toHaveAttribute('href', `${SITE}/profile${back}`);
+    expect(link(en.subscription_link)).toHaveAttribute('href', `${SITE}/subscription${back}`);
     expect(screen.queryByRole('link', { name: en.admin_link, hidden: true })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.sign_out, hidden: true }).closest('form')).toHaveAttribute(
       'action',

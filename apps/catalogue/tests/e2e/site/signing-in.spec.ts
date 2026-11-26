@@ -28,11 +28,26 @@ test('signing in at the accounts, from the catalogue, comes back to it signed in
   await expect(page.getByRole('link', { name: en.sign_in_register })).toHaveCount(0);
   // The profile menu: the accounts' pages.
   await bar.getByLabel(/^Your profile, /).click();
-  await expect(bar.getByRole('link', { name: en.profile_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/profile`);
+  const back = `?next=${encodeURIComponent(`${E2E_URL}/`)}&from=catalogue`;
+  await expect(bar.getByRole('link', { name: en.profile_link })).toHaveAttribute(
+    'href',
+    `${ACCOUNTS_URL}/profile${back}`,
+  );
   await expect(bar.getByRole('link', { name: en.subscription_link })).toHaveAttribute(
     'href',
-    `${ACCOUNTS_URL}/subscription`,
+    `${ACCOUNTS_URL}/subscription${back}`,
   );
+
+  // At the accounts, the way back to the catalogue's page, kept as the visitor goes on, and taken.
+  await bar.getByRole('link', { name: en.subscription_link }).click();
+  await expect(page).toHaveURL(new RegExp(`^${ACCOUNTS_URL}/subscription`));
+  await expect(page.getByRole('link', { name: accounts.return_catalogue })).toBeVisible();
+  await page.goto(`${ACCOUNTS_URL}/profile`);
+  await page.getByRole('link', { name: accounts.return_catalogue }).click();
+  await expect(page).toHaveURL(`${E2E_URL}/`);
+  await page.goto(`${ACCOUNTS_URL}/profile`);
+  await expect(page.getByRole('link', { name: accounts.return_catalogue })).toHaveCount(0);
+  await page.goto(`${E2E_URL}/`);
 
   // Signing in again from the catalogue, already signed in, comes straight back.
   await page.goto(`${ACCOUNTS_URL}/?next=${encodeURIComponent(`${E2E_URL}/developers`)}`);
