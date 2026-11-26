@@ -44,6 +44,8 @@
     await expect(input).toHaveAttribute('aria-invalid', 'true');
     await expect(input).toHaveAttribute('aria-describedby', 'nickname-hint nickname-problem');
     await expect(input).toHaveAccessibleDescription(/only letters, digits/);
+    // Announced, as the page shows it after the form is posted.
+    await expect(canvas.getByRole('alert')).toHaveTextContent(/only letters, digits/);
   }}>
   {#snippet template(args)}
     <Field {...withoutChildren(args)}>
