@@ -1,3 +1,9 @@
+## [@mondarth/fvtt-package-catalogue-v0.14.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.13.0...@mondarth/fvtt-package-catalogue-v0.14.0) (2026-11-26)
+
+### Features
+
+* **catalogue:** frame the pages with the shared shell, in the tokens ([b5b9f4e](https://github.com/Mondarth/fvtt-package-catalogue/commit/b5b9f4ecc45f8620a1e465d30ef9437880d48077))
+
 ## [@mondarth/fvtt-package-catalogue-v0.13.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.12.0...@mondarth/fvtt-package-catalogue-v0.13.0) (2026-11-25)
 
 ### Features
