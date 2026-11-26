@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "site_title": "Mondarth accounts",
+  "skip_link": "Skip to the content",
   "site_description": "Sign in once to every Mondarth application, and manage your profile and subscription.",
   "home_lede": "What Foundry VTT, its game systems and its modules declare in their manifests, gathered from Foundry VTT's package listing, GitHub and GitLab, for tools that work out which versions can be installed together.",
   "endpoint_lookup_summary": "A set of packages, everything they need, and how fresh each is.",

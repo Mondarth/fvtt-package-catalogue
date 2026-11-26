@@ -9,6 +9,8 @@
 - The messages test checks that every locale translates every English message, and nothing else.
 - The catalogue's tests mirror `src/` under `tests/unit/`, in two projects: `server` (Node) and `ui` (happy-dom, with
   `@testing-library/svelte`, for `*.svelte.test.ts`).
+- The shared components (`packages/ui`) are tested through their Storybook stories, in Chromium, with axe's
+  accessibility checks: see {doc}`design-system`. CI installs Chromium for them.
 
 The store's tests run against [PGlite](https://pglite.dev), PostgreSQL in-process, with the real migrations applied
 (`tests/unit/support/pglite.ts`): no Docker is needed. Endpoints are tested by calling them with a fake event

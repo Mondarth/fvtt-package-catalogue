@@ -5,7 +5,9 @@
  * @returns Its name
  */
 export function languageName(locale: string): string {
-  /* v8 ignore next -- `of` gives undefined only for a code the runtime does not know, which no application's is */
-  const name = new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ?? locale;
+  const name =
+    new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ??
+    /* istanbul ignore next -- `of` gives undefined only for a code the runtime does not know, which no application's is */
+    locale;
   return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
 }

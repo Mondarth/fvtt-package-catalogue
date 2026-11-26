@@ -3,7 +3,7 @@
   one on sale, and the form for a new one.
 -->
 <script lang="ts">
-  import { Callout } from '@mondarth/ui';
+  import { Badge, Button, Callout, Checkbox, Table } from '@mondarth/ui';
   import { resolve } from '$app/paths';
 
   import { useDates } from '#lib/dates.js';
@@ -53,14 +53,14 @@
 {#if data.offers.length === 0}
   <p>{m.admin_offers_none()}</p>
 {:else}
-  <table>
+  <Table caption={m.admin_offers_heading()} hideCaption>
     <thead>
       <tr>
         <th scope="col">{m.admin_offer_column_name()}</th>
         <th scope="col">{m.admin_offer_column_period()}</th>
         <th scope="col">{m.admin_offer_column_prices()}</th>
         <th scope="col">{m.admin_offer_column_status()}</th>
-        <th scope="col"><span class="visually-hidden">{m.admin_offer_retire()}</span></th>
+        <th scope="col"><span class="mdr-visually-hidden">{m.admin_offer_retire()}</span></th>
       </tr>
     </thead>
     <tbody>
@@ -78,8 +78,8 @@
               {m.admin_offer_retired({ date: date(offer.retiredAt) })}
             {:else}
               {m.admin_offer_on_sale()}
-              {#if offer.introductory}<span class="hint">{m.admin_offer_introductory_badge()}</span>{/if}
-              {#if offer.providers.includes('stripe')}<span class="hint">{m.admin_offer_stripe()}</span>{/if}
+              {#if offer.introductory}<Badge tone="accent">{m.admin_offer_introductory_badge()}</Badge>{/if}
+              {#if offer.providers.includes('stripe')}<Badge tone="info">{m.admin_offer_stripe()}</Badge>{/if}
               {#if offer.availableFrom !== null}<span class="hint"
                   >{m.admin_offer_from({ date: date(offer.availableFrom) })}</span
                 >{/if}
@@ -92,15 +92,15 @@
             {#if offer.retiredAt === null}
               <form method="POST" action="?/retire">
                 <input type="hidden" name="offer" value={offer.id} />
-                <button type="submit" aria-label={`${m.admin_offer_retire()}: ${offer.name}`}
-                  >{m.admin_offer_retire()}</button>
+                <Button type="submit" aria-label={`${m.admin_offer_retire()}: ${offer.name}`}
+                  >{m.admin_offer_retire()}</Button>
               </form>
             {/if}
           </td>
         </tr>
       {/each}
     </tbody>
-  </table>
+  </Table>
 {/if}
 
 <section aria-labelledby="refund-requests">
@@ -109,7 +109,7 @@
     <p>{m.admin_refunds_none()}</p>
   {:else}
     <p>{m.admin_refunds_lede()}</p>
-    <table>
+    <Table caption={m.admin_refunds_heading()} hideCaption>
       <thead>
         <tr>
           <th scope="col">{m.admin_refunds_column_user()}</th>
@@ -118,7 +118,7 @@
           <th scope="col">{m.admin_refunds_column_paid()}</th>
           <th scope="col">{m.admin_refunds_column_suggested()}</th>
           <th scope="col">{m.admin_refunds_column_reason()}</th>
-          <th scope="col"><span class="visually-hidden">{m.admin_refunds_make()}</span></th>
+          <th scope="col"><span class="mdr-visually-hidden">{m.admin_refunds_make()}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -161,7 +161,7 @@
           </tr>
         {/each}
       </tbody>
-    </table>
+    </Table>
   {/if}
 </section>
 
@@ -172,15 +172,15 @@
   {:else}
     <p>{m.admin_disputes_lede()}</p>
     <p class="hint">{m.admin_disputes_evidence_hint()}</p>
-    <table>
+    <Table caption={m.admin_disputes_heading()} hideCaption>
       <thead>
         <tr>
           <th scope="col">{m.admin_refunds_column_user()}</th>
           <th scope="col">{m.admin_disputes_column_opened()}</th>
           <th scope="col">{m.admin_refunds_column_purchase()}</th>
           <th scope="col">{m.admin_refunds_column_paid()}</th>
-          <th scope="col"><span class="visually-hidden">{m.admin_disputes_evidence()}</span></th>
-          <th scope="col"><span class="visually-hidden">{m.admin_disputes_answer()}</span></th>
+          <th scope="col"><span class="mdr-visually-hidden">{m.admin_disputes_evidence()}</span></th>
+          <th scope="col"><span class="mdr-visually-hidden">{m.admin_disputes_answer()}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -211,7 +211,7 @@
           </tr>
         {/each}
       </tbody>
-    </table>
+    </Table>
   {/if}
 </section>
 
@@ -232,7 +232,7 @@
         aria-invalid={problem === 'minimum'}
         aria-describedby={problem === 'minimum' ? 'minimum-problem' : 'minimum-hint'} />
       <p id="minimum-hint" class="hint">{m.admin_patreon_hint()}</p>
-      <button type="submit">{m.admin_patreon_save()}</button>
+      <Button type="submit">{m.admin_patreon_save()}</Button>
     </form>
   </section>
 {/if}
@@ -293,11 +293,8 @@
           aria-describedby={problem === 'period' ? 'offer-problem' : undefined} />
       </label>
     </div>
-    <label class="introductory">
-      <input type="checkbox" name="introductory" checked={givenIntroductory} aria-describedby="introductory-hint" />
-      {m.admin_offer_introductory()}
-    </label>
-    <p id="introductory-hint" class="hint">{m.admin_offer_introductory_hint()}</p>
+    <Checkbox id="introductory" name="introductory" checked={givenIntroductory} hint={m.admin_offer_introductory_hint()}
+      >{m.admin_offer_introductory()}</Checkbox>
     <label for="prices">{m.admin_offer_prices()}</label>
     <textarea
       id="prices"
@@ -330,22 +327,14 @@
           aria-describedby={problem === 'dates' ? 'offer-problem' : undefined} />
       </label>
     </div>
-    <button type="submit">{m.admin_offer_create()}</button>
+    <Button type="submit">{m.admin_offer_create()}</Button>
   </form>
 </section>
 
 <style>
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
-    overflow-wrap: anywhere;
+  td,
+  th {
+    overflow-wrap: break-word;
   }
 
   td form {
@@ -354,32 +343,29 @@
 
   .hint {
     display: block;
-    color: var(--muted);
-    font-size: 0.9rem;
+    color: var(--mdr-color-text-muted);
+    font-size: var(--mdr-font-size-small);
   }
 
   section {
-    margin-block: 1.5rem;
+    margin-block: var(--mdr-space-5);
   }
 
   .new,
   .minimum {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    align-items: start;
+    display: grid;
+    gap: var(--mdr-space-2);
+    justify-items: start;
   }
 
   .period {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: var(--mdr-space-4);
   }
 
-  input,
-  textarea {
-    padding: 0.4rem 0.6rem;
-    font: inherit;
+  label {
+    font-weight: var(--mdr-font-weight-strong);
   }
 
   #name,
@@ -389,20 +375,5 @@
 
   input[type='number'] {
     width: 6rem;
-  }
-
-  button {
-    padding: 0.4rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 </style>

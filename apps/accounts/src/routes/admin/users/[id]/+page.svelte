@@ -4,7 +4,7 @@
   besides.
 -->
 <script lang="ts">
-  import { Callout } from '@mondarth/ui';
+  import { Button, Callout, Table } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { BAN_DAYS_MAX, BAN_REASON_MAX } from '#lib/admin.js';
@@ -143,12 +143,12 @@
   {#if manageable}
     {@render failed('role')}
     <form method="POST" action="?/role" class="row">
-      <label class="visually-hidden" for="role-choice">{m.admin_role_heading()}</label>
+      <label class="mdr-visually-hidden" for="role-choice">{m.admin_role_heading()}</label>
       <select id="role-choice" name="role" value={user.admin ? 'admin' : 'user'}>
         <option value="user">{m.admin_role_user()}</option>
         <option value="admin">{m.admin_role_admin()}</option>
       </select>
-      <button type="submit">{m.admin_role_save()}</button>
+      <Button type="submit">{m.admin_role_save()}</Button>
     </form>
   {:else}
     <p>{user.admin ? m.admin_role_admin() : m.admin_role_user()}</p>
@@ -165,7 +165,7 @@
     {#if user.banReason !== null}<p>{m.admin_banned_reason({ reason: user.banReason })}</p>{/if}
     {#if !user.configured}
       <form method="POST" action="?/unban">
-        <button type="submit">{m.admin_unban_button()}</button>
+        <Button type="submit">{m.admin_unban_button()}</Button>
       </form>
     {/if}
   {:else if manageable}
@@ -187,7 +187,7 @@
         step="1"
         aria-invalid={invalid('ban', 'banDays')}
         aria-describedby={invalid('ban', 'banDays') ? 'ban-problem' : undefined} />
-      <button type="submit" class="danger">{m.admin_ban_button()}</button>
+      <Button type="submit" variant="danger">{m.admin_ban_button()}</Button>
     </form>
   {/if}
 </section>
@@ -197,7 +197,7 @@
     <h2 id="sessions">{m.admin_sessions_heading()}</h2>
     {@render failed('sessions')}
     <form method="POST" action="?/signOut">
-      <button type="submit">{m.admin_sign_out_button()}</button>
+      <Button type="submit">{m.admin_sign_out_button()}</Button>
     </form>
   </section>
 {/if}
@@ -218,7 +218,7 @@
     <div class="refused">
       <p>{m.admin_purchases_refused({ date: time(data.purchasesRefusedAt) })}</p>
       <form method="POST" action="?/allowPurchases">
-        <button type="submit">{m.admin_purchases_allow()}</button>
+        <Button type="submit">{m.admin_purchases_allow()}</Button>
       </form>
     </div>
   {/if}
@@ -275,7 +275,7 @@
       maxlength="200"
       aria-invalid={invalid('grant', 'note')}
       aria-describedby={invalid('grant', 'note') ? 'grant-problem' : undefined} />
-    <button type="submit">{m.admin_grant_button()}</button>
+    <Button type="submit">{m.admin_grant_button()}</Button>
   </form>
 
   <form method="POST" action="?/setEnd" class="subscription">
@@ -292,12 +292,12 @@
       aria-describedby={invalid('setEnd', 'date') ? 'setEnd-problem' : undefined} />
     <label for="end-note">{m.admin_note()}</label>
     <input id="end-note" name="note" maxlength="200" />
-    <button type="submit">{m.admin_set_end_button()}</button>
+    <Button type="submit">{m.admin_set_end_button()}</Button>
   </form>
 
   {#if data.subscription.active}
     <form method="POST" action="?/revoke">
-      <button type="submit" class="danger">{m.admin_revoke_button()}</button>
+      <Button type="submit" variant="danger">{m.admin_revoke_button()}</Button>
     </form>
   {/if}
 
@@ -305,7 +305,7 @@
   {#if data.credits.length === 0}
     <p>{m.admin_credits_none()}</p>
   {:else}
-    <table class="credits">
+    <Table caption={m.admin_credits_heading()} hideCaption>
       <thead>
         <tr>
           <th scope="col">{m.subscription_column_from()}</th>
@@ -347,7 +347,7 @@
           </tr>
         {/each}
       </tbody>
-    </table>
+    </Table>
   {/if}
 </section>
 
@@ -356,7 +356,7 @@
     <h2 id="impersonate">{m.admin_impersonate_heading()}</h2>
     <p class="hint">{m.admin_impersonate_hint()}</p>
     <form method="POST" action={resolve('/admin/users/[id]/impersonate', { id: user.id })}>
-      <button type="submit">{m.admin_impersonate_button()}</button>
+      <Button type="submit">{m.admin_impersonate_button()}</Button>
     </form>
   </section>
 {/if}
@@ -382,9 +382,9 @@
 
 <style>
   .refused {
-    padding: 0.6rem 0.8rem;
-    border-inline-start: 3px solid var(--accent);
-    background: var(--note-bg);
+    padding: var(--mdr-space-3) var(--mdr-space-4);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-danger);
+    background: var(--mdr-color-subtle);
   }
 
   .refused p {
@@ -394,23 +394,23 @@
   .facts {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 0.3rem 1rem;
+    gap: var(--mdr-space-1) var(--mdr-space-4);
   }
 
   dd {
     margin: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   section {
-    margin-block: 1.5rem;
+    margin-block: var(--mdr-space-5);
   }
 
   .row,
   .ban {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
     align-items: center;
   }
 
@@ -419,61 +419,34 @@
     align-items: start;
   }
 
-  input,
-  select {
-    padding: 0.4rem 0.6rem;
-    font: inherit;
+  label {
+    font-weight: var(--mdr-font-weight-strong);
   }
 
   #reason {
     width: min(100%, 30rem);
   }
 
-  button {
-    padding: 0.4rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .danger {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
   .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
+    color: var(--mdr-color-text-muted);
+    font-size: var(--mdr-font-size-small);
   }
 
   .audit {
-    padding-inline-start: 1.2rem;
+    padding-inline-start: var(--mdr-space-5);
   }
 
   .audit li {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 0.6rem;
-  }
-
-  a {
-    color: var(--accent);
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    gap: 0 var(--mdr-space-2);
   }
 
   .subscription {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    align-items: start;
-    margin-block: 1rem;
+    display: grid;
+    gap: var(--mdr-space-2);
+    justify-items: start;
+    margin-block: var(--mdr-space-4);
   }
 
   .subscription h3 {
@@ -488,21 +461,11 @@
     width: min(100%, 30rem);
   }
 
-  .credits {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
+  td {
+    overflow-wrap: break-word;
   }
 
-  .credits th,
-  .credits td {
-    padding: 0.3rem 0.5rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
-    overflow-wrap: anywhere;
-  }
-
-  .credits .hint {
+  td .hint {
     display: block;
   }
 </style>

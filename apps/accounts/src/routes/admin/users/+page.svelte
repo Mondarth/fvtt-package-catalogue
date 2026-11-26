@@ -2,6 +2,8 @@
   The admin pages' list of users: found by a search, the newest first, a page at a time.
 -->
 <script lang="ts">
+  import { Badge, Button, Field, Table } from '@mondarth/ui';
+
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -19,12 +21,14 @@
 <h1>{m.admin_users_heading()}</h1>
 
 <form method="GET" role="search">
-  <label for="q">{m.admin_search_label()}</label>
-  <div class="field">
-    <input id="q" name="q" type="search" value={data.search} aria-describedby="q-hint" />
-    <button type="submit">{m.admin_search_button()}</button>
-  </div>
-  <p id="q-hint" class="hint">{m.admin_search_hint()}</p>
+  <Field id="q" label={m.admin_search_label()} hint={m.admin_search_hint()}>
+    {#snippet children(field)}
+      <div class="inline">
+        <input {...field} name="q" type="search" value={data.search} />
+        <Button type="submit">{m.admin_search_button()}</Button>
+      </div>
+    {/snippet}
+  </Field>
 </form>
 
 <p role="status">{m.admin_users_count({ total: data.total })}</p>
@@ -32,7 +36,7 @@
 {#if data.users.length === 0}
   <p>{m.admin_users_none()}</p>
 {:else}
-  <table>
+  <Table caption={m.admin_users_heading()} hideCaption>
     <thead>
       <tr>
         <th scope="col">{m.admin_column_user()}</th>
@@ -51,13 +55,13 @@
           <td>{user.email}</td>
           <td>
             {user.admin ? m.admin_role_admin() : m.admin_role_user()}
-            {#if user.banned}<strong class="banned">{m.admin_banned()}</strong>{/if}
+            {#if user.banned}<Badge tone="danger">{m.admin_banned()}</Badge>{/if}
           </td>
           <td>{date(user.createdAt)}</td>
         </tr>
       {/each}
     </tbody>
-  </table>
+  </Table>
 {/if}
 
 {#if data.pages > 1}
@@ -66,75 +70,53 @@
     {#if data.page > 1}
       <form method="GET">
         {#if data.search !== ''}<input type="hidden" name="q" value={data.search} />{/if}
-        <button type="submit" name="page" value={data.page - 1}>{m.admin_page_previous()}</button>
+        <Button type="submit" name="page" value={data.page - 1}>{m.admin_page_previous()}</Button>
       </form>
     {/if}
     <span>{m.admin_page_of({ page: data.page, pages: data.pages })}</span>
     {#if data.page < data.pages}
       <form method="GET">
         {#if data.search !== ''}<input type="hidden" name="q" value={data.search} />{/if}
-        <button type="submit" name="page" value={data.page + 1}>{m.admin_page_next()}</button>
+        <Button type="submit" name="page" value={data.page + 1}>{m.admin_page_next()}</Button>
       </form>
     {/if}
   </nav>
 {/if}
 
 <style>
-  .field {
+  .inline {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.3rem;
+    gap: var(--mdr-space-2);
   }
 
-  input {
+  .inline input {
     flex: 1 1 14rem;
-    padding: 0.4rem 0.6rem;
-    font: inherit;
-  }
-
-  button {
-    padding: 0.4rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
   }
 
   .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
-    overflow-wrap: anywhere;
+    color: var(--mdr-color-text-muted);
+    font-size: var(--mdr-font-size-small);
   }
 
   th[scope='row'] {
-    display: flex;
-    flex-direction: column;
-    font-weight: normal;
+    font-weight: var(--mdr-font-weight-regular);
   }
 
-  .banned {
-    margin-inline-start: 0.4rem;
-    color: var(--accent);
+  /* A user's id under their nickname, in the same cell. */
+  th[scope='row'] .hint {
+    display: block;
   }
 
-  a {
-    color: var(--accent);
+  td,
+  th {
+    overflow-wrap: break-word;
   }
 
   .pages {
     display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
+    gap: var(--mdr-space-4);
+    align-items: center;
+    margin-top: var(--mdr-space-4);
   }
 </style>

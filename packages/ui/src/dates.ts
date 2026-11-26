@@ -25,8 +25,8 @@ export function dateLocaleOf(acceptLanguage: string | null, language: string): s
     const [primary] = tag.split('-');
     if (primary?.toLowerCase() !== language.toLowerCase()) continue;
     try {
-      const [supported] = Intl.DateTimeFormat.supportedLocalesOf(tag);
-      if (supported !== undefined) return supported;
+      // Written as the locale writes itself, as `en-US` of `en-us`.
+      return new Intl.Locale(tag).toString();
     } catch {
       // A tag that is no locale at all, as `en-!!`: the next one.
     }

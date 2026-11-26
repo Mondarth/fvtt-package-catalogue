@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { Callout } from '@mondarth/ui';
+  import { Button, Callout, Checkbox, Notice, Table } from '@mondarth/ui';
   import { refreshAll } from '$app/navigation';
 
   import { useDates } from '#lib/dates.js';
@@ -198,15 +198,17 @@
       <div class="actions">
         {#if data.patreon.membership?.failure === 'revoked' || data.patreon.membership?.failure === 'scope'}
           <form method="post" action="/subscription/link-patreon">
-            <button>{m.subscription_patreon_link_again()}</button>
+            <Button type="submit">{m.subscription_patreon_link_again()}</Button>
           </form>
         {:else}
-          <form method="post" action="?/check"><button>{m.subscription_patreon_check()}</button></form>
+          <form method="post" action="?/check"><Button type="submit">{m.subscription_patreon_check()}</Button></form>
         {/if}
-        <form method="post" action="?/unlink"><button>{m.subscription_patreon_unlink()}</button></form>
+        <form method="post" action="?/unlink"><Button type="submit">{m.subscription_patreon_unlink()}</Button></form>
       </div>
     {:else}
-      <form method="post" action="/subscription/link-patreon"><button>{m.subscription_patreon_link()}</button></form>
+      <form method="post" action="/subscription/link-patreon">
+        <Button type="submit">{m.subscription_patreon_link()}</Button>
+      </form>
     {/if}
   </section>
 {/if}
@@ -215,10 +217,10 @@
   <h2 id="offers">{m.subscription_offers_heading()}</h2>
   {#if data.disputing}
     <!-- While a payment of theirs is disputed, nothing more is sold: the section says why, instead. -->
-    <p class="disputed">{m.subscription_buy_disputed()}</p>
+    <Notice>{m.subscription_buy_disputed()}</Notice>
   {:else if data.purchasesRefused}
     <!-- After a dispute lost, purchases are refused, by every identity the account is known by: it says so. -->
-    <p class="disputed">{m.subscription_buy_refused()}</p>
+    <Notice>{m.subscription_buy_refused()}</Notice>
   {:else}
     {#if claimProblem !== undefined}
       <Callout id="claim-problem"
@@ -232,7 +234,8 @@
         <p>{m.subscription_introductory({ name: data.introductory.name, period: periodLabel(data.introductory) })}</p>
         <form method="POST" action="?/claim">
           <input type="hidden" name="offer" value={data.introductory.id} />
-          <button type="submit">{m.subscription_introductory_claim({ period: periodLabel(data.introductory) })}</button>
+          <Button type="submit" variant="primary"
+            >{m.subscription_introductory_claim({ period: periodLabel(data.introductory) })}</Button>
         </form>
       </div>
     {/if}
@@ -249,16 +252,17 @@
     {:else}
       {#if buying}
         <!-- One consent for every offer; each Buy sends it with its own form. -->
-        <label class="consent">
-          <input
-            type="checkbox"
+        <div class="consent">
+          <Checkbox
+            id="consent"
             bind:checked={consented}
             aria-invalid={buyProblem === 'consent'}
-            aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'} />
-          {consentBefore}<a href={resolve('/terms')} target="_blank" rel="noopener">{m.subscription_buy_terms()}</a
-          >{consentAfter}
-        </label>
-        <span id="buy-needs-consent" class="visually-hidden">{m.subscription_buy_needs_consent()}</span>
+            aria-describedby={buyProblem === undefined ? undefined : 'buy-problem'}>
+            {consentBefore}<a href={resolve('/terms')} target="_blank" rel="noopener">{m.subscription_buy_terms()}</a
+            >{consentAfter}
+          </Checkbox>
+        </div>
+        <span id="buy-needs-consent" class="mdr-visually-hidden">{m.subscription_buy_needs_consent()}</span>
       {/if}
       <ul class="offers">
         {#each data.offers as offer (offer.id)}
@@ -277,10 +281,11 @@
                   <input type="hidden" name="consent" value={consented ? 'on' : ''} />
                   <!-- The tooltip is the wrapper's: a disabled button takes no pointer events in every browser. -->
                   <span class="buy-button" title={consented ? undefined : m.subscription_buy_needs_consent()}>
-                    <button
+                    <Button
+                      type="submit"
                       disabled={!consented}
                       aria-label={m.subscription_buy_named({ name: offer.name })}
-                      aria-describedby={consented ? undefined : 'buy-needs-consent'}>{m.subscription_buy()}</button>
+                      aria-describedby={consented ? undefined : 'buy-needs-consent'}>{m.subscription_buy()}</Button>
                   </span>
                 </form>
               {/if}
@@ -320,7 +325,7 @@
   {#if data.history.length === 0}
     <p>{m.subscription_history_none()}</p>
   {:else}
-    <table>
+    <Table caption={m.subscription_history_heading()} hideCaption>
       <thead>
         <tr>
           <th scope="col">{m.subscription_column_purchased()}</th>
@@ -360,33 +365,37 @@
           </tr>
         {/each}
       </tbody>
-    </table>
+    </Table>
   {/if}
 </section>
 
 <style>
   .status {
-    font-size: 1.1rem;
+    font-size: var(--mdr-font-size-large);
+  }
+
+  .hint,
+  .prices {
+    color: var(--mdr-color-text-muted);
   }
 
   .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--mdr-font-size-small);
   }
 
   section {
-    margin-block: 1.5rem;
+    margin-block: var(--mdr-space-5);
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
   }
 
   .offers {
     display: grid;
-    gap: 0.5rem;
+    gap: var(--mdr-space-2);
     padding: 0;
     list-style: none;
   }
@@ -394,13 +403,11 @@
   .offers li {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem 1rem;
-    padding: 0.5rem 0.8rem;
-    border: 1px solid var(--note-bg);
-  }
-
-  .prices {
-    color: var(--muted);
+    gap: var(--mdr-space-1) var(--mdr-space-4);
+    align-items: center;
+    padding: var(--mdr-space-2) var(--mdr-space-3);
+    border: var(--mdr-border-width-thin) solid var(--mdr-color-border);
+    border-radius: var(--mdr-radius-small);
   }
 
   .buy {
@@ -408,55 +415,26 @@
   }
 
   .consent {
-    display: flex;
-    gap: 0.5rem;
-    align-items: start;
-    margin-block-end: 0.8rem;
+    margin-block-end: var(--mdr-space-3);
   }
 
   .buy-button {
     display: inline-block;
   }
 
-  .buy-button button:disabled {
-    cursor: not-allowed;
+  /* A disabled button takes no pointer events, so that its wrapper's tooltip shows. */
+  .buy-button :global(.button:disabled) {
     pointer-events: none;
   }
 
   .introductory {
-    padding: 0.6rem 0.8rem;
-    border-inline-start: 3px solid var(--accent);
-    background: var(--note-bg);
+    margin-block-end: var(--mdr-space-4);
+    padding: var(--mdr-space-3) var(--mdr-space-4);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-action);
+    background: var(--mdr-color-subtle);
   }
 
   .introductory p {
     margin-top: 0;
-  }
-
-  .disputed {
-    padding: 0.6rem 0.8rem;
-    border-inline-start: 3px solid var(--accent);
-    background: var(--note-bg);
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 0.3rem 0.5rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
   }
 </style>

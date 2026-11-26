@@ -33,18 +33,15 @@
 <style>
   ul {
     display: flex;
-    gap: 1.5rem;
-    margin: 0 0 1rem;
+    flex-wrap: wrap;
+    gap: var(--mdr-space-5);
+    margin: 0 0 var(--mdr-space-4);
     padding: 0;
     list-style: none;
   }
 
-  a {
-    color: var(--accent);
-  }
-
   a[aria-current='page'] {
-    font-weight: bold;
+    font-weight: var(--mdr-font-weight-strong);
     text-decoration: none;
   }
 </style>

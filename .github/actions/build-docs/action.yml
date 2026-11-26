@@ -1,5 +1,6 @@
 name: Build the documentation
-description: Builds the Sphinx site in Docker, into docs/_build/html.
+description: >-
+  Builds the Sphinx site in Docker, into docs/_build/html, and the shared components' Storybook into its storybook/.
 
 runs:
   using: composite
@@ -23,3 +24,9 @@ runs:
       run: |
         DOCS_UID=$(id -u) DOCS_GID=$(id -g) \
           docker compose -f docs/compose.yaml run --rm --no-deps -T docs make html
+
+    # The components' Storybook, published beside the documentation, where an application's own can compose it.
+    - uses: ./.github/actions/setup
+    - name: Build the components' Storybook
+      shell: bash
+      run: pnpm --filter @mondarth/ui exec storybook build --quiet -o "$GITHUB_WORKSPACE/docs/_build/html/storybook"

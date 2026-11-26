@@ -1,0 +1,54 @@
+import { Meta, Typeset } from '@storybook/addon-docs/blocks';
+
+import { cssVariable, fontFamilies, fontSizes, fontWeights, lineHeights } from './tokens';
+
+<Meta title="Foundations/Type" />
+
+# Type
+
+Mondarth's pages are set in the reader's own system face: quick to load, and at home on every device. Code and data
+that line up are set in the system's monospace face.
+
+<Typeset
+  fontFamily="var(--mdr-font-family-sans)"
+  fontSizes={fontSizes.map(size => `var(${cssVariable(size.path)})`)}
+  fontWeight="var(--mdr-font-weight-regular)"
+  sampleText="Subscribed until 25 December 2026"
+/>
+
+## The scale
+
+<table>
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Value</th>
+      <th>For</th>
+      <th>Property</th>
+    </tr>
+  </thead>
+  <tbody>
+    {[...fontSizes, ...fontWeights, ...lineHeights, ...fontFamilies].map(size => (
+      <tr key={size.path}>
+        <td>
+          <code>{size.path}</code>
+        </td>
+        <td>
+          <code>{size.css}</code>
+        </td>
+        <td>{size.description}</td>
+        <td>
+          <code>{cssVariable(size.path)}</code>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## Setting text
+
+- Body text is `font.size.body`, `font.line-height.body` (1.5), and runs no wider than `layout.content` (48rem).
+- A page has one title (`font.size.title`), its `<h1>`. Headings below it step down in order, never skipping a level.
+- Hints, captions and tables are `font.size.small`, and muted (`color.text-muted`) where they are secondary.
+- Emphasis is `font.weight.strong`. Not capitals, which a screen reader may spell out, and not colour alone.
+- Numbers that line up in columns use tabular figures: `font-variant-numeric: tabular-nums`.

@@ -31,7 +31,7 @@ the proxy as the faster source; where it has no answer, the clients fall back to
 | `apps/accounts`               | Mondarth's accounts: one sign-in to every Mondarth application, the profile and the subscription (being moved here) |
 | `packages/accounts-contract`  | What the accounts give the other applications: who a token is for, their entitlement, their use of a service        |
 | `packages/design-tokens`      | [`@mondarth/design-tokens`](packages/design-tokens): Mondarth's design tokens and the CSS built from them, on npm   |
-| `packages/ui`                 | The Svelte pieces, theme and dates the applications share                                                           |
+| `packages/ui`                 | The Svelte components, theme and dates the applications share, with their Storybook                                 |
 | `deploy/`                     | Docker Compose for production, beside a [SWAG](https://docs.linuxserver.io/general/swag/) container                 |
 | `docs/`                       | The [documentation](https://mondarth.github.io/fvtt-package-catalogue/) (Sphinx, built in Docker)                   |
 

@@ -29,8 +29,6 @@ myst_heading_anchors = 3
 
 html_theme = 'furo'
 html_static_path = ['_static']
-# The design system page's logos, swatches and colour tables.
-html_css_files = ['design-system.css']
 
 # -- TODOs are shown in the output. They do not count as warnings, so they do not fail the build.
 

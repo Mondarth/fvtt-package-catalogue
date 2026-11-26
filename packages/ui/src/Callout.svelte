@@ -25,16 +25,16 @@
 
 <style>
   .callout {
-    margin-block: 0.5rem;
-    padding: 0.6rem 0.9rem;
-    border-left: 4px solid var(--accent);
-    background: var(--note-bg);
-    color: var(--fg);
-    font-weight: 600;
+    margin-block: var(--mdr-space-2);
+    padding: var(--mdr-space-3) var(--mdr-space-4);
+    border-inline-start: var(--mdr-border-width-rule) solid var(--mdr-color-accent);
+    background: var(--mdr-color-subtle);
+    color: var(--mdr-color-text);
+    font-weight: var(--mdr-font-weight-strong);
   }
 
   .callout:focus {
-    outline: 2px solid var(--accent);
+    outline: var(--mdr-border-width-focus) solid var(--mdr-color-focus);
     outline-offset: 2px;
   }
 </style>
