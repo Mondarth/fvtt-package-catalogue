@@ -1,3 +1,16 @@
+## [@mondarth/ui-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/ui-v0.2.0...@mondarth/ui-v0.3.0) (2026-11-26)
+
+### Features
+
+* **ui:** add a link back to another Mondarth site ([0cec9a2](https://github.com/Mondarth/fvtt-package-catalogue/commit/0cec9a2d8813f04fd68b0f39e4e275e01dfbc930))
+* **ui:** give the top bar a sign-in link, and a profile menu ([dd2ea33](https://github.com/Mondarth/fvtt-package-catalogue/commit/dd2ea332be3c7ddd55fdadddb1fdae9321c18dba))
+* **ui:** lift the user navigation menu into a component of its own ([0cf30ea](https://github.com/Mondarth/fvtt-package-catalogue/commit/0cf30eadaac426b237f14ddb8988bae8631d2f79))
+* **ui:** show the site's name beside its logo, and fit a phone ([9849494](https://github.com/Mondarth/fvtt-package-catalogue/commit/9849494bb34f60e9a82c6ad0d203efe99d67dd6d))
+
+### Bug Fixes
+
+* **ui:** keep the user menu's dropdown attached to its button ([c6be137](https://github.com/Mondarth/fvtt-package-catalogue/commit/c6be13780ee75e0de27c7412074990e8defc2e77))
+
 ## [@mondarth/ui-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/ui-v0.1.0...@mondarth/ui-v0.2.0) (2026-11-26)
 
 ### Features
