@@ -1,0 +1,35 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Introduction" />
+
+# Mondarth's design system
+
+Every Mondarth website (mondarth.com, `accounts.`, `catalogue.` and, to come, `aide.`) is to look, read and behave as
+one. This Storybook is where its shared components are reviewed and tested, and where the decisions behind them are
+written down.
+
+The system has three levels, each built on the one before:
+
+1. **Design tokens** (`@mondarth/design-tokens`): every design decision as a named token, and the CSS custom
+   properties built from them, `--mdr-*`. These pages show them.
+2. **Components** (`@mondarth/ui`): the Svelte components every application shares, styled with the tokens alone.
+   Each has its stories here, and every story is a test.
+3. **Applications**: their pages, built from the components, each testing its own routes.
+
+## Using the foundations
+
+- Style with the theme's colours (`--mdr-color-*`), named by what they are for, never the palette's. A theme changes
+  what the names mean; every page follows.
+- Space, size and time with the scales (`--mdr-space-*`, `--mdr-font-size-*`, `--mdr-duration-*`), not with numbers of
+  your own. A value the scales lack is a question for the tokens, not a one-off.
+- Choose the theme and the site in the toolbar above, as a page's `data-theme` and `data-site` do: every story and
+  page here follows.
+
+## The pages
+
+- [Colour](?path=/docs/foundations-colour--docs): the theme's colours, the palette, and each site's colour.
+- [Type](?path=/docs/foundations-type--docs): the families, sizes, weights and line heights.
+- [Spacing](?path=/docs/foundations-spacing--docs): space, radii, borders and widths.
+- [Motion](?path=/docs/foundations-motion--docs): durations, and motion for those who want none.
+- [Wording](?path=/docs/foundations-wording--docs): how the interface speaks.
+- [Accessibility](?path=/docs/foundations-accessibility--docs): what every component and page must do.

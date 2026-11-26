@@ -1,0 +1,67 @@
+import { ColorItem, ColorPalette, Meta } from '@storybook/addon-docs/blocks';
+
+import { cssVariable, ramps, siteColours, themeColours } from './tokens';
+
+<Meta title="Foundations/Colour" />
+
+# Colour
+
+Mondarth's colours come from its logos: the turquoise crescent and the gold gear every logo has, and the orange of
+mondarth.com's d20. Styles use the **theme's colours**, named by what they are for. Each names a colour of the
+**palette** in light and in dark, and every text colour reaches WCAG's AA contrast (4.5:1) on every background in
+both; the design tokens' tests check it.
+
+## The theme's colours
+
+Each shows its light colour, then its dark. Use it as `var(--mdr-color-<name>)`.
+
+<ColorPalette>
+  {themeColours.map(colour => (
+    <ColorItem
+      key={colour.name}
+      title={`color.${colour.name}`}
+      subtitle={`${colour.description ?? ''} (${cssVariable(`color.${colour.name}`)})`}
+      colors={{ [`light: ${colour.light.name}`]: colour.light.hex, [`dark: ${colour.dark.name}`]: colour.dark.hex }}
+    />
+  ))}
+</ColorPalette>
+
+- **Turquoise is the accent**: links, the current page, the focus ring. The crescent itself in the dark theme; a deep
+  teal in the light, where the crescent is too light to read.
+- **Gold is the main action**: the gear's gold fills the main button, with dark ink on it, in both themes. One gold
+  button a view.
+- **Orange is a warning**, so as not to compete with the gold. Danger is red, success green, information blue.
+- A status is never said by colour alone: it has words, or an icon with a name.
+
+## Each site's colour
+
+`color.site` is the colour of a site's emblem, chosen by the page's `data-site`. It marks which site a page is on,
+beside its logo or along an edge. Gold and turquoise are too light to read on a light page, so it is never text, and
+never the only sign of anything.
+
+<ColorPalette>
+  {siteColours.map(site => (
+    <ColorItem key={site.site} title={site.site} subtitle={site.name} colors={{ [site.name]: site.hex }} />
+  ))}
+</ColorPalette>
+
+## The palette
+
+Each ramp keeps the hue of its logo colour and steps lightness evenly (OKLCH), so that a step weighs about the same in
+every hue. The logos' colours are pinned at their steps. Nothing styles itself with the palette directly.
+
+<ColorPalette>
+  {ramps.map(ramp => (
+    <ColorItem
+      key={ramp.name}
+      title={ramp.name}
+      subtitle={[
+        ramp.description,
+        ...ramp.steps.filter(step => step.pinned).map(step => `${step.step}: ${step.pinned}`),
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      colors={Object.fromEntries(ramp.steps.map(step => [step.step, step.hex]))}
+    />
+  ))}
+</ColorPalette>

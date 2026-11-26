@@ -32,6 +32,17 @@ const preview: Preview = {
   initialGlobals: { theme: 'system', site: 'mondarth' },
   decorators: [asPage],
   parameters: {
+    options: {
+      storySort: {
+        order: [
+          'Foundations',
+          ['Introduction', 'Colour', 'Type', 'Spacing', 'Motion', 'Wording', 'Accessibility'],
+          'Brand',
+          'Feedback',
+          'Navigation',
+        ],
+      },
+    },
     controls: { matchers: { color: /(background|color)$/i, date: /Date$/i } },
     // An accessibility violation fails the story's test, and so CI.
     a11y: { test: 'error' },

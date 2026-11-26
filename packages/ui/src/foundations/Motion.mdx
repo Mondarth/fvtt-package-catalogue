@@ -1,0 +1,45 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import { cssVariable, durations } from './tokens';
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+Mondarth's pages move little. Motion says something changed, or where something went: a dialog opening, a section
+unfolding. It does not decorate.
+
+<table>
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Duration</th>
+      <th>For</th>
+      <th>Property</th>
+    </tr>
+  </thead>
+  <tbody>
+    {durations.map(duration => (
+      <tr key={duration.path}>
+        <td>
+          <code>{duration.path}</code>
+        </td>
+        <td>
+          <code>{duration.css}</code>
+        </td>
+        <td>
+          {duration.path.endsWith('fast') ? 'Hover, focus, a small change of state.' : 'Something opening or closing.'}
+        </td>
+        <td>
+          <code>{cssVariable(duration.path)}</code>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+- **Nothing moves for a reader who prefers reduced motion.** Wrap every transition and animation in
+  `@media (prefers-reduced-motion: no-preference)`, so that it is added for those who want it, never taken away from
+  those who do not.
+- Nothing flashes, and nothing moves on its own for more than five seconds without a way to stop it.
+- What a page says is there at rest: nothing waits for an animation to be seen.
