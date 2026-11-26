@@ -1,6 +1,6 @@
 /**
  * The Svelte pieces Mondarth's applications share, so that each looks, and reads, as one with the others: the logo, the
- * page's frame, the top bar, the language picker, buttons, fields, checkboxes, dialogs, tables, badges, panels, notices
+ * page's frame, the top bar, the user navigation menu, the language picker, buttons, fields, checkboxes, dialogs, tables, badges, panels, notices
  * and callouts. Each takes its words from the application, which translates them,
  * so that this package holds none of its own.
  *
@@ -22,5 +22,6 @@ export { default as Notice } from './Notice.svelte';
 export { default as Panel } from './Panel.svelte';
 export { default as Table } from './Table.svelte';
 export { default as TopBar } from './TopBar.svelte';
+export { default as UserMenu } from './UserMenu.svelte';
 export type { FieldControl } from './Field.svelte';
 export type { ProfileMenuItem, TopBarAccount, TopBarLink } from './top-bar.js';
