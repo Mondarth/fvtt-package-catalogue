@@ -115,7 +115,7 @@ describe('the layout', () => {
       data: { dateLocale: 'en-GB', signedIn: { name: 'Ulenar', admin: false, impersonated: false } },
     });
     const bar = screen.getByRole('navigation', { name: en.workspace_label });
-    const profile = screen.getByText('Ulenar');
+    const profile = screen.getByLabelText(en.profile_button_label.replace('{name}', 'Ulenar'));
     expect(profile).toHaveAccessibleName(en.profile_button_label.replace('{name}', 'Ulenar'));
     expect(bar.lastElementChild).toBe(profile.closest('details'));
     // Its menu: the profile, the subscription, and signing out, posted; no admin pages, nor a way to sign in.
