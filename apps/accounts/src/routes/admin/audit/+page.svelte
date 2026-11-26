@@ -2,6 +2,8 @@
   The audit log: what admins have done, and what anyone did while an admin viewed the site as them, newest first.
 -->
 <script lang="ts">
+  import { Button, Table } from '@mondarth/ui';
+
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { actionLabel, changeOf } from '#lib/audit-labels.js';
@@ -25,7 +27,7 @@
 {#if data.entries.length === 0}
   <p>{m.admin_audit_none()}</p>
 {:else}
-  <table>
+  <Table caption={m.admin_audit_heading()} hideCaption>
     <thead>
       <tr>
         <th scope="col">{m.admin_audit_when()}</th>
@@ -52,31 +54,21 @@
         </tr>
       {/each}
     </tbody>
-  </table>
+  </Table>
   {#if data.next !== null}
     <form method="GET">
       <input type="hidden" name="before" value={data.next} />
-      <button type="submit">{m.admin_audit_older()}</button>
+      <Button type="submit">{m.admin_audit_older()}</Button>
     </form>
   {/if}
 {/if}
 
 <style>
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-
-  th,
   td {
-    padding: 0.3rem 0.5rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
-  a {
-    color: var(--accent);
+  form {
+    margin-top: var(--mdr-space-4);
   }
 </style>

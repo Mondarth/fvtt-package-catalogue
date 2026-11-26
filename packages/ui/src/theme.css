@@ -35,6 +35,34 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/*
+ * Form controls, native ones as a page writes them, in the theme: low in specificity (`:where`), so that a component or
+ * a page sets its own over them. A checkbox or a radio keeps the browser's own drawing, in the accent.
+ */
+:where(input:not([type='checkbox'], [type='radio'], [type='hidden']), select, textarea) {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--mdr-space-2) var(--mdr-space-3);
+  border: var(--mdr-border-width-thin) solid var(--mdr-color-border-strong);
+  border-radius: var(--mdr-radius-small);
+  background: var(--mdr-color-surface);
+  color: var(--mdr-color-text);
+  font: inherit;
+}
+
+:where(input, select, textarea):focus-visible {
+  outline: var(--mdr-border-width-focus) solid var(--mdr-color-focus);
+  outline-offset: 1px;
+}
+
+:where(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--mdr-color-danger);
+}
+
+:where(input[type='checkbox'], input[type='radio']) {
+  accent-color: var(--mdr-color-accent);
+}
+
 /* Hidden but for screen readers: words a sighted reader has from what is around them. */
 .mdr-visually-hidden {
   position: absolute;
