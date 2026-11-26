@@ -2,7 +2,7 @@
   The Terms and Conditions, in English, which governs: a page in another language says so before them.
 -->
 <script lang="ts">
-  import { Notice } from '@mondarth/ui';
+  import { Notice, Prose } from '@mondarth/ui';
 
   import Terms from '#lib/components/Terms.svelte';
   import { m } from '#lib/paraglide/messages.js';
@@ -13,8 +13,10 @@
   <title>{m.terms_title()}</title>
 </svelte:head>
 
-{#if getLocale() !== 'en'}
-  <Notice>{m.terms_in_english()}</Notice>
-{/if}
+<Prose>
+  {#if getLocale() !== 'en'}
+    <Notice>{m.terms_in_english()}</Notice>
+  {/if}
 
-<Terms />
+  <Terms />
+</Prose>
