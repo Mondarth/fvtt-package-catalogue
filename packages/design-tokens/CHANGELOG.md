@@ -1,3 +1,9 @@
+## [@mondarth/design-tokens-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/design-tokens-v0.1.0...@mondarth/design-tokens-v0.2.0) (2026-11-26)
+
+### Features
+
+* **design-tokens:** give each site's colour a text shade ([21d2374](https://github.com/Mondarth/fvtt-package-catalogue/commit/21d2374dbcc608e5dd86edaf04f278aabb35c779))
+
 ## [@mondarth/design-tokens-v0.1.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/design-tokens-v0.0.0...@mondarth/design-tokens-v0.1.0) (2026-11-25)
 
 ### Features
