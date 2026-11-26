@@ -1,3 +1,11 @@
+## [@mondarth/accounts-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.2.0...@mondarth/accounts-v0.3.0) (2026-11-26)
+
+### Features
+
+* **accounts:** build the admin pages of shared components ([4af5f85](https://github.com/Mondarth/fvtt-package-catalogue/commit/4af5f8505d3fe4c50b6eb786a36990871fb3965b))
+* **accounts:** build the frame and simple pages of shared components ([9161b00](https://github.com/Mondarth/fvtt-package-catalogue/commit/9161b00311cc07f5c423a6e97c2782de77d9d217))
+* **accounts:** build the subscription page of shared components ([28d807d](https://github.com/Mondarth/fvtt-package-catalogue/commit/28d807daf8254dbf840edf0aa5237a294cbee35f))
+
 ## [@mondarth/accounts-v0.2.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.1.1...@mondarth/accounts-v0.2.0) (2026-11-25)
 
 ### Features

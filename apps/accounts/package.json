@@ -1,6 +1,6 @@
 {
   "name": "@mondarth/accounts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Mondarth's accounts: signing in, once, to every Mondarth application, the profile, and the subscription that each application's subscriber features need.",
   "author": "Ulenar of Mondarth",
