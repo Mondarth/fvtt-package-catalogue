@@ -3,7 +3,7 @@
   any of them, what signing in stores, with a link to the page that lays it out.
 -->
 <script lang="ts">
-  import { Logo } from '@mondarth/ui';
+  import { Button, Callout, Logo } from '@mondarth/ui';
   import { resolve } from '$app/paths';
   import { useDates } from '#lib/dates.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -32,7 +32,7 @@
 <p class="lede">{m.sign_in_lede()}</p>
 
 {#if banned !== null}
-  <div role="alert" class="failed">
+  <Callout>
     {#if !banned.known}
       <p>{m.sign_in_banned()}</p>
     {:else}
@@ -41,9 +41,9 @@
       </p>
       {#if banned.reason !== null}<p>{m.sign_in_banned_reason({ reason: banned.reason })}</p>{/if}
     {/if}
-  </div>
+  </Callout>
 {:else if failed}
-  <p role="alert" class="failed">{m.sign_in_failed()}</p>
+  <Callout>{m.sign_in_failed()}</Callout>
 {/if}
 
 <p class="stores">
@@ -59,7 +59,7 @@
       <li>
         <form method="POST" action="/sign-in/{provider}">
           {#if next !== undefined}<input type="hidden" name="next" value={next} />{/if}
-          <button type="submit">{m.sign_in_with({ provider: providerName(provider) })}</button>
+          <Button type="submit">{m.sign_in_with({ provider: providerName(provider) })}</Button>
         </form>
       </li>
     {/each}
@@ -68,55 +68,30 @@
 
 <style>
   .logo {
-    margin-top: 2rem;
+    margin-top: var(--mdr-space-6);
   }
 
   .lede,
   .stores {
-    color: var(--muted);
+    color: var(--mdr-color-text-muted);
   }
 
-  .failed {
-    padding: 0.5rem 0.8rem;
-    border-left: 3px solid var(--accent);
-    background: var(--note-bg);
-  }
-
-  .failed p {
+  /* A banned user's when and why, one under the other. */
+  :global(.callout) p {
     margin: 0;
   }
 
-  .failed p + p {
-    margin-top: 0.3rem;
-  }
-
   .providers {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+    display: grid;
+    gap: var(--mdr-space-3);
     max-width: 20rem;
-    margin: 1.5rem 0;
+    margin: var(--mdr-space-5) 0;
     padding: 0;
     list-style: none;
   }
 
-  button {
+  /* Each provider's button as wide as the list. */
+  .providers :global(.button) {
     width: 100%;
-    padding: 0.6rem 1rem;
-    border: 1px solid var(--muted);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--fg);
-    font: inherit;
-    cursor: pointer;
-  }
-
-  button:hover,
-  button:focus-visible {
-    border-color: var(--accent);
-  }
-
-  a {
-    color: var(--accent);
   }
 </style>

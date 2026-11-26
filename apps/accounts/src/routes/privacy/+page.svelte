@@ -3,6 +3,8 @@
   lists it, so that it says what the accounts' tables hold.
 -->
 <script lang="ts">
+  import { Table } from '@mondarth/ui';
+
   import { m } from '#lib/paraglide/messages.js';
   import { PROCESSORS } from '#lib/processors.js';
   import { STORED } from '#lib/stored.js';
@@ -58,7 +60,7 @@
 <h1>{m.privacy_heading()}</h1>
 <p class="lede">{m.privacy_lede()}</p>
 
-<table>
+<Table caption={m.privacy_heading()} hideCaption>
   <thead>
     <tr>
       <th scope="col">{m.privacy_column_what()}</th>
@@ -76,7 +78,7 @@
       </tr>
     {/each}
   </tbody>
-</table>
+</Table>
 
 <section aria-labelledby="payments">
   <h2 id="payments">{m.privacy_payments_heading()}</h2>
@@ -104,28 +106,10 @@
 
 <style>
   .lede {
-    color: var(--muted);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--note-bg);
-    text-align: start;
-    vertical-align: top;
-  }
-
-  thead th {
-    color: var(--muted);
-    font-weight: normal;
+    color: var(--mdr-color-text-muted);
   }
 
   tbody th {
-    font-weight: 600;
+    font-weight: var(--mdr-font-weight-strong);
   }
 </style>

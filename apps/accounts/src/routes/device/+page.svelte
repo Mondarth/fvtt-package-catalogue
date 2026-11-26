@@ -3,7 +3,7 @@
   with the code to check, and approving or denying it; and what came of it.
 -->
 <script lang="ts">
-  import { Callout } from '@mondarth/ui';
+  import { Button, Callout, Field } from '@mondarth/ui';
   import SignIn from '#lib/components/SignIn.svelte';
   import { clientName } from '#lib/device-clients.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -42,19 +42,19 @@
     <div class="decide">
       <form method="POST" action="?/approve">
         <input type="hidden" name="code" value={data.code} />
-        <button type="submit">{m.device_approve()}</button>
+        <Button type="submit" variant="primary">{m.device_approve()}</Button>
       </form>
       <form method="POST" action="?/deny">
         <input type="hidden" name="code" value={data.code} />
-        <button type="submit" class="deny">{m.device_deny()}</button>
+        <Button type="submit" variant="danger">{m.device_deny()}</Button>
       </form>
     </div>
   {:else if state === 'enter'}
     <form method="GET" class="enter">
-      <label for="user_code">{m.device_enter_label()}</label>
-      <input id="user_code" name="user_code" autocomplete="off" aria-describedby="user-code-hint" required />
-      <p id="user-code-hint" class="hint">{m.device_enter_hint()}</p>
-      <button type="submit">{m.device_enter_button()}</button>
+      <Field id="user_code" label={m.device_enter_label()} hint={m.device_enter_hint()}>
+        {#snippet children(field)}<input {...field} name="user_code" autocomplete="off" required />{/snippet}
+      </Field>
+      <Button type="submit">{m.device_enter_button()}</Button>
     </form>
   {:else if state === 'approved' || state === 'denied'}
     <p role="status">{SAID[state]?.()}</p>
@@ -64,46 +64,33 @@
 {/if}
 
 <style>
-  .lede {
-    color: var(--muted);
-  }
-
-  .code {
-    font-size: 1.6rem;
-    letter-spacing: 0.15em;
+  .lede,
+  .hint {
+    color: var(--mdr-color-text-muted);
   }
 
   .hint {
-    color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--mdr-font-size-small);
+  }
+
+  .code {
+    font-size: var(--mdr-font-size-title);
+    letter-spacing: 0.15em;
   }
 
   .decide {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: var(--mdr-space-4);
   }
 
   .enter {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    align-items: start;
+    display: grid;
+    gap: var(--mdr-space-3);
+    justify-items: start;
   }
 
-  input {
-    padding: 0.4rem 0.6rem;
-    font: inherit;
+  .enter :global(input) {
     text-transform: uppercase;
-  }
-
-  button {
-    padding: 0.4rem 0.9rem;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .deny {
-    border-color: var(--accent);
-    color: var(--accent);
   }
 </style>

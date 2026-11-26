@@ -2,6 +2,8 @@
   The Terms and Conditions, in English, which governs: a page in another language says so before them.
 -->
 <script lang="ts">
+  import { Notice } from '@mondarth/ui';
+
   import Terms from '#lib/components/Terms.svelte';
   import { m } from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -12,15 +14,7 @@
 </svelte:head>
 
 {#if getLocale() !== 'en'}
-  <p class="english" role="note">{m.terms_in_english()}</p>
+  <Notice>{m.terms_in_english()}</Notice>
 {/if}
 
 <Terms />
-
-<style>
-  .english {
-    padding: 0.75rem 1rem;
-    border-inline-start: 4px solid var(--accent);
-    background: var(--note-bg);
-  }
-</style>
