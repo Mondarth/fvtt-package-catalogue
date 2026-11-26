@@ -30,7 +30,9 @@
   bind:this={dialog}
   aria-labelledby={titleId}
   onclose={() => {
-    open = false;
+    // The event comes a moment after the dialog closes: by then it may be open again, as when reopened at once, and
+    // a stale close is not to shut it.
+    if (dialog?.open === false) open = false;
   }}>
   <h2 id={titleId}>{title}</h2>
   <div class="body">{@render children()}</div>

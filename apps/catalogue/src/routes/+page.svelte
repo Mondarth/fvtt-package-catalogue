@@ -29,19 +29,23 @@
 
 <style>
   .lede {
-    color: var(--muted);
+    color: var(--mdr-color-text-muted);
   }
 
+  /* A link to the accounts, not a form: drawn as the primary action it is, in the gear's gold. */
   .sign-in {
     display: inline-block;
-    padding: 0.4rem 1rem;
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    color: var(--accent);
+    padding: var(--mdr-space-2) var(--mdr-space-4);
+    border-radius: var(--mdr-radius-small);
+    background: var(--mdr-color-action);
+    color: var(--mdr-color-text-on-action);
+    font-weight: var(--mdr-font-weight-strong);
     text-decoration: none;
   }
 
   .links {
+    display: grid;
+    gap: var(--mdr-space-2);
     padding: 0;
     list-style: none;
   }

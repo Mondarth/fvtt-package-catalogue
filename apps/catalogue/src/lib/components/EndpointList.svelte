@@ -30,28 +30,29 @@
 
 <style>
   ul {
-    list-style: none;
-    padding: 0;
     display: grid;
-    gap: 0.75rem;
+    gap: var(--mdr-space-3);
+    padding: 0;
+    list-style: none;
   }
 
   li {
     display: grid;
-    gap: 0.25rem;
+    gap: var(--mdr-space-1);
   }
 
   code {
+    font-family: var(--mdr-font-family-mono);
     overflow-wrap: anywhere;
   }
 
   .callers {
-    color: var(--muted);
-    font-size: 0.9rem;
+    color: var(--mdr-color-text-muted);
+    font-size: var(--mdr-font-size-small);
   }
 
   .method {
-    font-weight: 700;
-    color: var(--accent);
+    color: var(--mdr-color-accent);
+    font-weight: var(--mdr-font-weight-strong);
   }
 </style>

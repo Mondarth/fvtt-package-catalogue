@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "site_title": "Foundry VTT Package Catalogue",
+  "skip_link": "Skip to the content",
   "site_description": "What Foundry VTT packages declare, for tools that work out what to install.",
   "home_lede": "What Foundry VTT, its game systems and its modules declare in their manifests, gathered from Foundry VTT's package listing, GitHub and GitLab, for tools that work out which versions can be installed together.",
   "endpoints_heading": "Endpoints",
