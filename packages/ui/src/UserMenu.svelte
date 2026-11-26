@@ -22,6 +22,12 @@
 
   let open = $state(false);
   let details: HTMLDetailsElement | undefined = $state();
+  let items: HTMLUListElement | undefined = $state();
+  /**
+   * Whether the menu opens from the button's start, rightwards in a left-to-right page: only where opening from its
+   * end, as at the far right of the bar, would run it off the window.
+   */
+  let fromStart = $state(false);
 
   /** Closes the menu, giving the focus back to its button where it was within the menu. */
   function close(refocus: boolean): void {
@@ -30,7 +36,12 @@
   }
 
   $effect(() => {
-    if (!open) return;
+    if (!open) {
+      fromStart = false;
+      return;
+    }
+    const box = items?.getBoundingClientRect();
+    if (box !== undefined && box.left < 0) fromStart = true;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close(details?.contains(document.activeElement) === true);
     };
@@ -51,7 +62,7 @@
 {:else}
   <details class="account" bind:this={details} bind:open>
     <summary class="profile" aria-label={account.label}>{account.name}</summary>
-    <ul class="items">
+    <ul class="items" class:from-start={fromStart} bind:this={items}>
       {#each account.items as item (item.label)}
         <li>
           {#if isAction(item)}
@@ -108,8 +119,10 @@
     color: var(--mdr-color-text-on-action);
   }
 
+  /* As wide as its button, wherever it is placed, so that the menu hangs from the button. */
   .account {
     position: relative;
+    display: inline-block;
   }
 
   /* The button's own marker gives way to the dot and a caret. */
@@ -150,6 +163,10 @@
     border-radius: var(--mdr-radius-small);
     background: var(--mdr-color-surface);
     list-style: none;
+  }
+
+  .items.from-start {
+    inset-inline: 0 auto;
   }
 
   .items a,
