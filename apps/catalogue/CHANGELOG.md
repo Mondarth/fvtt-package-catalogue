@@ -1,3 +1,10 @@
+## [@mondarth/fvtt-package-catalogue-v0.16.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.15.0...@mondarth/fvtt-package-catalogue-v0.16.0) (2026-11-27)
+
+### Features
+
+* **catalogue:** keep the developers' page at a readable width ([f8efb1f](https://github.com/Mondarth/fvtt-package-catalogue/commit/f8efb1fe720126d0ef6661b5fd9de7e7dac3292c))
+* **catalogue:** link the Terms and privacy from the footer ([cd9f1e5](https://github.com/Mondarth/fvtt-package-catalogue/commit/cd9f1e53fc99666952858c2b4e20dba768e99a56))
+
 ## [@mondarth/fvtt-package-catalogue-v0.15.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/fvtt-package-catalogue-v0.14.0...@mondarth/fvtt-package-catalogue-v0.15.0) (2026-11-26)
 
 ### Features
