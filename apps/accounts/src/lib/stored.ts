@@ -196,7 +196,7 @@ export const STORED: readonly StoredItem[] = [
 ];
 
 /**
- * Columns that hold nothing, and so are not on the page: Better Auth's own, for what the catalogue does not use.
- * `accounts.password` is for signing in with a password, which the catalogue does not offer.
+ * Columns that hold nothing, and so are not on the page: Better Auth's own, for what the accounts do not use.
+ * `accounts.password` is for signing in with a password, which the accounts do not offer.
  */
 export const UNUSED_COLUMNS: readonly string[] = ['accounts.password'];

@@ -5,12 +5,14 @@
   import { withoutChildren } from '../.storybook/args';
 
   import AppShell from './AppShell.svelte';
+  import FooterLinks from './FooterLinks.svelte';
   import Logo from './Logo.svelte';
   import TopBar from './TopBar.svelte';
 
   /**
    * The frame of every page: a link to skip to the content, the header, the page in its main landmark, and the
-   * footer. Text runs no wider than the content width, with a gutter on a phone.
+   * footer. It takes the window's whole width, with a gutter that grows with it; a page meant to be read keeps its
+   * text to a readable width with `Prose`.
    */
   const { Story } = defineMeta({
     title: 'Layout/AppShell',
@@ -54,7 +56,13 @@
       {/snippet}
       <h1>Subscription</h1>
       <p>Subscribed until 25 December 2026.</p>
-      {#snippet footer()}<a href="#privacy">What we store, and why</a>{/snippet}
+      {#snippet footer()}
+        <FooterLinks
+          links={[
+            { href: '#terms', label: 'Terms' },
+            { href: '#privacy', label: 'What we store, and why' },
+          ]} />
+      {/snippet}
     </AppShell>
   {/snippet}
 </Story>

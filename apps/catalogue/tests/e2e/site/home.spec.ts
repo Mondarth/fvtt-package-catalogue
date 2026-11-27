@@ -19,8 +19,15 @@ test('the home page says what the catalogue is, and the bar sends a visitor to s
     'href',
     `${ACCOUNTS_URL}/?next=${encodeURIComponent(`${E2E_URL}/`)}`,
   );
-  await expect(page.getByRole('link', { name: en.privacy_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/privacy`);
-  await expect(page.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/terms`);
+  // The Terms and what is stored, the accounts', at the foot of the page, with the way back here.
+  const foot = page.getByRole('contentinfo');
+  const back = `?next=${encodeURIComponent(`${E2E_URL}/`)}&from=catalogue`;
+  await expect(foot.getByRole('link', { name: en.privacy_link })).toHaveAttribute(
+    'href',
+    `${ACCOUNTS_URL}/privacy${back}`,
+  );
+  await expect(foot.getByRole('link', { name: en.terms_link })).toHaveAttribute('href', `${ACCOUNTS_URL}/terms${back}`);
+  await expect(page.getByRole('main').getByRole('link', { name: en.privacy_link })).toHaveCount(0);
 });
 
 test('every page has the logo, linking home, and the icons', async ({ page, request }) => {

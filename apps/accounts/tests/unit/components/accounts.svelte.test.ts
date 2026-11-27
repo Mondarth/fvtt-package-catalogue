@@ -14,18 +14,50 @@ const valueOf = (term: string) => screen.getByText(term, { selector: 'dt' }).nex
 const es = messagesOf('es');
 
 describe('the "What we store" page', () => {
-  it('lists everything signing in stores, where it comes from and what it is for, and how long it is kept', () => {
+  /** Every row of the page's tables, its header rows left out. */
+  const allRows = () => screen.getAllByRole('table').flatMap(table => within(table).getAllByRole('row').slice(1));
+
+  it('lists everything signing in stores, by where it comes from, what it is for, and how long it is kept', () => {
     render(Privacy);
     expect(screen.getByRole('heading', { level: 1, name: en.privacy_heading })).toBeInTheDocument();
-    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(rows).toHaveLength(STORED.length);
-    const email = rows.find(row => row.dataset.stored === 'email');
+    expect(screen.getByText(en.privacy_intro)).toBeInTheDocument();
+    expect(allRows()).toHaveLength(STORED.length);
+
+    // Provided by the visitor: directly, through the provider they sign in with, and through their browser; then what
+    // we create. Each a table of what, and what for.
+    const provided = screen.getByRole('region', { name: en.privacy_provided_heading });
+    const places = [
+      ['you', en.privacy_provided_you],
+      ['provider', en.privacy_provided_provider],
+      ['browser', en.privacy_provided_browser],
+    ] as const;
+    for (const [from, heading] of places) {
+      const place = within(provided).getByRole('region', { name: heading });
+      expect(within(place).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
+      const ids = within(place)
+        .getAllByRole('row')
+        .slice(1)
+        .map(row => row.dataset.stored);
+      expect(ids, from).toEqual(STORED.filter(item => item.from === from).map(item => item.id));
+    }
+    const created = screen.getByRole('region', { name: en.privacy_created_heading });
+    const ids = within(created)
+      .getAllByRole('row')
+      .slice(1)
+      .map(row => row.dataset.stored);
+    expect(ids).toEqual(STORED.filter(item => item.from === 'us').map(item => item.id));
+
+    // Two columns: what, and what it is used for.
+    for (const table of screen.getAllByRole('table')) {
+      expect(
+        within(table)
+          .getAllByRole('columnheader')
+          .map(cell => cell.textContent),
+      ).toEqual([en.privacy_column_what, en.privacy_column_why]);
+    }
+    const email = allRows().find(row => row.dataset.stored === 'email');
     expect(email).toHaveTextContent(en.privacy_email_what);
-    expect(email).toHaveTextContent(en.privacy_from_provider);
     expect(email).toHaveTextContent(en.privacy_email_why);
-    expect(rows.find(row => row.dataset.stored === 'nickname')).toHaveTextContent(en.privacy_from_you);
-    expect(rows.find(row => row.dataset.stored === 'device')).toHaveTextContent(en.privacy_from_browser);
-    expect(rows.find(row => row.dataset.stored === 'handle')).toHaveTextContent(en.privacy_from_us);
     expect(screen.getByRole('region', { name: en.privacy_kept_heading })).toHaveTextContent(en.privacy_kept);
     expect(screen.getByRole('region', { name: en.privacy_cookies_heading })).toHaveTextContent(en.privacy_cookies);
   });
@@ -35,7 +67,7 @@ describe('the "What we store" page', () => {
   it('says what each row is, and why it is kept, in its own words', () => {
     render(Privacy);
     const messages: Record<string, string> = en;
-    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    const rows = allRows();
     for (const { id } of STORED) {
       const row = rows.find(candidate => candidate.dataset.stored === id);
       expect(row, id).toHaveTextContent(messages[`privacy_${id}_what`] ?? `no privacy_${id}_what`);

@@ -1,7 +1,8 @@
 <!--
   The frame of every page: a link to skip to the page's content, the header (the logo, and the top bar once signed
-  in), the page itself in its main landmark, and the footer. The page's text runs no wider than the tokens' content
-  width, with a side gutter on a phone.
+  in), the page itself in its main landmark, and the footer. An application's frame takes the window's whole width,
+  with a side gutter that grows with it; a page meant to be read, such as the Terms, keeps its text to a readable width
+  within it (`Prose`).
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
@@ -27,9 +28,7 @@
   .frame {
     box-sizing: border-box;
     width: 100%;
-    max-width: calc(var(--mdr-layout-content) + 2 * var(--mdr-space-4));
-    margin-inline: auto;
-    padding-inline: var(--mdr-space-4);
+    padding-inline: clamp(var(--mdr-space-4), 3vw, var(--mdr-space-7));
   }
 
   header {

@@ -1,7 +1,7 @@
 /**
  * The payment processors a subscription may be paid through, as the "What we store" page (`/privacy`) lists them: who
- * each is, what it keeps of you, and its own privacy policy. The catalogue keeps minimal payment details, a payment's
- * reference and total: an invoice is the processor's to keep. Each processor the catalogue takes payments through is
+ * each is, what it keeps of you, and its own privacy policy. The accounts keep minimal payment details, a payment's
+ * reference and total: an invoice is the processor's to keep. Each processor the accounts take payments through is
  * added here as it is, which a test checks.
  */
 
