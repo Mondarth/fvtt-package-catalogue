@@ -7,10 +7,15 @@
  * pledging the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
  * `patreon.ts`), and makes no credits.
  *
- * What `subscription_credits` and `patreon_memberships` hold of a user is on the website's "What we store" page
- * (`/privacy`): change one, change both. Offers and settings hold nothing of anyone.
+ * What a subscription gives is an **eligibility**, such as the catalogue's: eligibilities form a tree, and holding one
+ * holds every one under it (`eligibilities`, see `eligibilities.ts`). An offer adds time to the eligibilities it names
+ * (`offer_eligibilities`), and a credit gives its time to those it names (`credit_eligibilities`).
+ *
+ * What `subscription_credits`, `credit_eligibilities` and `patreon_memberships` hold of a user is on the website's
+ * "What we store" page (`/privacy`): change one, change both. Eligibilities, offers and settings hold nothing of anyone.
  */
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { sql } from 'drizzle-orm';
 
@@ -204,3 +209,59 @@ export const catalogueSettings = pgTable('catalogue_settings', {
   updatedBy: text().notNull(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * What a subscription gives: an eligibility, such as the catalogue's, in a tree. Holding one holds every one under it:
+ * time on `apps` holds `catalogue` and `aide` too. Never deleted once made, so that what was bought for one stays as it
+ * was: one no longer offered is retired.
+ */
+export const eligibilities = pgTable(
+  'eligibilities',
+  {
+    /** What the applications ask for it by, such as `catalogue`: never changed once made. */
+    id: text().primaryKey(),
+    /** What it is called, such as `Catalogue`. */
+    name: text().notNull(),
+    /** What it gives, as the admins describe it. */
+    description: text(),
+    /** The eligibility it is under; none for one at the top. */
+    parentId: text().references((): AnyPgColumn => eligibilities.id),
+    /** The admin who made it, or `migration` for those the accounts began with. */
+    createdBy: text().notNull(),
+    createdAt,
+    /** When an admin retired it: nothing more is offered for it. */
+    retiredAt: timestamp({ withTimezone: true }),
+  },
+  table => [index('eligibilities_parent_id').on(table.parentId)],
+);
+
+/** The eligibilities an offer adds time to: one at least. */
+export const offerEligibilities = pgTable(
+  'offer_eligibilities',
+  {
+    offerId: text()
+      .notNull()
+      .references(() => subscriptionOffers.id),
+    eligibilityId: text()
+      .notNull()
+      .references(() => eligibilities.id),
+  },
+  table => [primaryKey({ columns: [table.offerId, table.eligibilityId] })],
+);
+
+/** The eligibilities a credit gives its time to: those of its offer, or those an admin granted. */
+export const creditEligibilities = pgTable(
+  'credit_eligibilities',
+  {
+    creditId: text()
+      .notNull()
+      .references(() => subscriptionCredits.id, { onDelete: 'cascade' }),
+    eligibilityId: text()
+      .notNull()
+      .references(() => eligibilities.id),
+  },
+  table => [
+    primaryKey({ columns: [table.creditId, table.eligibilityId] }),
+    index('credit_eligibilities_eligibility_id').on(table.eligibilityId),
+  ],
+);

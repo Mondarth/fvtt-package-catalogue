@@ -15,10 +15,12 @@ import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, max, or, s
 
 import { users } from '../accounts/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
+import { addEligibility, listEligibilities } from './eligibilities.js';
 import { addPeriod } from './period.js';
 import { subscriptionCheckouts, subscriptionCredits, subscriptionOffers } from './schema.js';
 
 import type { Database } from '../db/database.js';
+import type { Eligibility, EligibilityInput } from './eligibilities.js';
 import type { Period } from './period.js';
 import type { CheckoutStatus, CreditSource, DisputeState, OfferProviderRefs, RefundReason } from './schema.js';
 
@@ -116,6 +118,10 @@ export interface Changed {
 
 /** What the website asks of subscriptions. */
 export interface SubscriptionStore {
+  /** Every eligibility, with how many offers on sale add time to each (see `eligibilities.ts`). */
+  eligibilities(): Promise<Eligibility[]>;
+  /** Adds an eligibility, under another or at the top. */
+  addEligibility(input: EligibilityInput): Promise<Eligibility | 'taken' | 'no-parent'>;
   status(userId: string, now?: Date): Promise<SubscriptionStatus>;
   /** A user's credits, the latest first. */
   history(userId: string): Promise<Credit[]>;
@@ -226,6 +232,8 @@ export function subscriptionStore(db: Database): SubscriptionStore {
     tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
 
   return {
+    eligibilities: () => listEligibilities(db),
+    addEligibility: input => addEligibility(db, input),
     async status(userId, now = new Date()) {
       const end = await paidUntil(db, userId);
       return { paidUntil: end, active: end !== null && end > now };

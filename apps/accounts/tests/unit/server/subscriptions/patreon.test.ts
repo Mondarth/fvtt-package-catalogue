@@ -7,6 +7,7 @@ import {
   CHECK_EVERY_MS,
   forgetPatreonOf,
   GRACE_MS,
+  MINIMUM_SETTING,
   patreonChecker,
   patreonUrl,
   readMembership,
@@ -234,12 +235,16 @@ describe('the checker', () => {
     await patreon.setMinimum(null, 'admin');
     expect(await patreon.minimum()).toBeNull();
     expect((await patreon.kept('ada', T0)).subscribed).toBe(false);
-    expect(await db.select().from(catalogueSettings)).toEqual([]);
+    // The least pledge's setting goes; the others, such as what Patreon subscribes to, stay.
+    expect((await db.select().from(catalogueSettings)).map(({ key }) => key)).not.toContain(MINIMUM_SETTING);
   });
 
   it('reads a least pledge that is not one as none', async () => {
     const { patreon } = await checker([]);
-    await db.update(catalogueSettings).set({ value: { currency: 'GBP' } });
+    await db
+      .update(catalogueSettings)
+      .set({ value: { currency: 'GBP' } })
+      .where(eq(catalogueSettings.key, MINIMUM_SETTING));
     expect(await patreon.minimum()).toBeNull();
   });
 

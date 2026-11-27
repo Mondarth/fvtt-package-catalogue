@@ -204,3 +204,28 @@ test.describe('subscriptions', () => {
     await expect(page.getByRole('table')).not.toContainText('Welcome');
   });
 });
+
+test('an admin adds an eligibility under another, from its menu, and it is selected in the tree', async ({
+  page,
+}, info) => {
+  // Every browser adds its own, at once, to the same accounts.
+  const name = `AIDE beta ${info.project.name} ${String(Date.now()).slice(-6)}`;
+  await signInAs(page, E2E_ADMIN);
+  await page.goto('/admin/eligibilities');
+  const tree = page.getByRole('tree', { name: en.admin_eligibilities_tree });
+  // The tree the accounts begin with.
+  for (const begun of ['Mondarth', 'Apps', 'Catalogue', 'AIDE']) {
+    await expect(tree.getByRole('treeitem', { name: new RegExp(`^${begun}`) }).first()).toBeVisible();
+  }
+
+  await tree.getByRole('treeitem', { name: /^AIDE/ }).locator('.row').first().click({ button: 'right' });
+  await page.getByRole('menuitem', { name: en.admin_eligibility_add }).click();
+  const dialog = page.getByRole('dialog', { name: en.admin_eligibility_add_under.replace('{name}', 'AIDE') });
+  await dialog.getByLabel(en.admin_eligibility_name).fill(name);
+  await dialog.getByRole('button', { name: en.admin_eligibility_add }).click();
+
+  const added = tree.getByRole('treeitem', { name: new RegExp(`^${name}`) });
+  await expect(added).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
+  await expect(tree.getByRole('treeitem', { name: /^AIDE/ }).first().getByRole('group')).toContainText(name);
+});
