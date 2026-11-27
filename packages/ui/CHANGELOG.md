@@ -1,3 +1,11 @@
+## [@mondarth/ui-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/ui-v0.3.0...@mondarth/ui-v0.4.0) (2026-11-27)
+
+### Features
+
+* **ui:** give applications the window's whole width ([312bc97](https://github.com/Mondarth/fvtt-package-catalogue/commit/312bc9714e94b92bbadbadb867ff2a3033431b78))
+* **ui:** let a notice say what it is for, with an icon ([435369c](https://github.com/Mondarth/fvtt-package-catalogue/commit/435369c024e3e0a949fd364bb19424fabdc863e2))
+* **ui:** share the links at the foot of every page ([3e5360c](https://github.com/Mondarth/fvtt-package-catalogue/commit/3e5360cd7b4085cb5e26065ead6aaefee7c2e097))
+
 ## [@mondarth/ui-v0.3.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/ui-v0.2.0...@mondarth/ui-v0.3.0) (2026-11-26)
 
 ### Features
