@@ -120,7 +120,7 @@ onto the tokens, so that it keeps its theme and wears Mondarth's colours.
 [Storybook][storybook]: the page's frame, buttons, fields, checkboxes, dialogs, tables, badges, panels, notices and
 callouts, the top bar and the user navigation menu (`UserMenu`: signing in, or the user's own menu), the language
 picker, the logo, and the brand (`Brand`: the logo with "Mondarth" over the site's name, each in its colour as
-text, `color.site-text`), a page meant to be read (`Prose`: its text at a readable width, as the Terms, in an application's frame that otherwise takes the window's whole width), the links at the foot of every page (`FooterLinks`: the Terms and what is stored), and the way back to another site (`ReturnLink`: its logo and "Back to …" in its colour). Each is styled with the tokens alone (`--mdr-*`), never the
+text, `color.site-text`), a page meant to be read (`Prose`: its text at a readable width, as the Terms, in an application's frame that otherwise takes the window's whole width), a tree of a hierarchy an admin manages, with a menu of what can be done with each node (`Tree`, `ContextMenu`: right-click, Shift+F10 or the Menu key, or each node's "⋯" button), the links at the foot of every page (`FooterLinks`: the Terms and what is stored), and the way back to another site (`ReturnLink`: its logo and "Back to …" in its colour). Each is styled with the tokens alone (`--mdr-*`), never the
 palette, and takes its words from the application, which translates them. They are native elements underneath (a
 `<button>`, an `<input>` the page writes itself, a `<dialog>`), so that a page's forms post as plain HTML forms do.
 
