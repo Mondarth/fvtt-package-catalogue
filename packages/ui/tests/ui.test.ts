@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { dateLocaleOf, datesIn } from '../src/dates.js';
 import * as ui from '../src/index.js';
 import { languageName } from '../src/language.js';
+import { parentIds, visibleRows } from '../src/tree.js';
 import Dated from './support/Dated.svelte';
 
 const WHEN = new Date('2026-11-22T09:05:00Z');
@@ -17,6 +18,7 @@ describe('the package', () => {
       'Button',
       'Callout',
       'Checkbox',
+      'ContextMenu',
       'Dialog',
       'Field',
       'FooterLinks',
@@ -28,7 +30,10 @@ describe('the package', () => {
       'ReturnLink',
       'Table',
       'TopBar',
+      'Tree',
       'UserMenu',
+      'parentIds',
+      'visibleRows',
     ]);
   });
 });
@@ -70,5 +75,34 @@ describe('languages', () => {
   it('are named in themselves, with a capital', () => {
     expect(languageName('en')).toBe('English');
     expect(languageName('es')).toBe('Español');
+  });
+});
+
+describe("a tree's rows", () => {
+  const NODES = [
+    {
+      id: 'a',
+      label: 'A',
+      children: [
+        { id: 'b', label: 'B', children: [{ id: 'c', label: 'C' }] },
+        { id: 'd', label: 'D' },
+      ],
+    },
+    { id: 'e', label: 'E', children: [] },
+  ];
+
+  it('are every node whose ancestors are open, in order, each with its depth and parent', () => {
+    expect(visibleRows(NODES, new Set(['a', 'b'])).map(({ node, level, parent }) => [node.id, level, parent])).toEqual([
+      ['a', 1, null],
+      ['b', 2, 'a'],
+      ['c', 3, 'b'],
+      ['d', 2, 'a'],
+      ['e', 1, null],
+    ]);
+    expect(visibleRows(NODES, new Set(['b'])).map(({ node }) => node.id)).toEqual(['a', 'e']);
+  });
+
+  it('open fully at first: every node with children', () => {
+    expect(parentIds(NODES)).toEqual(['a', 'b']);
   });
 });
