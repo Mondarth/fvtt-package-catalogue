@@ -1,3 +1,13 @@
+## [@mondarth/accounts-v0.5.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.4.0...@mondarth/accounts-v0.5.0) (2026-11-27)
+
+### Features
+
+* **accounts:** sort what we store by where it comes from ([a9dce78](https://github.com/Mondarth/fvtt-package-catalogue/commit/a9dce78e5b49ad15d2e1264bdd6f2483efb2ee89))
+
+### Bug Fixes
+
+* **accounts:** say "we" and "Mondarth's websites" on what we store ([ee7e435](https://github.com/Mondarth/fvtt-package-catalogue/commit/ee7e4357254f23699bc99cb2c53d73b8a2cbf4a8))
+
 ## [@mondarth/accounts-v0.4.0](https://github.com/Mondarth/fvtt-package-catalogue/compare/@mondarth/accounts-v0.3.0...@mondarth/accounts-v0.4.0) (2026-11-26)
 
 ### Features
