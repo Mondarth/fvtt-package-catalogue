@@ -32,6 +32,9 @@ describe('the package', () => {
       'TopBar',
       'Tree',
       'UserMenu',
+      'closeContextMenu',
+      'contextMenu',
+      'openContextMenu',
       'parentIds',
       'visibleRows',
     ]);

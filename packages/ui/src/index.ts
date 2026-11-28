@@ -31,5 +31,7 @@ export { default as Tree } from './Tree.svelte';
 export { default as UserMenu } from './UserMenu.svelte';
 export type { FieldControl } from './Field.svelte';
 export type { ProfileMenuItem, TopBarAccount, TopBarLink } from './top-bar.js';
-export type { MenuItem, TreeNode, TreeRow } from './tree.js';
+export type { TreeNode, TreeRow } from './tree.js';
+export type { ContextMenuOptions, MenuItem, MenuPlace } from './context-menu.js';
 export { parentIds, visibleRows } from './tree.js';
+export { closeContextMenu, contextMenu, openContextMenu } from './context-menu.js';
