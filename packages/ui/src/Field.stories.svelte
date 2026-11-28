@@ -25,6 +25,9 @@
     const input = canvas.getByRole('textbox', { name: 'Nickname' });
     await expect(input).toHaveAccessibleDescription('What other users see you as, instead of your user id.');
     await expect(input).toHaveAttribute('aria-invalid', 'false');
+    // Not required: no mark, and the control is not.
+    await expect(input).not.toBeRequired();
+    await expect(input).not.toHaveAttribute('aria-required');
   }}>
   {#snippet template(args)}
     <Field {...withoutChildren(args)}>
@@ -69,6 +72,29 @@
           <option>Too expensive</option>
         </select>
       {/snippet}
+    </Field>
+  {/snippet}
+</Story>
+
+<Story
+  name="Required, filling its width"
+  args={{ id: 'name', label: 'Name', hint: 'What admins see it as.', required: true, wide: true }}
+  play={async ({ canvas, canvasElement }) => {
+    const input = canvas.getByRole('textbox', { name: 'Name' });
+    // Required, to a screen reader by the control, apart from its hint; to the eye, by a mark the reader skips.
+    await expect(input).toBeRequired();
+    await expect(input).toHaveAttribute('aria-required', 'true');
+    await expect(input).toHaveAccessibleDescription('What admins see it as.');
+    const mark = canvasElement.querySelector('label .required');
+    await expect(mark).toHaveTextContent('*');
+    await expect(mark).toHaveAttribute('aria-hidden', 'true');
+    // It fills the field.
+    const field = canvasElement.querySelector('.field');
+    await expect(input.getBoundingClientRect().width).toBe(field?.getBoundingClientRect().width);
+  }}>
+  {#snippet template(args)}
+    <Field {...withoutChildren(args)}>
+      {#snippet children(field)}<input {...field} name="name" />{/snippet}
     </Field>
   {/snippet}
 </Story>
