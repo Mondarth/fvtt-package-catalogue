@@ -1,11 +1,11 @@
 <!--
-  A menu of what can be done with something, opened where it is asked for: at the pointer, for a right-click, or at
-  the element, from the keyboard (Shift+F10 or the Menu key). The focus moves into it, the arrow keys move along it,
-  and Escape, Tab or a click anywhere else closes it, the focus going back where it was. Each entry is the
-  application's, in its words.
+  A context menu: what can be done with something, at a place in the window. The focus moves into it, the arrow keys,
+  Home and End move along it, and Escape, Tab, a choice or a click anywhere else asks to close it. Each entry is the
+  application's, in its words. Most open it with `contextMenu` or `openContextMenu` (`context-menu.ts`), which open
+  and close it, one at a time, and give the focus back.
 -->
 <script lang="ts">
-  import type { MenuItem } from './tree.js';
+  import type { MenuItem } from './context-menu.js';
 
   interface Props {
     /** The entries. */

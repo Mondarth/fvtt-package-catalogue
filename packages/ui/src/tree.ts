@@ -9,16 +9,6 @@ export interface TreeNode {
   readonly children?: readonly TreeNode[];
 }
 
-/** An entry of a {@link ContextMenu}. */
-export interface MenuItem {
-  /** What it says, in the application's words. */
-  readonly label: string;
-  /** What it does, once chosen; the menu has closed by then. */
-  readonly onSelect: () => void;
-  /** Shown but not chosen. */
-  readonly disabled?: boolean;
-}
-
 /** A row of a tree as it shows: its node, how deep, and its parent's id. */
 export interface TreeRow {
   readonly node: TreeNode;

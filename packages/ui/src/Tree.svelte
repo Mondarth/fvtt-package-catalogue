@@ -5,10 +5,11 @@
   can be done with a node, a right-click, Shift+F10 or the Menu key, or the node's own "⋯" button, opens it there.
 -->
 <script lang="ts">
-  import ContextMenu from './ContextMenu.svelte';
+  import { contextMenu, openContextMenu } from './context-menu.js';
   import { parentIds, visibleRows } from './tree.js';
 
-  import type { MenuItem, TreeNode } from './tree.js';
+  import type { ContextMenuOptions, MenuItem } from './context-menu.js';
+  import type { TreeNode } from './tree.js';
 
   interface Props {
     /** The top nodes. */
@@ -45,8 +46,6 @@
     rows.some(({ node }) => node.id === current) ? current : (selected ?? rows[0]?.node.id ?? null),
   );
   let tree: HTMLUListElement | undefined = $state();
-  /** The menu open, if one is: its node's entries, where, and what it is. */
-  let opened = $state<{ items: readonly MenuItem[]; x: number; y: number; label: string; id: string } | null>(null);
 
   const hasChildren = (node: TreeNode) => node.children !== undefined && node.children.length > 0;
 
@@ -79,36 +78,16 @@
   }
 
   /**
-   * Opens a node's menu, where it is asked for.
+   * A node's menu: what can be done with it, opened under its row from the keyboard or its "⋯" button.
    * @param node - The node
-   * @param x - Where, across the window
-   * @param y - Where, down it
+   * @returns The menu
    */
-  function openMenu(node: TreeNode, x: number, y: number): void {
-    const items = menu?.(node) ?? [];
-    if (items.length === 0) return;
-    current = node.id;
-    opened = { items, x, y, label: menuLabel(node), id: node.id };
-  }
-
-  /**
-   * Opens a node's menu at its row, as from the keyboard or its "⋯" button.
-   * @param node - The node
-   */
-  function openMenuAtRow(node: TreeNode): void {
-    const row = tree?.querySelector<HTMLElement>(`[data-id="${CSS.escape(node.id)}"] > .row`);
-    const box = row?.getBoundingClientRect();
-    openMenu(node, box?.left ?? 0, box?.bottom ?? 0);
-  }
-
-  /**
-   * Closes the menu open, the focus going back to its node where it should.
-   * @param refocus - Whether the focus goes back
-   */
-  function closeMenu(refocus: boolean): void {
-    const back = opened?.id;
-    opened = null;
-    if (refocus && back !== undefined) focus(back);
+  function menuOf(node: TreeNode): ContextMenuOptions {
+    return {
+      items: menu?.(node) ?? [],
+      label: menuLabel(node),
+      anchor: tree?.querySelector<HTMLElement>(`[data-id="${CSS.escape(node.id)}"] > .row`),
+    };
   }
 
   /**
@@ -125,11 +104,6 @@
       const row = rows[index];
       if (row !== undefined) focus(row.node.id);
     };
-    if ((event.key === 'F10' && event.shiftKey) || event.key === 'ContextMenu') {
-      event.preventDefault();
-      openMenuAtRow(node);
-      return;
-    }
     switch (event.key) {
       case 'ArrowDown':
         go(at + 1);
@@ -180,12 +154,7 @@
       onfocus={event => {
         if (event.target === event.currentTarget) current = node.id;
       }}
-      oncontextmenu={event => {
-        if (menu === undefined) return;
-        event.preventDefault();
-        event.stopPropagation();
-        openMenu(node, event.clientX, event.clientY);
-      }}>
+      {@attach contextMenu(() => menuOf(node))}>
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <div
         class={['row', { selected: node.id === selected, muted: node.muted === true }]}
@@ -217,7 +186,9 @@
             aria-haspopup="menu"
             onclick={event => {
               event.stopPropagation();
-              openMenuAtRow(node);
+              const options = menuOf(node);
+              const item = event.currentTarget.closest<HTMLElement>('[role="treeitem"]') ?? undefined;
+              openContextMenu(options, options.anchor ?? event.currentTarget, item);
             }}>⋯</button>
         {/if}
       </div>
@@ -233,10 +204,6 @@
 <ul class="tree" role="tree" aria-label={label} bind:this={tree}>
   {@render branch(nodes, 1, null)}
 </ul>
-
-{#if opened !== null}
-  <ContextMenu items={opened.items} x={opened.x} y={opened.y} label={opened.label} onClose={closeMenu} />
-{/if}
 
 <style>
   .tree,
