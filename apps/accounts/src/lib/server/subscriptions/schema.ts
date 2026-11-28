@@ -7,12 +7,11 @@
  * pledging the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
  * `patreon.ts`), and makes no credits.
  *
- * What a subscription gives is an **eligibility**, such as the catalogue's: eligibilities form a tree, and holding one
- * holds every one under it (`eligibilities`, see `eligibilities.ts`). An offer adds time to the eligibilities it names
- * (`offer_eligibilities`), and a credit gives its time to those it names (`credit_eligibilities`).
+ * What a subscription gives access to is a **service**, such as the catalogue: services form a tree, and access to one gives access to every one under it (`subscription_services`, see `services.ts`). An offer adds time to the services it names
+ * (`offer_services`), and a credit gives its time to those it names (`credit_services`).
  *
- * What `subscription_credits`, `credit_eligibilities` and `patreon_memberships` hold of a user is on the website's
- * "What we store" page (`/privacy`): change one, change both. Eligibilities, offers and settings hold nothing of anyone.
+ * What `subscription_credits`, `credit_services` and `patreon_memberships` hold of a user is on the website's
+ * "What we store" page (`/privacy`): change one, change both. Services, offers and settings hold nothing of anyone.
  */
 import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -211,12 +210,11 @@ export const catalogueSettings = pgTable('catalogue_settings', {
 });
 
 /**
- * What a subscription gives: an eligibility, such as the catalogue's, in a tree. Holding one holds every one under it:
- * time on `apps` holds `catalogue` and `aide` too. Never deleted once made, so that what was bought for one stays as it
+ * What a subscription gives access to: a service, such as the catalogue, in a tree. Access to one gives access to every one under it: time on `apps` gives `catalogue` and `aide` too. Never deleted once made, so that what was bought for one stays as it
  * was: one no longer offered is retired.
  */
-export const eligibilities = pgTable(
-  'eligibilities',
+export const subscriptionServices = pgTable(
+  'subscription_services',
   {
     /** What the applications ask for it by, such as `catalogue`: never changed once made. */
     id: text().primaryKey(),
@@ -224,44 +222,44 @@ export const eligibilities = pgTable(
     name: text().notNull(),
     /** What it gives, as the admins describe it. */
     description: text(),
-    /** The eligibility it is under; none for one at the top. */
-    parentId: text().references((): AnyPgColumn => eligibilities.id),
+    /** The service it is under; none for one at the top. */
+    parentId: text().references((): AnyPgColumn => subscriptionServices.id),
     /** The admin who made it, or `migration` for those the accounts began with. */
     createdBy: text().notNull(),
     createdAt,
     /** When an admin retired it: nothing more is offered for it. */
     retiredAt: timestamp({ withTimezone: true }),
   },
-  table => [index('eligibilities_parent_id').on(table.parentId)],
+  table => [index('subscription_services_parent_id').on(table.parentId)],
 );
 
-/** The eligibilities an offer adds time to: one at least. */
-export const offerEligibilities = pgTable(
-  'offer_eligibilities',
+/** The services an offer adds time to: one at least. */
+export const offerServices = pgTable(
+  'offer_services',
   {
     offerId: text()
       .notNull()
       .references(() => subscriptionOffers.id),
-    eligibilityId: text()
+    serviceId: text()
       .notNull()
-      .references(() => eligibilities.id),
+      .references(() => subscriptionServices.id),
   },
-  table => [primaryKey({ columns: [table.offerId, table.eligibilityId] })],
+  table => [primaryKey({ columns: [table.offerId, table.serviceId] })],
 );
 
-/** The eligibilities a credit gives its time to: those of its offer, or those an admin granted. */
-export const creditEligibilities = pgTable(
-  'credit_eligibilities',
+/** The services a credit gives its time to: those of its offer, or those an admin granted. */
+export const creditServices = pgTable(
+  'credit_services',
   {
     creditId: text()
       .notNull()
       .references(() => subscriptionCredits.id, { onDelete: 'cascade' }),
-    eligibilityId: text()
+    serviceId: text()
       .notNull()
-      .references(() => eligibilities.id),
+      .references(() => subscriptionServices.id),
   },
   table => [
-    primaryKey({ columns: [table.creditId, table.eligibilityId] }),
-    index('credit_eligibilities_eligibility_id').on(table.eligibilityId),
+    primaryKey({ columns: [table.creditId, table.serviceId] }),
+    index('credit_services_service_id').on(table.serviceId),
   ],
 );

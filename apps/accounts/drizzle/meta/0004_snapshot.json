@@ -1,5 +1,5 @@
 {
-  "id": "466cf45c-5759-4dff-901b-a33a7986ead5",
+  "id": "d8d4920e-9767-46af-95cc-f4263eb814e1",
   "prevId": "c0e0b61e-c5ca-4842-a077-532323e71cd6",
   "version": "7",
   "dialect": "postgresql",
@@ -964,8 +964,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.credit_eligibilities": {
-      "name": "credit_eligibilities",
+    "public.credit_services": {
+      "name": "credit_services",
       "schema": "",
       "columns": {
         "credit_id": {
@@ -974,19 +974,19 @@
           "primaryKey": false,
           "notNull": true
         },
-        "eligibility_id": {
-          "name": "eligibility_id",
+        "service_id": {
+          "name": "service_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "credit_eligibilities_eligibility_id": {
-          "name": "credit_eligibilities_eligibility_id",
+        "credit_services_service_id": {
+          "name": "credit_services_service_id",
           "columns": [
             {
-              "expression": "eligibility_id",
+              "expression": "service_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -999,9 +999,9 @@
         }
       },
       "foreignKeys": {
-        "credit_eligibilities_credit_id_subscription_credits_id_fk": {
-          "name": "credit_eligibilities_credit_id_subscription_credits_id_fk",
-          "tableFrom": "credit_eligibilities",
+        "credit_services_credit_id_subscription_credits_id_fk": {
+          "name": "credit_services_credit_id_subscription_credits_id_fk",
+          "tableFrom": "credit_services",
           "tableTo": "subscription_credits",
           "columnsFrom": [
             "credit_id"
@@ -1012,12 +1012,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "credit_eligibilities_eligibility_id_eligibilities_id_fk": {
-          "name": "credit_eligibilities_eligibility_id_eligibilities_id_fk",
-          "tableFrom": "credit_eligibilities",
-          "tableTo": "eligibilities",
+        "credit_services_service_id_subscription_services_id_fk": {
+          "name": "credit_services_service_id_subscription_services_id_fk",
+          "tableFrom": "credit_services",
+          "tableTo": "subscription_services",
           "columnsFrom": [
-            "eligibility_id"
+            "service_id"
           ],
           "columnsTo": [
             "id"
@@ -1027,11 +1027,11 @@
         }
       },
       "compositePrimaryKeys": {
-        "credit_eligibilities_credit_id_eligibility_id_pk": {
-          "name": "credit_eligibilities_credit_id_eligibility_id_pk",
+        "credit_services_credit_id_service_id_pk": {
+          "name": "credit_services_credit_id_service_id_pk",
           "columns": [
             "credit_id",
-            "eligibility_id"
+            "service_id"
           ]
         }
       },
@@ -1040,94 +1040,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.eligibilities": {
-      "name": "eligibilities",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "parent_id": {
-          "name": "parent_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "retired_at": {
-          "name": "retired_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "eligibilities_parent_id": {
-          "name": "eligibilities_parent_id",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "eligibilities_parent_id_eligibilities_id_fk": {
-          "name": "eligibilities_parent_id_eligibilities_id_fk",
-          "tableFrom": "eligibilities",
-          "tableTo": "eligibilities",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.offer_eligibilities": {
-      "name": "offer_eligibilities",
+    "public.offer_services": {
+      "name": "offer_services",
       "schema": "",
       "columns": {
         "offer_id": {
@@ -1136,8 +1050,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "eligibility_id": {
-          "name": "eligibility_id",
+        "service_id": {
+          "name": "service_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1145,9 +1059,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "offer_eligibilities_offer_id_subscription_offers_id_fk": {
-          "name": "offer_eligibilities_offer_id_subscription_offers_id_fk",
-          "tableFrom": "offer_eligibilities",
+        "offer_services_offer_id_subscription_offers_id_fk": {
+          "name": "offer_services_offer_id_subscription_offers_id_fk",
+          "tableFrom": "offer_services",
           "tableTo": "subscription_offers",
           "columnsFrom": [
             "offer_id"
@@ -1158,12 +1072,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "offer_eligibilities_eligibility_id_eligibilities_id_fk": {
-          "name": "offer_eligibilities_eligibility_id_eligibilities_id_fk",
-          "tableFrom": "offer_eligibilities",
-          "tableTo": "eligibilities",
+        "offer_services_service_id_subscription_services_id_fk": {
+          "name": "offer_services_service_id_subscription_services_id_fk",
+          "tableFrom": "offer_services",
+          "tableTo": "subscription_services",
           "columnsFrom": [
-            "eligibility_id"
+            "service_id"
           ],
           "columnsTo": [
             "id"
@@ -1173,11 +1087,11 @@
         }
       },
       "compositePrimaryKeys": {
-        "offer_eligibilities_offer_id_eligibility_id_pk": {
-          "name": "offer_eligibilities_offer_id_eligibility_id_pk",
+        "offer_services_offer_id_service_id_pk": {
+          "name": "offer_services_offer_id_service_id_pk",
           "columns": [
             "offer_id",
-            "eligibility_id"
+            "service_id"
           ]
         }
       },
@@ -1724,6 +1638,92 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.subscription_services": {
+      "name": "subscription_services",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "subscription_services_parent_id": {
+          "name": "subscription_services_parent_id",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "subscription_services_parent_id_subscription_services_id_fk": {
+          "name": "subscription_services_parent_id_subscription_services_id_fk",
+          "tableFrom": "subscription_services",
+          "tableTo": "subscription_services",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

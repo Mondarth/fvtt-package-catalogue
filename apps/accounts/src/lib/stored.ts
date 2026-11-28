@@ -94,8 +94,8 @@ export const STORED: readonly StoredItem[] = [
       'subscription_credits.granted_by',
       'subscription_credits.note',
       'subscription_credits.created_at',
-      'credit_eligibilities.credit_id',
-      'credit_eligibilities.eligibility_id',
+      'credit_services.credit_id',
+      'credit_services.service_id',
     ],
   },
   {

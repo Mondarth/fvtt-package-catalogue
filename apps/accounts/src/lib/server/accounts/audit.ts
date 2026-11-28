@@ -24,7 +24,7 @@ export const AUDIT_ACTIONS = [
   'purchases.allow',
   'offer.create',
   'offer.retire',
-  'eligibility.add',
+  'service.add',
   'patreon.minimum',
   'payment.credit',
   'payment.refund',
