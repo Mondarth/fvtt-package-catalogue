@@ -13,7 +13,7 @@
   interface Props {
     /** The top nodes. */
     nodes: readonly TreeNode[];
-    /** What the tree is, for a screen reader, such as "Eligibilities". */
+    /** What the tree is, for a screen reader, such as "Services". */
     label: string;
     /** The id of the node selected, if any. */
     selected?: string | null;
