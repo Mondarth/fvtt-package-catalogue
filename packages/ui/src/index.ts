@@ -1,6 +1,6 @@
 /**
  * The Svelte pieces Mondarth's applications share, so that each looks, and reads, as one with the others: the logo, the
- * page's frame, the top bar, the user navigation menu, the language picker, buttons, fields, checkboxes, dialogs, tables, badges, panels, notices
+ * page's frame, the top bar, the user navigation menu, the language picker, buttons, fields, checkboxes, dialogs, tables, trees and their menus, badges, panels, notices
  * and callouts. Each takes its words from the application, which translates them,
  * so that this package holds none of its own.
  *
@@ -15,6 +15,7 @@ export { default as Brand } from './Brand.svelte';
 export { default as Button } from './Button.svelte';
 export { default as Callout } from './Callout.svelte';
 export { default as Checkbox } from './Checkbox.svelte';
+export { default as ContextMenu } from './ContextMenu.svelte';
 export { default as Dialog } from './Dialog.svelte';
 export { default as Field } from './Field.svelte';
 export { default as FooterLinks } from './FooterLinks.svelte';
@@ -26,6 +27,11 @@ export { default as Prose } from './Prose.svelte';
 export { default as ReturnLink } from './ReturnLink.svelte';
 export { default as Table } from './Table.svelte';
 export { default as TopBar } from './TopBar.svelte';
+export { default as Tree } from './Tree.svelte';
 export { default as UserMenu } from './UserMenu.svelte';
 export type { FieldControl } from './Field.svelte';
 export type { ProfileMenuItem, TopBarAccount, TopBarLink } from './top-bar.js';
+export type { TreeNode, TreeRow } from './tree.js';
+export type { ContextMenuOptions, MenuItem, MenuPlace } from './context-menu.js';
+export { parentIds, visibleRows } from './tree.js';
+export { closeContextMenu, contextMenu, openContextMenu } from './context-menu.js';
