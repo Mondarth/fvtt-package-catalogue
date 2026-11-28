@@ -2,13 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { eq } from 'drizzle-orm';
 
-import {
-  SERVICE_ID,
-  serviceIdOf,
-  serviceTree,
-  givenBy,
-  reachedFrom,
-} from '../../../../src/lib/server/subscriptions/services.js';
+import { SERVICE_ID, serviceIdOf } from '../../../../src/lib/service-id.js';
+import { serviceTree, givenBy, reachedFrom } from '../../../../src/lib/server/subscriptions/services.js';
 import {
   catalogueSettings,
   subscriptionServices,

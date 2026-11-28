@@ -219,8 +219,16 @@ test('an admin adds a service under another, from its menu, and it is selected i
   await tree.getByRole('treeitem', { name: /^AIDE/ }).locator('.row').first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: en.admin_service_add }).click();
   const dialog = page.getByRole('dialog', { name: en.admin_service_add_under.replace('{name}', 'AIDE') });
-  await dialog.getByLabel(en.admin_service_name).fill(name);
-  await dialog.getByRole('button', { name: en.admin_service_add }).click();
+  const add = dialog.getByRole('button', { name: en.admin_service_add });
+  await expect(add).toBeDisabled();
+  // The id follows the name; adding waits for the description too.
+  await dialog.getByRole('textbox', { name: en.admin_service_name, exact: true }).fill(name);
+  await expect(dialog.getByRole('textbox', { name: en.admin_service_id, exact: true })).toHaveValue(
+    name.toLowerCase().replaceAll(' ', '-'),
+  );
+  await expect(add).toBeDisabled();
+  await dialog.getByRole('textbox', { name: en.admin_service_description, exact: true }).fill('The beta.');
+  await add.click();
 
   const added = tree.getByRole('treeitem', { name: new RegExp(`^${name}`) });
   await expect(added).toHaveAttribute('aria-selected', 'true');

@@ -35,29 +35,6 @@ export interface ServiceNode extends Service {
   readonly children: readonly ServiceNode[];
 }
 
-/** What a service's id may be: lower-case letters, digits and single dashes, as `catalogue` or `aide-beta`. */
-export const SERVICE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/** The longest a service's id or name may be. */
-export const SERVICE_ID_MAX = 40;
-export const SERVICE_NAME_MAX = 80;
-
-/**
- * An id for a service, from its name: `AIDE beta` is `aide-beta`.
- * @param name - Its name
- * @returns The id; empty where the name has no letters or digits
- */
-export function serviceIdOf(name: string): string {
-  return name
-    .normalize('NFKD')
-    .replaceAll(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, '-')
-    .replaceAll(/^-+|-+$/g, '')
-    .slice(0, SERVICE_ID_MAX)
-    .replace(/-+$/, '');
-}
-
 /**
  * The services as a tree: those at the top, each with those under it, by name.
  * @param list - Every service

@@ -68,9 +68,9 @@ describe('the services page', () => {
     return { result, addService, record };
   }
 
-  it('adds one under another, its id made from its name, recording it, and shows it', async () => {
+  it('adds one under another, recording it, and shows it', async () => {
     const { result, addService, record } = await add(
-      { parent: 'aide', name: ' AIDE beta ', id: '', description: 'The beta.' },
+      { parent: 'aide', name: ' AIDE beta ', id: 'aide-beta', description: 'The beta.' },
       { ...CATALOGUE, id: 'aide-beta', name: 'AIDE beta', parentId: 'aide' },
     );
     expect(addService).toHaveBeenCalledWith({
@@ -90,28 +90,33 @@ describe('the services page', () => {
     expect(isRedirect(result) && result.location).toBe('/admin/services?added=aide-beta');
   });
 
-  it('adds one at the top, with the id given and no description', async () => {
-    const { addService } = await add({ parent: '', name: 'Games', id: 'games', description: '' }, CATALOGUE);
-    expect(addService).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'games', parentId: null, description: null }),
-    );
+  it('adds one at the top', async () => {
+    const { addService } = await add({ parent: '', name: 'Games', id: 'games', description: 'Games.' }, CATALOGUE);
+    expect(addService).toHaveBeenCalledWith(expect.objectContaining({ id: 'games', parentId: null }));
   });
 
   it.each([
     ['no name', { name: '' }, 'name'],
     ['a name too long', { name: 'x'.repeat(81) }, 'name'],
-    ['an id that is not one', { name: 'Fine', id: 'Not One' }, 'id'],
-    ['a name with nothing to make an id of', { name: '!!!' }, 'id'],
-    ['an id too long', { name: 'Fine', id: 'x'.repeat(41) }, 'id'],
-    ['a description too long', { name: 'Fine', description: 'x'.repeat(501) }, 'description'],
+    ['no id', { id: '' }, 'id'],
+    ['an id that is not one', { id: 'Not One' }, 'id'],
+    ['an id too long', { id: 'x'.repeat(41) }, 'id'],
+    ['no description', { description: '' }, 'description'],
+    ['a description too long', { description: 'x'.repeat(501) }, 'description'],
   ])('refuses %s, saying which field, and adds nothing', async (_, given, problem) => {
-    const { result, addService } = await add({ parent: 'apps', id: '', description: '', ...given }, CATALOGUE);
+    const { result, addService } = await add(
+      { parent: 'apps', name: 'Fine', id: 'fine', description: 'Fine.', ...given },
+      CATALOGUE,
+    );
     expect(isActionFailure(result) && result.data).toMatchObject({ problem, parent: 'apps' });
     expect(addService).not.toHaveBeenCalled();
   });
 
   it.each(['taken', 'no-parent'] as const)('says the store refused it: %s', async refused => {
-    const { result, record } = await add({ parent: 'apps', name: 'Catalogue', id: '', description: '' }, refused);
+    const { result, record } = await add(
+      { parent: 'apps', name: 'Catalogue', id: 'catalogue', description: 'The catalogue.' },
+      refused,
+    );
     expect(isActionFailure(result) && result.data).toMatchObject({ problem: refused, name: 'Catalogue' });
     expect(record).not.toHaveBeenCalled();
   });

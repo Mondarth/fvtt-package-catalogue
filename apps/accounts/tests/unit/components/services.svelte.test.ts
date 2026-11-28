@@ -64,13 +64,42 @@ describe('the services page', () => {
     const form = dialog.querySelector('form');
     expect(form).toHaveAttribute('action', '?/add');
     expect(form?.querySelector('input[name="parent"]')).toHaveValue('apps');
-    expect(within(dialog).getByLabelText(en.admin_service_name)).toBeRequired();
+    const box = (name: string) => within(dialog).getByRole('textbox', { name });
+    const add = within(dialog).getByRole('button', { name: en.admin_service_add });
+    // All three are required, each marked so beside its label, apart from its hint.
+    for (const name of [en.admin_service_name, en.admin_service_id, en.admin_service_description]) {
+      expect(box(name)).toBeRequired();
+      expect(box(name)).toHaveAttribute('aria-required', 'true');
+      expect(dialog.querySelector(`label[for="${box(name).id}"] .required`)).toHaveTextContent('*');
+    }
+    expect(box(en.admin_service_id)).toHaveAccessibleDescription(en.admin_service_id_hint);
+    // The id follows the name, and adding waits for all three.
+    expect(add).toBeDisabled();
+    await user.type(box(en.admin_service_name), 'AIDE Beta');
+    expect(box(en.admin_service_id)).toHaveValue('aide-beta');
+    expect(add).toBeDisabled();
+    await user.type(box(en.admin_service_description), '   ');
+    expect(add).toBeDisabled();
+    await user.type(box(en.admin_service_description), 'The beta.');
+    expect(add).toBeEnabled();
+    // An id of the admin's own stays as typed; emptied, it follows the name again.
+    await user.clear(box(en.admin_service_id));
+    expect(add).toBeDisabled();
+    await user.type(box(en.admin_service_id), 'beta');
+    await user.type(box(en.admin_service_name), ' Two');
+    expect(box(en.admin_service_id)).toHaveValue('beta');
+    await user.clear(box(en.admin_service_id));
+    await user.type(box(en.admin_service_name), '!');
+    expect(box(en.admin_service_id)).toHaveValue('aide-beta-two');
     await user.click(within(dialog).getByRole('button', { name: en.admin_service_cancel }));
     expect(screen.queryByRole('dialog')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: en.admin_service_add_top }));
     const top = screen.getByRole('dialog', { name: en.admin_service_add_top });
     expect(top.querySelector('input[name="parent"]')).toHaveValue('');
+    // It opens empty again.
+    expect(within(top).getByRole('textbox', { name: en.admin_service_name })).toHaveValue('');
+    expect(within(top).getByRole('textbox', { name: en.admin_service_id })).toHaveValue('');
   });
 
   it('offers nothing to do with one retired', async () => {
@@ -87,17 +116,34 @@ describe('the services page', () => {
   ])('opens a refused addition again, saying what is wrong by its field: %s', (problem, _field, label, says) => {
     show(null, { problem, parent: 'apps', name: 'Catalogue', id: 'catalogue', description: 'More.' });
     const dialog = screen.getByRole('dialog', { name: fill(en.admin_service_add_under, { name: 'Apps' }) });
-    const control = within(dialog).getByLabelText(label);
+    const control = within(dialog).getByRole('textbox', { name: label });
     expect(control).toHaveAttribute('aria-invalid', 'true');
     expect(control).toHaveAccessibleDescription(expect.stringContaining(says));
-    expect(within(dialog).getByLabelText(en.admin_service_name)).toHaveValue('Catalogue');
-    expect(within(dialog).getByLabelText(en.admin_service_description)).toHaveValue('More.');
+    expect(within(dialog).getByRole('textbox', { name: en.admin_service_name })).toHaveValue('Catalogue');
+    expect(within(dialog).getByRole('textbox', { name: en.admin_service_description })).toHaveValue('More.');
+  });
+
+  it("keeps a refused id of the admin's own as it was", async () => {
+    const user = show(null, { problem: 'taken', parent: 'apps', name: 'Catalogue', id: 'shop', description: 'x' });
+    const box = (name: string) => screen.getByRole('textbox', { name });
+    await user.type(box(en.admin_service_name), ' two');
+    expect(box(en.admin_service_id)).toHaveValue('shop');
+  });
+
+  it('lets a refused id made from the name follow it', async () => {
+    const user = show(null, { problem: 'taken', parent: 'apps', name: 'Catalogue', id: 'catalogue', description: 'x' });
+    const box = (name: string) => screen.getByRole('textbox', { name });
+    await user.type(box(en.admin_service_name), ' two');
+    expect(box(en.admin_service_id)).toHaveValue('catalogue-two');
   });
 
   it('says so above the form when the one it was to go under is gone', () => {
     show(null, { problem: 'no-parent', parent: 'gone', name: 'X', id: '', description: '' });
     const dialog = screen.getByRole('dialog', { name: en.admin_service_add_top });
     expect(within(dialog).getByRole('note')).toHaveTextContent(en.admin_service_problem_parent);
-    expect(within(dialog).getByLabelText(en.admin_service_name)).toHaveAttribute('aria-invalid', 'false');
+    expect(within(dialog).getByRole('textbox', { name: en.admin_service_name })).toHaveAttribute(
+      'aria-invalid',
+      'false',
+    );
   });
 });

@@ -1,7 +1,8 @@
 <!--
-  The services a subscription gives access to, as a tree: access to one gives access to every one under it. A service's menu, from a
-  right-click, Shift+F10 or the Menu key, or its "⋯" button, adds one under it; a button adds one at the top. The one
-  selected shows beside the tree.
+  The services a subscription gives access to, as a tree: access to one gives access to every one under it. A
+  service's menu, from a right-click, Shift+F10 or the Menu key, or its "⋯" button, adds one under it; a button adds
+  one at the top. The one selected shows beside the tree. The form to add one needs a name, an id and a description:
+  the id follows the name as it is typed, until the admin types one of their own.
 -->
 <script lang="ts">
   import { Button, Dialog, Field, Notice, Tree } from '@mondarth/ui';
@@ -9,6 +10,7 @@
 
   import { m } from '#lib/paraglide/messages.js';
   import { useDates } from '#lib/dates.js';
+  import { SERVICE_DESCRIPTION_MAX, SERVICE_ID_MAX, SERVICE_NAME_MAX, serviceIdOf } from '#lib/service-id.js';
 
   import type { PageProps } from './$types';
 
@@ -49,8 +51,34 @@
 
   /** Where a service is being added: under one, or at the top; none while the form is closed. */
   let adding = $state<{ parent: Service | null } | null>(null);
+  /** What the form holds. */
+  let name = $state('');
+  let id = $state('');
+  let description = $state('');
+  /** Whether the id is the admin's own, which the name no longer fills in: not while it is empty. */
+  let ownId = $state(false);
+  const complete = $derived(name.trim() !== '' && id.trim() !== '' && description.trim() !== '');
+
+  /**
+   * Opens the form to add a service, empty.
+   * @param parent - The service it goes under; none for one at the top
+   */
+  function startAdding(parent: Service | null): void {
+    adding = { parent };
+    name = '';
+    id = '';
+    description = '';
+    ownId = false;
+  }
+
+  // A refused addition opens the form again, as it was sent.
   $effect.pre(() => {
-    if (form?.problem !== undefined) adding = { parent: byId.get(form.parent) ?? null };
+    if (form?.problem === undefined) return;
+    adding = { parent: byId.get(form.parent) ?? null };
+    name = form.name;
+    id = form.id;
+    description = form.description;
+    ownId = form.id !== '' && form.id !== serviceIdOf(form.name);
   });
 
   const PROBLEMS = {
@@ -92,7 +120,7 @@
               {
                 label: m.admin_service_add(),
                 onSelect: () => {
-                  adding = { parent: service };
+                  startAdding(service);
                 },
               },
             ];
@@ -101,7 +129,7 @@
       <Button
         variant="secondary"
         onclick={() => {
-          adding = { parent: null };
+          startAdding(null);
         }}>{m.admin_service_add_top()}</Button>
     </p>
   </section>
@@ -142,28 +170,51 @@
     {#if form?.problem === 'no-parent'}
       <Notice type="warning">{PROBLEMS['no-parent']()}</Notice>
     {/if}
-    <Field id="service-name-field" label={m.admin_service_name()} problem={problemOf('name')}>
+    <Field id="service-name-field" label={m.admin_service_name()} problem={problemOf('name')} required wide>
       {#snippet children(field)}
-        <input {...field} name="name" required maxlength="80" value={form?.name ?? ''} />
+        <input
+          {...field}
+          name="name"
+          maxlength={SERVICE_NAME_MAX}
+          bind:value={name}
+          oninput={() => {
+            if (!ownId) id = serviceIdOf(name);
+          }} />
       {/snippet}
     </Field>
     <Field
       id="service-id-field"
       label={m.admin_service_id()}
       hint={m.admin_service_id_hint()}
-      problem={problemOf('id')}>
+      problem={problemOf('id')}
+      required
+      wide>
       {#snippet children(field)}
-        <input {...field} name="id" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" value={form?.id ?? ''} />
+        <input
+          {...field}
+          name="id"
+          maxlength={SERVICE_ID_MAX}
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          bind:value={id}
+          oninput={() => {
+            ownId = id !== '';
+          }} />
       {/snippet}
     </Field>
-    <Field id="service-description-field" label={m.admin_service_description()} problem={problemOf('description')}>
+    <Field
+      id="service-description-field"
+      label={m.admin_service_description()}
+      problem={problemOf('description')}
+      required
+      wide>
       {#snippet children(field)}
-        <textarea {...field} name="description" rows="3" maxlength="500">{form?.description ?? ''}</textarea>
+        <textarea {...field} name="description" rows="3" maxlength={SERVICE_DESCRIPTION_MAX} bind:value={description}
+        ></textarea>
       {/snippet}
     </Field>
   </form>
   {#snippet actions()}
-    <Button type="submit" form="add-service">{m.admin_service_add()}</Button>
+    <Button type="submit" form="add-service" variant="primary" disabled={!complete}>{m.admin_service_add()}</Button>
     <Button
       variant="secondary"
       onclick={() => {
@@ -173,6 +224,11 @@
 </Dialog>
 
 <style>
+  form {
+    display: grid;
+    gap: var(--mdr-space-4);
+  }
+
   .lede {
     color: var(--mdr-color-text-muted);
   }
