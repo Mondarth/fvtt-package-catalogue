@@ -7,10 +7,14 @@
  * pledging the least amount the admins set: Patreon's answer is kept a day (`patreon_memberships`, see
  * `patreon.ts`), and makes no credits.
  *
- * What `subscription_credits` and `patreon_memberships` hold of a user is on the website's "What we store" page
- * (`/privacy`): change one, change both. Offers and settings hold nothing of anyone.
+ * What a subscription gives access to is a **service**, such as the catalogue: services form a tree, and access to one gives access to every one under it (`subscription_services`, see `services.ts`). An offer adds time to the services it names
+ * (`offer_services`), and a credit gives its time to those it names (`credit_services`).
+ *
+ * What `subscription_credits`, `credit_services` and `patreon_memberships` hold of a user is on the website's
+ * "What we store" page (`/privacy`): change one, change both. Services, offers and settings hold nothing of anyone.
  */
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { sql } from 'drizzle-orm';
 
@@ -204,3 +208,58 @@ export const catalogueSettings = pgTable('catalogue_settings', {
   updatedBy: text().notNull(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * What a subscription gives access to: a service, such as the catalogue, in a tree. Access to one gives access to every one under it: time on `apps` gives `catalogue` and `aide` too. Never deleted once made, so that what was bought for one stays as it
+ * was: one no longer offered is retired.
+ */
+export const subscriptionServices = pgTable(
+  'subscription_services',
+  {
+    /** What the applications ask for it by, such as `catalogue`: never changed once made. */
+    id: text().primaryKey(),
+    /** What it is called, such as `Catalogue`. */
+    name: text().notNull(),
+    /** What it gives, as the admins describe it. */
+    description: text(),
+    /** The service it is under; none for one at the top. */
+    parentId: text().references((): AnyPgColumn => subscriptionServices.id),
+    /** The admin who made it, or `migration` for those the accounts began with. */
+    createdBy: text().notNull(),
+    createdAt,
+    /** When an admin retired it: nothing more is offered for it. */
+    retiredAt: timestamp({ withTimezone: true }),
+  },
+  table => [index('subscription_services_parent_id').on(table.parentId)],
+);
+
+/** The services an offer adds time to: one at least. */
+export const offerServices = pgTable(
+  'offer_services',
+  {
+    offerId: text()
+      .notNull()
+      .references(() => subscriptionOffers.id),
+    serviceId: text()
+      .notNull()
+      .references(() => subscriptionServices.id),
+  },
+  table => [primaryKey({ columns: [table.offerId, table.serviceId] })],
+);
+
+/** The services a credit gives its time to: those of its offer, or those an admin granted. */
+export const creditServices = pgTable(
+  'credit_services',
+  {
+    creditId: text()
+      .notNull()
+      .references(() => subscriptionCredits.id, { onDelete: 'cascade' }),
+    serviceId: text()
+      .notNull()
+      .references(() => subscriptionServices.id),
+  },
+  table => [
+    primaryKey({ columns: [table.creditId, table.serviceId] }),
+    index('credit_services_service_id').on(table.serviceId),
+  ],
+);

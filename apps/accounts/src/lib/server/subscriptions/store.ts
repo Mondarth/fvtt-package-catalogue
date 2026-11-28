@@ -15,10 +15,12 @@ import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, max, or, s
 
 import { users } from '../accounts/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
+import { addService, listServices } from './services.js';
 import { addPeriod } from './period.js';
 import { subscriptionCheckouts, subscriptionCredits, subscriptionOffers } from './schema.js';
 
 import type { Database } from '../db/database.js';
+import type { Service, ServiceInput } from './services.js';
 import type { Period } from './period.js';
 import type { CheckoutStatus, CreditSource, DisputeState, OfferProviderRefs, RefundReason } from './schema.js';
 
@@ -116,6 +118,10 @@ export interface Changed {
 
 /** What the website asks of subscriptions. */
 export interface SubscriptionStore {
+  /** Every service, with how many offers on sale add time to each (see `services.ts`). */
+  services(): Promise<Service[]>;
+  /** Adds a service, under another or at the top. */
+  addService(input: ServiceInput): Promise<Service | 'taken' | 'no-parent'>;
   status(userId: string, now?: Date): Promise<SubscriptionStatus>;
   /** A user's credits, the latest first. */
   history(userId: string): Promise<Credit[]>;
@@ -226,6 +232,8 @@ export function subscriptionStore(db: Database): SubscriptionStore {
     tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
 
   return {
+    services: () => listServices(db),
+    addService: input => addService(db, input),
     async status(userId, now = new Date()) {
       const end = await paidUntil(db, userId);
       return { paidUntil: end, active: end !== null && end > now };

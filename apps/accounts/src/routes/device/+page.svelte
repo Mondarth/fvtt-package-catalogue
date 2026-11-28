@@ -51,8 +51,8 @@
     </div>
   {:else if state === 'enter'}
     <form method="GET" class="enter">
-      <Field id="user_code" label={m.device_enter_label()} hint={m.device_enter_hint()}>
-        {#snippet children(field)}<input {...field} name="user_code" autocomplete="off" required />{/snippet}
+      <Field id="user_code" label={m.device_enter_label()} hint={m.device_enter_hint()} required>
+        {#snippet children(field)}<input {...field} name="user_code" autocomplete="off" />{/snippet}
       </Field>
       <Button type="submit">{m.device_enter_button()}</Button>
     </form>

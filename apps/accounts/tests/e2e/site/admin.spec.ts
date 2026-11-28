@@ -204,3 +204,34 @@ test.describe('subscriptions', () => {
     await expect(page.getByRole('table')).not.toContainText('Welcome');
   });
 });
+
+test('an admin adds a service under another, from its menu, and it is selected in the tree', async ({ page }, info) => {
+  // Every browser adds its own, at once, to the same accounts.
+  const name = `AIDE beta ${info.project.name} ${String(Date.now()).slice(-6)}`;
+  await signInAs(page, E2E_ADMIN);
+  await page.goto('/admin/services');
+  const tree = page.getByRole('tree', { name: en.admin_services_tree });
+  // The tree the accounts begin with.
+  for (const begun of ['Mondarth', 'Apps', 'Catalogue', 'AIDE']) {
+    await expect(tree.getByRole('treeitem', { name: new RegExp(`^${begun}`) }).first()).toBeVisible();
+  }
+
+  await tree.getByRole('treeitem', { name: /^AIDE/ }).locator('.row').first().click({ button: 'right' });
+  await page.getByRole('menuitem', { name: en.admin_service_add }).click();
+  const dialog = page.getByRole('dialog', { name: en.admin_service_add_under.replace('{name}', 'AIDE') });
+  const add = dialog.getByRole('button', { name: en.admin_service_add });
+  await expect(add).toBeDisabled();
+  // The id follows the name; adding waits for the description too.
+  await dialog.getByRole('textbox', { name: en.admin_service_name, exact: true }).fill(name);
+  await expect(dialog.getByRole('textbox', { name: en.admin_service_id, exact: true })).toHaveValue(
+    name.toLowerCase().replaceAll(' ', '-'),
+  );
+  await expect(add).toBeDisabled();
+  await dialog.getByRole('textbox', { name: en.admin_service_description, exact: true }).fill('The beta.');
+  await add.click();
+
+  const added = tree.getByRole('treeitem', { name: new RegExp(`^${name}`) });
+  await expect(added).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
+  await expect(tree.getByRole('treeitem', { name: /^AIDE/ }).first().getByRole('group')).toContainText(name);
+});

@@ -302,6 +302,12 @@ In the accounts:
 
 `lib/server/subscriptions/` keeps subscriptions, beside the accounts:
 
+- **Services** (`subscription_services`, `services.ts`): what a subscription gives access to, as a tree. Access to one gives access to every one under it, so time on `apps` gives `catalogue` and `aide`. The accounts begin with Mondarth › Apps ›
+  {Catalogue, AIDE} (migration `0004`). A service's id is what the applications ask for; it never changes, and a service is retired, never deleted. Admins add them on `/admin/services`, from a node's menu in the tree
+  (`Tree` and `ContextMenu` from `@mondarth/ui`). Offers say which services they add time to
+  (`offer_services`) and credits which they gave (`credit_services`); Patreon's pledge gives those in the
+  `patreon_services` setting. Until the offers, the Subscription page and the contract use them, every offer and
+  credit gives `catalogue`.
 - **Credits** (`subscription_credits`): each a span of time a user is subscribed for, with where it came from (`grant`,
   `patreon` or `payment`), the provider, method and provider's reference of a payment, the offer it was bought by, its
   period, and the admin who granted it with their note. A user is subscribed until the latest credit ends.

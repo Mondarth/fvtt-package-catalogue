@@ -73,12 +73,11 @@
         <p class="ends">{m.subscription_refund_dialog_ends()}</p>
       {/if}
       {#if !preview.atOnce}
-        <Field id="refund-reason-{credit}" label={m.subscription_refund_reason()}>
+        <Field id="refund-reason-{credit}" label={m.subscription_refund_reason()} required>
           {#snippet children(field)}
             <select
               {...field}
               name="reason"
-              required
               onchange={event => {
                 reason = event.currentTarget.value;
               }}>
@@ -90,9 +89,9 @@
           {/snippet}
         </Field>
         {#if reason === 'other'}
-          <Field id="refund-reason-text-{credit}" label={m.subscription_refund_reason_text()}>
+          <Field id="refund-reason-text-{credit}" label={m.subscription_refund_reason_text()} required>
             {#snippet children(field)}
-              <textarea {...field} name="reason_text" required maxlength={REFUND_REASON_MAX} rows="3"></textarea>
+              <textarea {...field} name="reason_text" maxlength={REFUND_REASON_MAX} rows="3"></textarea>
             {/snippet}
           </Field>
         {/if}

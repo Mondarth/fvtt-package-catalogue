@@ -14,6 +14,7 @@ const TABLES = [
   'verifications',
   'audit_log',
   'subscription_credits',
+  'credit_services',
   'subscription_checkouts',
   'device_codes',
   'patreon_memberships',
