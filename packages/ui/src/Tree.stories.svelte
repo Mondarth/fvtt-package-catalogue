@@ -7,13 +7,13 @@
   import type { TreeNode } from './tree.js';
 
   /**
-   * A tree of a hierarchy an admin manages, such as the eligibilities a subscription gives. One stop on the Tab key:
+   * A tree of a hierarchy an admin manages, such as the services a subscription gives. One stop on the Tab key:
    * the arrow keys move along it and open and close its nodes, Enter or Space selects. Where the application gives a
    * menu of what can be done with a node, a right-click, Shift+F10 or the Menu key, or the node's "⋯" button opens it.
    */
   const { Story } = defineMeta({ title: 'Navigation/Tree', component: Tree, tags: ['autodocs'] });
 
-  const ELIGIBILITIES: readonly TreeNode[] = [
+  const SERVICES: readonly TreeNode[] = [
     {
       id: 'mondarth',
       label: 'Mondarth',
@@ -37,9 +37,9 @@
 </script>
 
 <Story
-  name="Eligibilities"
+  name="Services"
   play={async ({ canvas }) => {
-    const tree = canvas.getByRole('tree', { name: 'Eligibilities' });
+    const tree = canvas.getByRole('tree', { name: 'Services' });
     await expect(canvas.getAllByRole('treeitem')).toHaveLength(5);
     // One stop on the Tab key: the first node.
     await userEvent.tab();
@@ -81,7 +81,7 @@
     await expect(canvas.getByRole('treeitem', { name: /^Mondarth/ })).toHaveFocus();
   }}>
   {#snippet template()}
-    <Tree nodes={ELIGIBILITIES} label="Eligibilities" />
+    <Tree nodes={SERVICES} label="Services" />
   {/snippet}
 </Story>
 
@@ -102,7 +102,7 @@
     await expect(menu).toHaveAccessibleName('Actions for Catalogue');
     const add = menu.querySelector('[role="menuitem"]');
     await expect(add).toHaveFocus();
-    await expect(add).toHaveTextContent('Add eligibility');
+    await expect(add).toHaveTextContent('Add service');
     // The arrow keys move along it, past what is disabled; Escape closes it, the focus back on the node.
     await userEvent.keyboard('{ArrowDown}{ArrowUp}{End}{Home}{Escape}');
     await expect(body.querySelector('[role="menu"]')).toBeNull();
@@ -129,15 +129,15 @@
   }}>
   {#snippet template()}
     <Tree
-      nodes={ELIGIBILITIES}
-      label="Eligibilities"
+      nodes={SERVICES}
+      label="Services"
       menuLabel={(node: TreeNode) => `Actions for ${node.label}`}
       menu={(node: TreeNode) =>
         node.muted === true
           ? []
           : [
               {
-                label: 'Add eligibility',
+                label: 'Add service',
                 onSelect: () => {
                   added(node.id);
                 },
@@ -157,7 +157,7 @@
   {#snippet template()}
     <Tree
       nodes={[{ id: 'catalogue', label: 'Catalogue' }]}
-      label="Eligibilities"
-      menu={() => [{ label: 'Add eligibility', onSelect: () => undefined }]} />
+      label="Services"
+      menu={() => [{ label: 'Add service', onSelect: () => undefined }]} />
   {/snippet}
 </Story>
